@@ -292,6 +292,18 @@ exports.handleGupshupWebhook = async (req, res) => {
     const body = req.body || {};
     const payload = body.payload || {};
     const nestedPayload = payload.payload || {};
+    const debugEnabled = String(process.env.CHAT_DEBUG || '').toLowerCase() === 'true';
+    if (debugEnabled) {
+      console.log('[CHAT_DEBUG]', 'gupshup webhook received (raw body):\n' + prettyPrint(body));
+      console.log('[CHAT_DEBUG]', 'gupshup payload numbers', {
+        envBusinessRaw: process.env.WHATSAPP_NUMBER,
+        envBusinessNormalized: normalizeDigits(process.env.WHATSAPP_NUMBER),
+        payloadSourceRaw: payload.source || payload.from,
+        payloadDestinationRaw: payload.destination || payload.to,
+        payloadSourceNormalized: normalizeDigits(payload.source || payload.from),
+        payloadDestinationNormalized: normalizeDigits(payload.destination || payload.to),
+      });
+    }
 
     // Extract key values requested for operational debugging.
     const eventType = body.type || 'unknown';
@@ -303,6 +315,14 @@ exports.handleGupshupWebhook = async (req, res) => {
     const reason = payload.reason || nestedPayload.reason || null;
 
     const storedEvent = await processGupshupWebhook(body);
+    if (debugEnabled) {
+      console.log('[CHAT_DEBUG]', 'gupshup processed', {
+        stored: Boolean(storedEvent),
+        storedMessageId: storedEvent?.messageId,
+        storedStatus: storedEvent?.status,
+        storedPhone: storedEvent?.phone,
+      });
+    }
 
     const eventLog = {
       receivedAt: new Date().toISOString(),

@@ -796,6 +796,15 @@ exports.processGupshupWebhook = async (body) => {
       businessNumber,
     });
 
+    chatDebug('gupshup:incoming saved', {
+      phone,
+      businessNumber,
+      messageId: saved?.messageId,
+      stored: Boolean(saved),
+      status: saved?.status,
+      direction: saved?.direction,
+    });
+
     // Auto-create client record for unknown inbound senders
     let resolvedClientId = null;
     if (!isFromBusiness && phone) {

@@ -18,6 +18,10 @@ const normalizePhone = (value) => {
 };
 
 const getBusinessNumberFilter = (env = process.env) => {
+  const disabled = String(env.CHAT_DISABLE_BUSINESS_FILTER || '').toLowerCase() === 'true';
+  if (disabled) {
+    return '';
+  }
   const configured = normalizePhone(env.WHATSAPP_NUMBER);
   return configured || '';
 };
