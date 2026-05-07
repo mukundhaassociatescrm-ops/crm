@@ -4,6 +4,8 @@ const Message = require('../models/Message');
 const { sendWhatsAppMessage, sendMessage: sendWhatsAppChatMessage } = require('../services/whatsappService');
 const { sendFast2SmsBulk, normalizeIndianMobile } = require('../services/fast2smsService');
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 exports.sendBulkMessage = async (req, res, next) => {
   let log = null;
   try {
@@ -74,25 +76,35 @@ exports.sendBulkMessage = async (req, res, next) => {
         }
       }
     } else {
-      const batchSize = 25;
-      for (let i = 0; i < contacts.length; i += batchSize) {
-        const batch = contacts.slice(i, i + batchSize);
-        const promises = batch.map(async (contact) => {
+      const perMessageDelayMs = 300;
+      for (const contact of contacts) {
+        try {
           const result = await sendWhatsAppMessage(contact.mobile, message);
-          if (result.success) {
+          if (result?.success) {
             sentCount += 1;
+            console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'success' });
           } else {
             failedCount += 1;
+            console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'failed', error: result?.message || 'Provider returned success=false' });
           }
-        });
-        await Promise.all(promises);
+        } catch (err) {
+          failedCount += 1;
+          console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'failed', error: err?.message || String(err) });
+        }
+
+        await delay(perMessageDelayMs);
       }
     }
 
     log.sentCount = sentCount;
     log.successCount = sentCount;
     log.failedCount = failedCount;
-    log.status = sentCount > 0 ? 'Completed' : 'Failed';
+    if (normalizedChannel === 'whatsapp') {
+      log.status = sentCount === 0 ? 'Failed' : (failedCount > 0 ? 'Partial' : 'Completed');
+    } else {
+      // Preserve existing SMS status behavior.
+      log.status = sentCount > 0 ? 'Completed' : 'Failed';
+    }
     await log.save();
 
     if (sentCount === 0 && failedCount > 0) {

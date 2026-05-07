@@ -11,7 +11,7 @@ const messageLogSchema = new mongoose.Schema(
     sentCount: { type: Number, default: 0 },
     successCount: { type: Number, default: 0 },
     failedCount: { type: Number, default: 0 },
-    status: { type: String, enum: ['Processing', 'Completed', 'Failed'], default: 'Processing' },
+    status: { type: String, enum: ['Processing', 'Completed', 'Partial', 'Failed'], default: 'Processing' },
   },
   { timestamps: true }
 );

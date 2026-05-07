@@ -1,10 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { catchError, of } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { ToastrService } from 'ngx-toastr';
+import { catchError, finalize, of } from 'rxjs';
 import { Client, ClientService } from '../manage-client/client.service';
 
 type SmsClient = Pick<Client, '_id' | 'name' | 'mobile'>;
+type SmsSendResponse =
+  | { success: true; phone: string; providerResponse?: unknown }
+  | { success: false; message?: string };
 
 @Component({
   selector: 'app-sms',
@@ -19,8 +24,13 @@ export class SmsComponent implements OnInit {
   selectedClient: SmsClient | null = null;
   searchQuery = '';
   message = '';
+  isSending = false;
 
-  constructor(private readonly clientService: ClientService) {}
+  constructor(
+    private readonly clientService: ClientService,
+    private readonly http: HttpClient,
+    private readonly toastr: ToastrService
+  ) {}
 
   ngOnInit(): void {
     this.loadClients();
@@ -55,7 +65,7 @@ export class SmsComponent implements OnInit {
   }
 
   get canSend(): boolean {
-    return !!this.selectedClient && !!this.message.trim();
+    return !!this.selectedClient && !!this.message.trim() && !this.isSending;
   }
 
   selectClient(client: SmsClient): void {
@@ -71,14 +81,36 @@ export class SmsComponent implements OnInit {
       return;
     }
 
-    // Backend integration will be added later.
-    console.log('[SMS] queued', {
-      to: this.selectedClient?.mobile,
-      name: this.selectedClient?.name,
-      message: this.message,
-      length: this.characterCount,
-      segments: this.smsSegments,
-    });
+    const phone = this.selectedClient?.mobile;
+    const cleanMessage = String(this.message || '').trim();
+    if (!phone || !cleanMessage) {
+      return;
+    }
+
+    this.isSending = true;
+    this.http
+      .post<SmsSendResponse>('/api/sms/send', { phone, message: cleanMessage })
+      .pipe(
+        finalize(() => {
+          this.isSending = false;
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          if (res && (res as any).success === true) {
+            this.toastr.success('SMS sent successfully.');
+            this.message = '';
+            return;
+          }
+
+          const message = (res as any)?.message || 'Failed to send SMS.';
+          this.toastr.error(message);
+        },
+        error: (err) => {
+          const message = err?.error?.message || err?.message || 'Failed to send SMS.';
+          this.toastr.error(message);
+        },
+      });
   }
 
   private loadClients(): void {
