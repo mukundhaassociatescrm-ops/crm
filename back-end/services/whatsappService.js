@@ -43,6 +43,10 @@ const getWhatsAppProvider = () => {
     return process.env.WHATSAPP_PROVIDER.toLowerCase();
   }
 
+  if (process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY) {
+    return 'gupshup';
+  }
+
   if (process.env.META_WHATSAPP_TOKEN && process.env.META_PHONE_NUMBER_ID) {
     return 'meta';
   }
@@ -51,7 +55,87 @@ const getWhatsAppProvider = () => {
     return 'twilio';
   }
 
-  throw new Error('WhatsApp provider is not configured. Set Meta or Twilio environment variables.');
+  throw new Error('WhatsApp provider is not configured. Set Gupshup, Meta, or Twilio environment variables.');
+};
+
+const sendViaGupshup = async (to, message) => {
+  const fetch = await getFetch();
+  const apiKey = process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY;
+  if (!apiKey) {
+    throw new Error('GUPSHUP_API_KEY is not configured.');
+  }
+
+  const source = String(process.env.WHATSAPP_NUMBER || process.env.GUPSHUP_SOURCE || '').replace(/\D/g, '');
+  if (!source) {
+    throw new Error('WHATSAPP_NUMBER is not configured.');
+  }
+
+  const appName = String(process.env.GUPSHUP_APP_NAME || process.env.GUPSHUP_SRC_NAME || '').trim();
+  if (!appName) {
+    throw new Error('GUPSHUP_APP_NAME is not configured.');
+  }
+
+  const destination = normalizeTo91Digits(to);
+  if (!destination) {
+    throw new Error('A valid destination phone number is required.');
+  }
+
+  const cleanMessage = String(message || '').trim();
+  if (!cleanMessage) {
+    throw new Error('Message text is required.');
+  }
+
+  const url = String(process.env.GUPSHUP_SEND_URL || 'https://api.gupshup.io/wa/api/v1/msg').trim();
+  const form = new URLSearchParams();
+  form.append('channel', 'whatsapp');
+  form.append('source', source);
+  form.append('destination', destination);
+  form.append('src.name', appName);
+  form.append('message', JSON.stringify({ type: 'text', text: cleanMessage }));
+
+  waDebug('gupshup:request', {
+    url,
+    channel: 'whatsapp',
+    source,
+    destination,
+    srcName: appName,
+    messageLength: cleanMessage.length,
+  });
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      apikey: apiKey,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: form.toString(),
+  });
+
+  let payload = null;
+  let rawText = '';
+  try {
+    payload = await response.json();
+  } catch {
+    try {
+      rawText = await response.text();
+    } catch {
+      rawText = '';
+    }
+    payload = rawText ? { raw: rawText } : null;
+  }
+
+  waDebug('gupshup:response', { ok: response.ok, status: response.status, payload });
+
+  if (!response.ok) {
+    throw new Error(payload?.message || payload?.error || rawText || 'Gupshup WhatsApp API request failed.');
+  }
+
+  return {
+    provider: 'gupshup',
+    success: true,
+    messageId: payload?.messageId || payload?.id || payload?.message_id || payload?.data?.messageId,
+    raw: payload,
+  };
 };
 
 const sendViaMeta = async (to, message) => {
@@ -159,6 +243,10 @@ async function sendMessage(to, message) {
   }
 
   waDebug('sendMessage:normalize', { provider, rawTo, normalizedTo });
+  if (provider === 'gupshup') {
+    return sendViaGupshup(normalizedTo, String(message).trim());
+  }
+
   if (provider === 'meta') {
     return sendViaMeta(normalizedTo, String(message).trim());
   }
