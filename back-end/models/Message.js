@@ -2,12 +2,6 @@ const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema(
   {
-    businessNumber: {
-      type: String,
-      default: '',
-      trim: true,
-      index: true,
-    },
     messageId: {
       type: String,
       required: true,

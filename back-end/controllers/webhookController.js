@@ -31,28 +31,6 @@ const normalizePhoneNumber = (value) => {
   return String(value).replace(/^whatsapp:/i, '').replace(/\D/g, '').trim();
 };
 
-const normalizeDigits = (value) => {
-  if (!value) {
-    return '';
-  }
-  return String(value).replace(/^whatsapp:/i, '').replace(/\D/g, '').trim();
-};
-
-const resolveBusinessNumber = ({ from, to }, env = process.env) => {
-  const configured = normalizeDigits(env.WHATSAPP_NUMBER);
-  if (!configured) {
-    return '';
-  }
-
-  const normalizedFrom = normalizeDigits(from);
-  const normalizedTo = normalizeDigits(to);
-  if (normalizedFrom === configured || normalizedTo === configured) {
-    return configured;
-  }
-
-  return configured;
-};
-
 const normalizeStatus = (status) => {
   switch (String(status || '').toLowerCase()) {
     case 'read':
@@ -180,38 +158,16 @@ exports.verifyWebhook = async (req, res) => {
 };
 
 const persistWebhookEvent = async (event) => {
-  const businessNumber = resolveBusinessNumber({ from: event.from, to: event.to }, process.env);
-  const debugEnabled = String(process.env.CHAT_DEBUG || '').toLowerCase() === 'true';
-  if (debugEnabled) {
-    console.log('[CHAT_DEBUG]', 'meta/twilio webhook numbers', {
-      envBusinessRaw: process.env.WHATSAPP_NUMBER,
-      envBusinessNormalized: normalizeDigits(process.env.WHATSAPP_NUMBER),
-      rawFrom: event.rawFrom,
-      rawTo: event.rawTo,
-      from: event.from,
-      to: event.to,
-      businessNumber,
-      conversationPhone: event.conversationPhone,
-    });
-  }
-  const existingConversation = await Conversation.findOne({
-    phoneNumber: event.conversationPhone,
-    ...(businessNumber ? { businessNumber } : {}),
-  });
+  const existingConversation = await Conversation.findOne({ phoneNumber: event.conversationPhone });
   const conversation = await Conversation.findOneAndUpdate(
-    {
-      phoneNumber: event.conversationPhone,
-      ...(businessNumber ? { businessNumber } : {}),
-    },
+    { phoneNumber: event.conversationPhone },
     {
       $set: {
         lastMessage: event.text || existingConversation?.lastMessage || '',
         updatedAt: event.timestamp || new Date(),
-        ...(businessNumber ? { businessNumber } : {}),
       },
       $setOnInsert: {
         phoneNumber: event.conversationPhone,
-        businessNumber: businessNumber || '',
         createdAt: event.timestamp || new Date(),
       },
     },
@@ -227,9 +183,6 @@ const persistWebhookEvent = async (event) => {
   if (existingMessage) {
     existingMessage.status = event.status;
     existingMessage.timestamp = event.timestamp || existingMessage.timestamp;
-    if (businessNumber && !existingMessage.businessNumber) {
-      existingMessage.businessNumber = businessNumber;
-    }
     if (event.text) {
       existingMessage.text = event.text;
     }
@@ -242,7 +195,6 @@ const persistWebhookEvent = async (event) => {
   }
 
   const message = await Message.create({
-    businessNumber: businessNumber || '',
     messageId: event.messageId,
     conversationId: conversation._id,
     from: event.from,
@@ -292,19 +244,6 @@ exports.handleGupshupWebhook = async (req, res) => {
     const body = req.body || {};
     const payload = body.payload || {};
     const nestedPayload = payload.payload || {};
-    const debugEnabled = String(process.env.CHAT_DEBUG || '').toLowerCase() === 'true';
-    if (debugEnabled) {
-      console.log('[CHAT_DEBUG]', 'gupshup webhook received (raw body):\n' + prettyPrint(body));
-      console.log('[CHAT_DEBUG]', 'gupshup payload numbers', {
-        envBusinessRaw: process.env.WHATSAPP_NUMBER,
-        envBusinessNormalized: normalizeDigits(process.env.WHATSAPP_NUMBER),
-        payloadSourceRaw: payload.source || payload.from,
-        payloadDestinationRaw: payload.destination || payload.to,
-        payloadSourceNormalized: normalizeDigits(payload.source || payload.from),
-        payloadDestinationNormalized: normalizeDigits(payload.destination || payload.to),
-      });
-    }
-
     // Extract key values requested for operational debugging.
     const eventType = body.type || 'unknown';
     const status = payload.status || nestedPayload.status || 'unknown';
@@ -315,14 +254,6 @@ exports.handleGupshupWebhook = async (req, res) => {
     const reason = payload.reason || nestedPayload.reason || null;
 
     const storedEvent = await processGupshupWebhook(body);
-    if (debugEnabled) {
-      console.log('[CHAT_DEBUG]', 'gupshup processed', {
-        stored: Boolean(storedEvent),
-        storedMessageId: storedEvent?.messageId,
-        storedStatus: storedEvent?.status,
-        storedPhone: storedEvent?.phone,
-      });
-    }
 
     const eventLog = {
       receivedAt: new Date().toISOString(),
