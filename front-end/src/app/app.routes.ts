@@ -16,6 +16,7 @@ import { SuperadminCreateAdminComponent } from './features/superadmin-create-adm
 import { ManageClientComponent } from './features/manage-client/manage-client/manage-client.component';
 import { WorkHistoryComponent } from './features/work-history/work-history.component';
 import { AuthGuard } from './core/auth.guard';
+import { SmsComponent } from './features/sms/sms.component';
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
 
@@ -71,6 +72,12 @@ export const routes: Routes = [
         component: WorkHistoryComponent,
         canActivate: [AuthGuard],
         data: { role: 'admin', breadcrumb: 'Work History' }
+      },
+      {
+        path: 'sms',
+        component: SmsComponent,
+        canActivate: [AuthGuard],
+        data: { role: 'admin', breadcrumb: 'SMS' }
       }
     ]
   }

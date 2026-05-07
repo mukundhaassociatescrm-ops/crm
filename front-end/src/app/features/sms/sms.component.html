@@ -1,0 +1,96 @@
+<div class="sms-shell">
+  <aside class="client-panel">
+    <div class="panel-header">
+      <div>
+        <h2>SMS</h2>
+        <p>Pick a client and compose a message</p>
+      </div>
+    </div>
+
+    <div class="panel-tools">
+      <label class="search-box" aria-label="Search clients">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          placeholder="Search by name or phone"
+        >
+      </label>
+    </div>
+
+    <div class="panel-state" *ngIf="isLoadingClients">
+      Loading clients...
+    </div>
+
+    <div class="client-list" *ngIf="!isLoadingClients">
+      <button
+        type="button"
+        class="client-card"
+        *ngFor="let client of filteredClients"
+        [class.active]="selectedClient?._id === client._id"
+        (click)="selectClient(client)"
+      >
+        <div class="avatar">{{ (client.name || client.mobile).slice(0, 2) }}</div>
+        <div class="client-copy">
+          <h3>{{ client.name || client.mobile }}</h3>
+          <p>{{ client.mobile }}</p>
+        </div>
+      </button>
+
+      <div class="panel-state" *ngIf="!filteredClients.length">
+        No clients found.
+      </div>
+    </div>
+  </aside>
+
+  <section class="composer-panel">
+    <div class="composer-header">
+      <ng-container *ngIf="selectedClient; else emptySelection">
+        <div class="selected-client">
+          <div class="avatar large">{{ (selectedClient.name || selectedClient.mobile).slice(0, 2) }}</div>
+          <div>
+            <h3>{{ selectedClient.name }}</h3>
+            <p>{{ selectedClient.mobile }}</p>
+          </div>
+        </div>
+        <button type="button" class="clear-btn" (click)="clearSelection()" title="Clear selection">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </ng-container>
+      <ng-template #emptySelection>
+        <div class="placeholder-title">
+          <h3>Select a client</h3>
+          <p>Choose a client from the left to compose an SMS.</p>
+        </div>
+      </ng-template>
+    </div>
+
+    <div class="composer-body">
+      <label class="field">
+        <span>Message</span>
+        <textarea
+          [(ngModel)]="message"
+          rows="6"
+          placeholder="Type your SMS message..."
+          [disabled]="!selectedClient"
+        ></textarea>
+      </label>
+
+      <div class="composer-meta">
+        <span class="counter">
+          {{ characterCount }} chars
+          <ng-container *ngIf="characterCount > 0"> • {{ smsSegments }} segment{{ smsSegments === 1 ? '' : 's' }}</ng-container>
+        </span>
+        <span class="hint" *ngIf="characterCount > 320">Long messages may be split into multiple SMS segments.</span>
+      </div>
+    </div>
+
+    <div class="composer-actions">
+      <button type="button" class="send-btn" (click)="sendSms()" [disabled]="!canSend">
+        <i class="fa-solid fa-message"></i>
+        <span>Send SMS</span>
+      </button>
+    </div>
+  </section>
+</div>
+

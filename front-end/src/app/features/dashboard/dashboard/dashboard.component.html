@@ -52,6 +52,12 @@
         <p>Add, edit, and manage client contacts</p>
       </div>
 
+      <div class="card" *ngIf="isAdmin" (click)="nav('sms')">
+        <div class="icon icon-sms"><i class="fa-solid fa-message"></i></div>
+        <h3>SMS</h3>
+        <p>Pick a client and compose an SMS</p>
+      </div>
+
       <div class="card" *ngIf="isAdmin" (click)="nav('work-history')">
         <div class="icon icon-history"><i class="fa-solid fa-timeline"></i></div>
         <h3>Work History</h3>

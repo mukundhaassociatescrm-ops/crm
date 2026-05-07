@@ -83,7 +83,32 @@ async function sendFast2SmsBulk({ message, numbers }) {
   };
 }
 
+async function sendSMS(phone, message) {
+  const normalizedPhone = normalizeIndianMobile(phone);
+  if (!normalizedPhone) {
+    throw new Error('A valid Indian mobile number is required.');
+  }
+
+  const cleanMessage = String(message || '').trim();
+  if (!cleanMessage) {
+    throw new Error('Message text is required for SMS.');
+  }
+
+  if (cleanMessage.length > 1000) {
+    throw new Error('Message is too long. Maximum allowed length is 1000 characters.');
+  }
+
+  const providerResponse = await sendFast2SmsBulk({ message: cleanMessage, numbers: [normalizedPhone] });
+
+  return {
+    success: true,
+    phone: normalizedPhone,
+    providerResponse,
+  };
+}
+
 module.exports = {
   sendFast2SmsBulk,
+  sendSMS,
   normalizeIndianMobile,
 };
