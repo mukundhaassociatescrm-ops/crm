@@ -98,14 +98,6 @@ const findOrCreateConversation = async (phone, businessNumber, previewText = '',
     businessNumber: businessNumber || '',
   };
 
-  const setPayloadWithBusiness = {
-    ...(Object.keys(setPayload).length ? setPayload : {}),
-    ...(businessNumber ? { businessNumber } : {}),
-  };
-  if (Object.keys(setPayloadWithBusiness).length) {
-    update.$set = setPayloadWithBusiness;
-  }
-
   return Conversation.findOneAndUpdate(
     {
       phoneNumber: phone,
