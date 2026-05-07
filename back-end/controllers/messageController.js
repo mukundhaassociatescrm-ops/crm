@@ -2,16 +2,10 @@ const Group = require('../models/Group');
 const MessageLog = require('../models/MessageLog');
 const Message = require('../models/Message');
 const { sendWhatsAppMessage, sendMessage: sendWhatsAppChatMessage } = require('../services/whatsappService');
+const { sendGupshupTextMessage, normalizeDestination } = require('../services/gupshupApiService');
 const { sendFast2SmsBulk, normalizeIndianMobile } = require('../services/fast2smsService');
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const normalizeWhatsAppDestination = (value) => {
-  const digits = String(value || '').replace(/\D/g, '');
-  if (!digits) return null;
-  if (digits.length === 10) return `91${digits}`;
-  if (digits.length === 12 && digits.startsWith('91')) return digits;
-  return null;
-};
 
 exports.sendBulkMessage = async (req, res, next) => {
   let log = null;
@@ -85,24 +79,14 @@ exports.sendBulkMessage = async (req, res, next) => {
     } else {
       const perMessageDelayMs = 300;
       for (const contact of contacts) {
-        const normalizedPhone = normalizeWhatsAppDestination(contact.mobile);
+        const normalizedPhone = normalizeDestination(contact.mobile);
         console.log('[WA TRY]', contact.mobile, { normalizedPhone });
         try {
-          const result = await sendWhatsAppMessage(normalizedPhone || contact.mobile, message);
-          if (result?.success) {
-            sentCount += 1;
-            console.log('[WA SUCCESS]', contact.mobile, result);
-            console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'success' });
-          } else {
-            failedCount += 1;
-            console.error('[WA ERROR]', {
-              phone: contact.mobile,
-              normalizedPhone,
-              error: result?.error || result?.message || 'Provider returned success=false',
-              response: result,
-            });
-            console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'failed', error: result?.error || result?.message || 'Provider returned success=false' });
-          }
+          // Reuse the same working WhatsApp sender used by chat flow.
+          const providerResult = await sendGupshupTextMessage({ to: normalizedPhone || contact.mobile, message });
+          sentCount += 1;
+          console.log('[WA SUCCESS]', contact.mobile, providerResult);
+          console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'success' });
         } catch (err) {
           failedCount += 1;
           console.error('[WA ERROR]', {
