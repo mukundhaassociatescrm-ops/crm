@@ -6,6 +6,7 @@ const swaggerJsdoc = require('swagger-jsdoc');
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
+const { ensureUploadsDir, resolveUploadsDir } = require('./config/uploads');
 
 dotenv.config();
 
@@ -70,11 +71,8 @@ app.use((req, res, next) => {
   res.sendStatus(204);
 });
 
-// Serve persistent uploads from project root (/uploads).
-const uploadsDir = path.resolve(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Serve persistent uploads (Coolify-friendly).
+const uploadsDir = ensureUploadsDir(resolveUploadsDir(process.env));
 app.use('/uploads', express.static(uploadsDir));
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));

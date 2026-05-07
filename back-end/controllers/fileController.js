@@ -1,14 +1,8 @@
-const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { ensureUploadsDir, resolveUploadsDir } = require('../config/uploads');
 
-// Persist uploads outside the backend folder so rebuilds/deploys don't wipe them.
-// controllers/ -> back-end/ -> project root -> uploads/
-const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
-
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+const uploadsDir = ensureUploadsDir(resolveUploadsDir(process.env));
 
 const allowedMimeTypes = new Set([
   'application/pdf',

@@ -17,11 +17,10 @@ const {
 const { emitChatUpdate } = require('../services/socketService');
 const { resolveClientIdByPhone } = require('../services/activityHistoryService');
 const { getApprovedTemplates, invalidateTemplateCache } = require('../services/chatTemplateService');
+const { ensureUploadsDir, resolveUploadsDir } = require('../config/uploads');
 
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
-// Persist mirrored attachments outside the backend folder so rebuilds/deploys don't wipe them.
-// controllers/ -> back-end/ -> project root -> uploads/
-const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
+const uploadsDir = ensureUploadsDir(resolveUploadsDir(process.env));
 
 const isChatDebugEnabled = () => String(process.env.CHAT_DEBUG || '').toLowerCase() === 'true';
 const chatDebug = (...args) => {
