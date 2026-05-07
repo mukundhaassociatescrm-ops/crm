@@ -5,6 +5,13 @@ const { sendWhatsAppMessage, sendMessage: sendWhatsAppChatMessage } = require('.
 const { sendFast2SmsBulk, normalizeIndianMobile } = require('../services/fast2smsService');
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const normalizeWhatsAppDestination = (value) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return null;
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return digits;
+  return null;
+};
 
 exports.sendBulkMessage = async (req, res, next) => {
   let log = null;
@@ -78,17 +85,31 @@ exports.sendBulkMessage = async (req, res, next) => {
     } else {
       const perMessageDelayMs = 300;
       for (const contact of contacts) {
+        const normalizedPhone = normalizeWhatsAppDestination(contact.mobile);
+        console.log('[WA TRY]', contact.mobile, { normalizedPhone });
         try {
-          const result = await sendWhatsAppMessage(contact.mobile, message);
+          const result = await sendWhatsAppMessage(normalizedPhone || contact.mobile, message);
           if (result?.success) {
             sentCount += 1;
+            console.log('[WA SUCCESS]', contact.mobile, result);
             console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'success' });
           } else {
             failedCount += 1;
-            console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'failed', error: result?.message || 'Provider returned success=false' });
+            console.error('[WA ERROR]', {
+              phone: contact.mobile,
+              normalizedPhone,
+              error: result?.error || result?.message || 'Provider returned success=false',
+              response: result,
+            });
+            console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'failed', error: result?.error || result?.message || 'Provider returned success=false' });
           }
         } catch (err) {
           failedCount += 1;
+          console.error('[WA ERROR]', {
+            phone: contact.mobile,
+            normalizedPhone,
+            error: err?.response?.data || err?.message || String(err),
+          });
           console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'failed', error: err?.message || String(err) });
         }
 
@@ -106,6 +127,17 @@ exports.sendBulkMessage = async (req, res, next) => {
       log.status = sentCount > 0 ? 'Completed' : 'Failed';
     }
     await log.save();
+
+    if (normalizedChannel === 'whatsapp' && String(process.env.WHATSAPP_BULK_SELF_TEST || '').toLowerCase() === 'true') {
+      const testTo = process.env.WHATSAPP_BULK_SELF_TEST_NUMBER;
+      if (testTo) {
+        console.log('[WA SELF TEST] start', testTo);
+        const testResult = await sendWhatsAppMessage(testTo, 'Hello test');
+        console.log('[WA SELF TEST] result', testResult);
+      } else {
+        console.log('[WA SELF TEST] skipped: WHATSAPP_BULK_SELF_TEST_NUMBER not set');
+      }
+    }
 
     if (sentCount === 0 && failedCount > 0) {
       const normalizedDeliveryError = String(firstDeliveryError || '').toLowerCase();

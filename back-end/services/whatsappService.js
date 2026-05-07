@@ -9,6 +9,35 @@ const getFetch = async () => {
 
 const normalizePhoneNumber = (value) => String(value || '').replace(/^whatsapp:/i, '').trim();
 
+const normalizeTo91Digits = (value) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) {
+    return null;
+  }
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return digits;
+  }
+  return null;
+};
+
+const normalizeToE164 = (value) => {
+  const digits91 = normalizeTo91Digits(value);
+  if (!digits91) {
+    return null;
+  }
+  return `+${digits91}`;
+};
+
+const isWhatsAppDebugEnabled = () => String(process.env.WHATSAPP_DEBUG || '').toLowerCase() === 'true';
+const waDebug = (...args) => {
+  if (isWhatsAppDebugEnabled()) {
+    console.log('[WA DEBUG]', ...args);
+  }
+};
+
 const getWhatsAppProvider = () => {
   if (process.env.WHATSAPP_PROVIDER) {
     return process.env.WHATSAPP_PROVIDER.toLowerCase();
@@ -27,26 +56,37 @@ const getWhatsAppProvider = () => {
 
 const sendViaMeta = async (to, message) => {
   const fetch = await getFetch();
+  const url = `https://graph.facebook.com/v22.0/${process.env.META_PHONE_NUMBER_ID}/messages`;
+  const body = {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'text',
+    text: { body: message },
+  };
+
+  waDebug('meta:request', { to, url, body });
   const response = await fetch(
-    `https://graph.facebook.com/v22.0/${process.env.META_PHONE_NUMBER_ID}/messages`,
+    url,
     {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${process.env.META_WHATSAPP_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to,
-        type: 'text',
-        text: { body: message },
-      }),
+      body: JSON.stringify(body),
     }
   );
 
-  const payload = await response.json();
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  waDebug('meta:response', { ok: response.ok, status: response.status, payload });
   if (!response.ok) {
-    throw new Error(payload?.error?.message || 'Meta WhatsApp API request failed.');
+    throw new Error(payload?.error?.message || payload?.message || 'Meta WhatsApp API request failed.');
   }
 
   return {
@@ -68,6 +108,7 @@ const sendViaTwilio = async (to, message) => {
     Body: message,
   });
 
+  waDebug('twilio:request', { to, from: normalizePhoneNumber(from) });
   const response = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
     {
@@ -80,7 +121,14 @@ const sendViaTwilio = async (to, message) => {
     }
   );
 
-  const payload = await response.json();
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  waDebug('twilio:response', { ok: response.ok, status: response.status, payload });
   if (!response.ok) {
     throw new Error(payload?.message || 'Twilio WhatsApp API request failed.');
   }
@@ -94,8 +142,15 @@ const sendViaTwilio = async (to, message) => {
 };
 
 async function sendMessage(to, message) {
-  const phoneNumber = normalizePhoneNumber(to);
-  if (!phoneNumber || phoneNumber.length < 6) {
+  const provider = getWhatsAppProvider();
+  const rawTo = normalizePhoneNumber(to);
+
+  // Meta expects digits with country code (no "+"). Twilio expects E.164.
+  const normalizedTo = provider === 'twilio'
+    ? normalizeToE164(rawTo)
+    : normalizeTo91Digits(rawTo);
+
+  if (!normalizedTo) {
     throw new Error('A valid destination phone number is required.');
   }
 
@@ -103,24 +158,36 @@ async function sendMessage(to, message) {
     throw new Error('Message text is required.');
   }
 
-  const provider = getWhatsAppProvider();
+  waDebug('sendMessage:normalize', { provider, rawTo, normalizedTo });
   if (provider === 'meta') {
-    return sendViaMeta(phoneNumber, String(message).trim());
+    return sendViaMeta(normalizedTo, String(message).trim());
   }
 
   if (provider === 'twilio') {
-    return sendViaTwilio(phoneNumber, String(message).trim());
+    return sendViaTwilio(normalizedTo, String(message).trim());
   }
 
   throw new Error(`Unsupported WhatsApp provider: ${provider}`);
 }
 
 async function sendWhatsAppMessage(phone, message) {
+  const provider = (() => {
+    try {
+      return getWhatsAppProvider();
+    } catch {
+      return null;
+    }
+  })();
+
   try {
     const result = await sendMessage(phone, message);
-    return { success: true, messageId: result.messageId, provider: result.provider };
+    return { success: true, messageId: result.messageId, provider: result.provider, raw: result.raw };
   } catch (error) {
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      provider,
+      error: error?.message || String(error),
+    };
   }
 }
 
