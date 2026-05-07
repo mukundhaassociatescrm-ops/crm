@@ -2,10 +2,15 @@ const mongoose = require('mongoose');
 
 const conversationSchema = new mongoose.Schema(
   {
+    businessNumber: {
+      type: String,
+      default: '',
+      trim: true,
+      index: true,
+    },
     phoneNumber: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
       index: true,
     },
@@ -26,5 +31,9 @@ const conversationSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Support multiple WhatsApp business numbers:
+// One customer phone can have multiple conversations, keyed by businessNumber + phoneNumber.
+conversationSchema.index({ businessNumber: 1, phoneNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model('Conversation', conversationSchema);

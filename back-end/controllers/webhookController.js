@@ -30,6 +30,28 @@ const normalizePhoneNumber = (value) => {
   return String(value).replace(/^whatsapp:/i, '').trim();
 };
 
+const normalizeDigits = (value) => {
+  if (!value) {
+    return '';
+  }
+  return String(value).replace(/^whatsapp:/i, '').replace(/\D/g, '').trim();
+};
+
+const resolveBusinessNumber = ({ from, to }, env = process.env) => {
+  const configured = normalizeDigits(env.WHATSAPP_NUMBER);
+  if (!configured) {
+    return '';
+  }
+
+  const normalizedFrom = normalizeDigits(from);
+  const normalizedTo = normalizeDigits(to);
+  if (normalizedFrom === configured || normalizedTo === configured) {
+    return configured;
+  }
+
+  return configured;
+};
+
 const normalizeStatus = (status) => {
   switch (String(status || '').toLowerCase()) {
     case 'read':
@@ -141,16 +163,25 @@ exports.verifyWebhook = async (req, res) => {
 };
 
 const persistWebhookEvent = async (event) => {
-  const existingConversation = await Conversation.findOne({ phoneNumber: event.conversationPhone });
+  const businessNumber = resolveBusinessNumber({ from: event.from, to: event.to }, process.env);
+  const existingConversation = await Conversation.findOne({
+    phoneNumber: event.conversationPhone,
+    ...(businessNumber ? { businessNumber } : {}),
+  });
   const conversation = await Conversation.findOneAndUpdate(
-    { phoneNumber: event.conversationPhone },
+    {
+      phoneNumber: event.conversationPhone,
+      ...(businessNumber ? { businessNumber } : {}),
+    },
     {
       $set: {
         lastMessage: event.text || existingConversation?.lastMessage || '',
         updatedAt: event.timestamp || new Date(),
+        ...(businessNumber ? { businessNumber } : {}),
       },
       $setOnInsert: {
         phoneNumber: event.conversationPhone,
+        businessNumber: businessNumber || '',
         createdAt: event.timestamp || new Date(),
       },
     },
@@ -166,6 +197,9 @@ const persistWebhookEvent = async (event) => {
   if (existingMessage) {
     existingMessage.status = event.status;
     existingMessage.timestamp = event.timestamp || existingMessage.timestamp;
+    if (businessNumber && !existingMessage.businessNumber) {
+      existingMessage.businessNumber = businessNumber;
+    }
     if (event.text) {
       existingMessage.text = event.text;
     }
@@ -178,6 +212,7 @@ const persistWebhookEvent = async (event) => {
   }
 
   const message = await Message.create({
+    businessNumber: businessNumber || '',
     messageId: event.messageId,
     conversationId: conversation._id,
     from: event.from,

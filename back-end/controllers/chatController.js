@@ -13,6 +13,8 @@ const {
   normalizePhone,
   normalizeStatus,
   markConversationAsRead,
+  getBusinessNumberFilter,
+  resolveBusinessNumber,
 } = require('../services/chatMessageStore');
 const { emitChatUpdate } = require('../services/socketService');
 const { resolveClientIdByPhone } = require('../services/activityHistoryService');
@@ -699,6 +701,7 @@ exports.processGupshupWebhook = async (body) => {
       ((source && source === businessSource) || (destination && destination !== businessSource && source === businessSource))
   );
   const phone = isFromBusiness ? destination : (source || destination);
+  const businessNumber = resolveBusinessNumber({ source, destination }, process.env);
 
   const isStatusUpdate = Boolean(payload.status || nestedPayload.status || hasExplicitStatus);
   const isIncomingEvent = eventType.includes('message') || (!isStatusUpdate && (Boolean(displayText) || isMediaType || Boolean(attachmentUrl)));
@@ -712,6 +715,7 @@ exports.processGupshupWebhook = async (body) => {
       phone,
       source,
       destination,
+      businessNumber,
     });
     const updated = await updateMessageStatus({
       messageId,
@@ -721,12 +725,14 @@ exports.processGupshupWebhook = async (body) => {
       timestamp: eventTimestamp,
       reason,
       phone,
+      businessNumber,
     });
 
     chatDebug('gupshup:status persisted', {
       messageId: messageId || '(missing)',
       status,
       phone,
+      businessNumber,
       updated: Boolean(updated),
       updatedMessageId: updated?.messageId,
     });
@@ -738,6 +744,7 @@ exports.processGupshupWebhook = async (body) => {
       status,
       source,
       destination,
+      businessNumber,
     });
 
     chatDebug('gupshup:status socket emitted', {
@@ -777,6 +784,7 @@ exports.processGupshupWebhook = async (body) => {
       timestamp: eventTimestamp,
       source,
       destination,
+      businessNumber,
     });
 
     // Auto-create client record for unknown inbound senders
@@ -799,6 +807,7 @@ exports.processGupshupWebhook = async (body) => {
       text,
       source,
       destination,
+      businessNumber,
     });
 
     return saved;
@@ -816,7 +825,8 @@ exports.getChatByPhone = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'phone is required.' });
     }
 
-    const messages = (await getMessagesByPhone(phone)).map((item) => ({
+    const businessNumber = getBusinessNumberFilter(process.env);
+    const messages = (await getMessagesByPhone(phone, businessNumber)).map((item) => ({
       phone: item.phone,
       text: item.text,
       type: item.type || 'text',
@@ -842,7 +852,9 @@ exports.getChatByPhone = async (req, res, next) => {
 // Returns chat conversation summaries for sidebar listing.
 exports.getChatConversations = async (req, res, next) => {
   try {
-    const rawConversations = await getConversationSummaries();
+    const businessNumber = getBusinessNumberFilter(process.env);
+    const rawConversations = await getConversationSummaries(businessNumber);
+    chatDebug('chat:list filtered', { businessNumber, count: rawConversations.length });
     const phoneKeys = [...new Set(rawConversations.map((item) => normalizePhone(item.phoneNumber)).filter(Boolean))];
 
     const lookupValues = [...new Set(phoneKeys.flatMap((phone) => {
@@ -902,7 +914,8 @@ exports.markConversationRead = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'phone is required.' });
     }
 
-    const updatedConversation = await markConversationAsRead(phone);
+    const businessNumber = getBusinessNumberFilter(process.env);
+    const updatedConversation = await markConversationAsRead(phone, businessNumber);
 
     emitChatUpdate({
       eventType: 'read',

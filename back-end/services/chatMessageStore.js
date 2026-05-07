@@ -17,6 +17,30 @@ const normalizePhone = (value) => {
   return String(value).replace(/^whatsapp:/i, '').replace(/\D/g, '').trim();
 };
 
+const getBusinessNumberFilter = (env = process.env) => {
+  const configured = normalizePhone(env.WHATSAPP_NUMBER);
+  return configured || '';
+};
+
+const resolveBusinessNumber = ({ source, destination }, env = process.env) => {
+  const configured = normalizePhone(env.WHATSAPP_NUMBER);
+  if (!configured) {
+    return '';
+  }
+
+  const normalizedSource = normalizePhone(source);
+  const normalizedDestination = normalizePhone(destination);
+  if (normalizedSource === configured) {
+    return configured;
+  }
+  if (normalizedDestination === configured) {
+    return configured;
+  }
+
+  // Fallback to configured to ensure everything gets tagged in prod.
+  return configured;
+};
+
 const normalizeStatus = (value, fallback = 'sent') => {
   const status = String(value || '').toLowerCase();
   if (status === 'submitted' || status === 'enqueued' || status === 'queued') {
@@ -48,7 +72,7 @@ const buildPreviewText = (message) => {
   return String(message.filename || message.text || '').trim();
 };
 
-const findOrCreateConversation = async (phone, previewText = '', options = {}) => {
+const findOrCreateConversation = async (phone, businessNumber, previewText = '', options = {}) => {
   if (!phone) {
     return null;
   }
@@ -65,11 +89,27 @@ const findOrCreateConversation = async (phone, previewText = '', options = {}) =
     update.$set = setPayload;
   }
 
+  const setOnInsert = {
+    phoneNumber: phone,
+    businessNumber: businessNumber || '',
+  };
+
+  const setPayloadWithBusiness = {
+    ...(Object.keys(setPayload).length ? setPayload : {}),
+    ...(businessNumber ? { businessNumber } : {}),
+  };
+  if (Object.keys(setPayloadWithBusiness).length) {
+    update.$set = setPayloadWithBusiness;
+  }
+
   return Conversation.findOneAndUpdate(
-    { phoneNumber: phone },
+    {
+      phoneNumber: phone,
+      ...(businessNumber ? { businessNumber } : {}),
+    },
     {
       ...update,
-      $setOnInsert: { phoneNumber: phone },
+      $setOnInsert: setOnInsert,
     },
     {
       upsert: true,
@@ -103,12 +143,16 @@ const toMessageView = (messageDoc, phoneNumber) => ({
   timestamp: messageDoc.timestamp || messageDoc.createdAt,
 });
 
-const findBestOutgoingMatch = async ({ phone, timestamp }) => {
+const findBestOutgoingMatch = async ({ phone, timestamp, businessNumber }) => {
   if (!phone) {
     return null;
   }
 
-  const conversation = await Conversation.findOne({ phoneNumber: phone }).select('_id');
+  const conversationQuery = {
+    phoneNumber: phone,
+    ...(businessNumber ? { businessNumber } : {}),
+  };
+  const conversation = await Conversation.findOne(conversationQuery).select('_id');
   if (!conversation?._id) {
     return null;
   }
@@ -118,11 +162,13 @@ const findBestOutgoingMatch = async ({ phone, timestamp }) => {
   const windowStart = new Date(statusTime - windowMs);
   const windowEnd = new Date(statusTime + windowMs);
 
-  const candidates = await Message.find({
+  const candidatesQuery = {
     conversationId: conversation._id,
     direction: { $in: ['out', 'outgoing'] },
     timestamp: { $gte: windowStart, $lte: windowEnd },
-  }).sort({ timestamp: -1 });
+    ...(businessNumber ? { businessNumber } : {}),
+  };
+  const candidates = await Message.find(candidatesQuery).sort({ timestamp: -1 });
 
   let best = null;
   let bestDelta = Number.MAX_SAFE_INTEGER;
@@ -159,6 +205,10 @@ const saveMessage = async (message) => {
     reason: message.reason ? String(message.reason) : undefined,
   };
 
+  const businessNumber = resolveBusinessNumber(
+    { source: normalized.source, destination: normalized.destination },
+    process.env
+  );
   const previewText = buildPreviewText(normalized);
   const endpoints = buildDirectionalEndpoints(normalized);
   const phone = normalized.phone || endpoints.phone;
@@ -168,11 +218,14 @@ const saveMessage = async (message) => {
     if (existing) {
       let existingConversationId = existing.conversationId;
       if (!existingConversationId && phone) {
-        const existingConversation = await findOrCreateConversation(phone, previewText, { incrementUnreadBy: 0 });
+        const existingConversation = await findOrCreateConversation(phone, businessNumber, previewText, { incrementUnreadBy: 0 });
         existingConversationId = existingConversation?._id;
       }
 
       existing.conversationId = existingConversationId || existing.conversationId;
+      if (businessNumber && !existing.businessNumber) {
+        existing.businessNumber = businessNumber;
+      }
       existing.from = existing.from || endpoints.from;
       existing.to = existing.to || endpoints.to;
       existing.text = normalized.text || existing.text;
@@ -188,11 +241,12 @@ const saveMessage = async (message) => {
     }
   }
 
-  const conversation = await findOrCreateConversation(phone, previewText, {
+  const conversation = await findOrCreateConversation(phone, businessNumber, previewText, {
     incrementUnreadBy: normalized.direction === 'in' ? 1 : 0,
   });
 
   const created = await Message.create({
+    businessNumber: businessNumber || '',
     messageId: normalized.messageId || `chat-${Date.now()}`,
     conversationId: conversation?._id,
     from: endpoints.from,
@@ -211,13 +265,17 @@ const saveMessage = async (message) => {
   return toMessageView(created, phone);
 };
 
-const updateMessageStatus = async ({ messageId, status, destination, source, timestamp, reason, phone }) => {
+const updateMessageStatus = async ({ messageId, status, destination, source, timestamp, reason, phone, businessNumber }) => {
   const normalizedMessageId = String(messageId || '').trim();
   const normalizedDestination = normalizePhone(destination);
   const normalizedSource = normalizePhone(source);
   const normalizedStatus = normalizeStatus(status, 'sent');
   const normalizedPhone = normalizePhone(phone);
   const targetPhone = normalizedPhone || normalizedDestination || normalizedSource;
+  const resolvedBusinessNumber = businessNumber || resolveBusinessNumber(
+    { source: normalizedSource, destination: normalizedDestination },
+    process.env
+  );
 
   if (!normalizedMessageId) {
     chatDebug('status:update skipped (missing messageId)', { status: normalizedStatus, targetPhone });
@@ -230,11 +288,20 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
     existing.timestamp = toDate(timestamp);
     existing.to = normalizedDestination || existing.to;
     existing.from = normalizedSource || existing.from;
+    if (resolvedBusinessNumber && !existing.businessNumber) {
+      existing.businessNumber = resolvedBusinessNumber;
+    }
     if (reason) {
       existing.reason = String(reason);
     }
     await existing.save();
     const conversation = await Conversation.findById(existing.conversationId).select('phoneNumber');
+    if (conversation?._id && resolvedBusinessNumber) {
+      await Conversation.updateOne(
+        { _id: conversation._id, $or: [{ businessNumber: { $exists: false } }, { businessNumber: '' }] },
+        { $set: { businessNumber: resolvedBusinessNumber } }
+      );
+    }
     chatDebug('status:update matched by messageId', {
       messageId: normalizedMessageId,
       status: normalizedStatus,
@@ -248,17 +315,27 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
   const matchedOutgoing = await findBestOutgoingMatch({
     phone: targetPhone,
     timestamp,
+    businessNumber: resolvedBusinessNumber,
   });
   if (matchedOutgoing) {
     matchedOutgoing.status = normalizedStatus;
     matchedOutgoing.timestamp = toDate(timestamp);
     matchedOutgoing.to = normalizedDestination || matchedOutgoing.to;
     matchedOutgoing.from = normalizedSource || matchedOutgoing.from;
+    if (resolvedBusinessNumber && !matchedOutgoing.businessNumber) {
+      matchedOutgoing.businessNumber = resolvedBusinessNumber;
+    }
     if (reason) {
       matchedOutgoing.reason = String(reason);
     }
     await matchedOutgoing.save();
     const conversation = await Conversation.findById(matchedOutgoing.conversationId).select('phoneNumber');
+    if (conversation?._id && resolvedBusinessNumber) {
+      await Conversation.updateOne(
+        { _id: conversation._id, $or: [{ businessNumber: { $exists: false } }, { businessNumber: '' }] },
+        { $set: { businessNumber: resolvedBusinessNumber } }
+      );
+    }
     chatDebug('status:update matched by timestamp window', {
       incomingStatusMessageId: normalizedMessageId,
       matchedMessageId: matchedOutgoing.messageId,
@@ -269,8 +346,9 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
   }
 
   // If we receive a status before the send API response is stored, create a fallback message.
-  const conversation = await findOrCreateConversation(targetPhone, '');
+  const conversation = await findOrCreateConversation(targetPhone, resolvedBusinessNumber, '');
   const fallback = await Message.create({
+    businessNumber: resolvedBusinessNumber || '',
     messageId: normalizedMessageId,
     conversationId: conversation?._id,
     from: normalizedSource || 'business',
@@ -294,26 +372,36 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
   return toMessageView(fallback, targetPhone);
 };
 
-const getMessagesByPhone = async (phone) => {
+const getMessagesByPhone = async (phone, businessNumber) => {
   const normalizedPhone = normalizePhone(phone);
   if (!normalizedPhone) {
     return [];
   }
 
-  const conversation = await Conversation.findOne({ phoneNumber: normalizedPhone }).select('_id phoneNumber');
+  const conversationQuery = {
+    phoneNumber: normalizedPhone,
+    ...(businessNumber ? { businessNumber } : {}),
+  };
+  const conversation = await Conversation.findOne(conversationQuery).select('_id phoneNumber businessNumber');
   if (!conversation?._id) {
     return [];
   }
 
-  const messages = await Message.find({ conversationId: conversation._id }).sort({ timestamp: 1 });
+  const messageQuery = {
+    conversationId: conversation._id,
+    ...(businessNumber ? { businessNumber } : {}),
+  };
+  const messages = await Message.find(messageQuery).sort({ timestamp: 1 });
   return messages.map((item) => toMessageView(item, conversation.phoneNumber));
 };
 
-const getConversationSummaries = async () => {
-  const conversations = await Conversation.find({}).sort({ unreadCount: -1, updatedAt: -1 }).lean();
+const getConversationSummaries = async (businessNumber) => {
+  const query = businessNumber ? { businessNumber } : {};
+  const conversations = await Conversation.find(query).sort({ unreadCount: -1, updatedAt: -1 }).lean();
   return conversations.map((item) => ({
     _id: item.phoneNumber,
     phoneNumber: item.phoneNumber,
+    businessNumber: item.businessNumber || '',
     lastMessage: item.lastMessage || '',
     unreadCount: Number(item.unreadCount || 0),
     lastReadAt: item.lastReadAt || null,
@@ -322,14 +410,17 @@ const getConversationSummaries = async () => {
   }));
 };
 
-const markConversationAsRead = async (phone) => {
+const markConversationAsRead = async (phone, businessNumber) => {
   const normalizedPhone = normalizePhone(phone);
   if (!normalizedPhone) {
     return null;
   }
 
   return Conversation.findOneAndUpdate(
-    { phoneNumber: normalizedPhone },
+    {
+      phoneNumber: normalizedPhone,
+      ...(businessNumber ? { businessNumber } : {}),
+    },
     {
       $set: {
         unreadCount: 0,
@@ -342,6 +433,8 @@ const markConversationAsRead = async (phone) => {
 
 module.exports = {
   normalizePhone,
+  getBusinessNumberFilter,
+  resolveBusinessNumber,
   normalizeStatus,
   saveMessage,
   updateMessageStatus,
