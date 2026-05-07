@@ -702,6 +702,15 @@ exports.processGupshupWebhook = async (body) => {
   );
   const phone = isFromBusiness ? destination : (source || destination);
   const businessNumber = resolveBusinessNumber({ source, destination }, process.env);
+  chatDebug('numbers:normalize', {
+    envBusinessRaw: process.env.WHATSAPP_NUMBER,
+    envBusinessNormalized: normalizePhone(process.env.WHATSAPP_NUMBER),
+    webhookSourceRaw: payload.source || payload.from || nestedPayload.source || nestedPayload.from || sender.phone || sender.id || context.source || context.from,
+    webhookDestinationRaw: payload.destination || payload.to || nestedPayload.destination || nestedPayload.to || context.destination || context.to || context.phone,
+    webhookSourceNormalized: source,
+    webhookDestinationNormalized: destination,
+    businessNumber,
+  });
 
   const isStatusUpdate = Boolean(payload.status || nestedPayload.status || hasExplicitStatus);
   const isIncomingEvent = eventType.includes('message') || (!isStatusUpdate && (Boolean(displayText) || isMediaType || Boolean(attachmentUrl)));

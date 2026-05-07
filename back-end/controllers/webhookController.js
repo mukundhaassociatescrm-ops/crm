@@ -22,12 +22,13 @@ const prettyPrint = (value) => {
   }
 };
 
+// Normalize all phone numbers to digits only (no '+', no 'whatsapp:', no spaces).
 const normalizePhoneNumber = (value) => {
   if (!value) {
     return '';
   }
 
-  return String(value).replace(/^whatsapp:/i, '').trim();
+  return String(value).replace(/^whatsapp:/i, '').replace(/\D/g, '').trim();
 };
 
 const normalizeDigits = (value) => {
@@ -72,35 +73,47 @@ const parseMetaEvent = (body) => {
     return [];
   }
 
-  const incomingMessages = (change.messages || []).map((message) => ({
+  const incomingMessages = (change.messages || []).map((message) => {
+    const rawFrom = message.from;
+    const rawTo = metadata.display_phone_number || metadata.phone_number_id;
+    return ({
     source: 'meta',
     eventType: 'message',
     messageId: message.id,
-    from: normalizePhoneNumber(message.from),
-    to: normalizePhoneNumber(metadata.display_phone_number || metadata.phone_number_id),
+    from: normalizePhoneNumber(rawFrom),
+    to: normalizePhoneNumber(rawTo),
     text: message.text?.body || message.button?.text || message.interactive?.button_reply?.title || '',
     type: message.type || 'text',
     direction: 'incoming',
     status: 'sent',
     timestamp: message.timestamp ? new Date(Number(message.timestamp) * 1000) : new Date(),
     replyTo: message.context?.id,
-    conversationPhone: normalizePhoneNumber(message.from),
-  }));
+    conversationPhone: normalizePhoneNumber(rawFrom),
+    rawFrom,
+    rawTo,
+  });
+  });
 
-  const statusEvents = (change.statuses || []).map((status) => ({
+  const statusEvents = (change.statuses || []).map((status) => {
+    const rawFrom = metadata.display_phone_number || metadata.phone_number_id;
+    const rawTo = status.recipient_id;
+    return ({
     source: 'meta',
     eventType: 'status',
     messageId: status.id,
-    from: normalizePhoneNumber(metadata.display_phone_number || metadata.phone_number_id),
-    to: normalizePhoneNumber(status.recipient_id),
+    from: normalizePhoneNumber(rawFrom),
+    to: normalizePhoneNumber(rawTo),
     text: '',
     type: 'text',
     direction: 'outgoing',
     status: normalizeStatus(status.status),
     timestamp: status.timestamp ? new Date(Number(status.timestamp) * 1000) : new Date(),
     replyTo: undefined,
-    conversationPhone: normalizePhoneNumber(status.recipient_id),
-  }));
+    conversationPhone: normalizePhoneNumber(rawTo),
+    rawFrom,
+    rawTo,
+  });
+  });
 
   return [...incomingMessages, ...statusEvents].filter((event) => event.messageId && event.conversationPhone);
 };
@@ -111,8 +124,10 @@ const parseTwilioEvent = (body) => {
     return [];
   }
 
-  const from = normalizePhoneNumber(body.From || body.WaId);
-  const to = normalizePhoneNumber(body.To);
+  const rawFrom = body.From || body.WaId;
+  const rawTo = body.To;
+  const from = normalizePhoneNumber(rawFrom);
+  const to = normalizePhoneNumber(rawTo);
   const direction = String(body.Direction || '').toLowerCase().includes('inbound') ? 'incoming' : 'outgoing';
   const phoneNumber = direction === 'incoming' ? from : to;
 
@@ -130,6 +145,8 @@ const parseTwilioEvent = (body) => {
       timestamp: new Date(),
       replyTo: undefined,
       conversationPhone: phoneNumber,
+      rawFrom,
+      rawTo,
     },
   ].filter((event) => event.from && event.to && event.conversationPhone);
 };
@@ -164,6 +181,19 @@ exports.verifyWebhook = async (req, res) => {
 
 const persistWebhookEvent = async (event) => {
   const businessNumber = resolveBusinessNumber({ from: event.from, to: event.to }, process.env);
+  const debugEnabled = String(process.env.CHAT_DEBUG || '').toLowerCase() === 'true';
+  if (debugEnabled) {
+    console.log('[CHAT_DEBUG]', 'meta/twilio webhook numbers', {
+      envBusinessRaw: process.env.WHATSAPP_NUMBER,
+      envBusinessNormalized: normalizeDigits(process.env.WHATSAPP_NUMBER),
+      rawFrom: event.rawFrom,
+      rawTo: event.rawTo,
+      from: event.from,
+      to: event.to,
+      businessNumber,
+      conversationPhone: event.conversationPhone,
+    });
+  }
   const existingConversation = await Conversation.findOne({
     phoneNumber: event.conversationPhone,
     ...(businessNumber ? { businessNumber } : {}),
