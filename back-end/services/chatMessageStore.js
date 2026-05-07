@@ -1,6 +1,15 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 
+const isChatDebugEnabled = () => String(process.env.CHAT_DEBUG || '').toLowerCase() === 'true';
+
+const chatDebug = (...args) => {
+  if (!isChatDebugEnabled()) {
+    return;
+  }
+  console.log('[CHAT_DEBUG]', ...args);
+};
+
 const normalizePhone = (value) => {
   if (!value) {
     return '';
@@ -211,6 +220,7 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
   const targetPhone = normalizedPhone || normalizedDestination || normalizedSource;
 
   if (!normalizedMessageId) {
+    chatDebug('status:update skipped (missing messageId)', { status: normalizedStatus, targetPhone });
     return null;
   }
 
@@ -225,6 +235,11 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
     }
     await existing.save();
     const conversation = await Conversation.findById(existing.conversationId).select('phoneNumber');
+    chatDebug('status:update matched by messageId', {
+      messageId: normalizedMessageId,
+      status: normalizedStatus,
+      phone: conversation?.phoneNumber || targetPhone,
+    });
     return toMessageView(existing, conversation?.phoneNumber || targetPhone);
   }
 
@@ -244,6 +259,12 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
     }
     await matchedOutgoing.save();
     const conversation = await Conversation.findById(matchedOutgoing.conversationId).select('phoneNumber');
+    chatDebug('status:update matched by timestamp window', {
+      incomingStatusMessageId: normalizedMessageId,
+      matchedMessageId: matchedOutgoing.messageId,
+      status: normalizedStatus,
+      phone: conversation?.phoneNumber || targetPhone,
+    });
     return toMessageView(matchedOutgoing, conversation?.phoneNumber || targetPhone);
   }
 
@@ -265,6 +286,11 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
     replyTo: undefined,
   });
 
+  chatDebug('status:update created fallback message', {
+    messageId: normalizedMessageId,
+    status: normalizedStatus,
+    phone: targetPhone,
+  });
   return toMessageView(fallback, targetPhone);
 };
 

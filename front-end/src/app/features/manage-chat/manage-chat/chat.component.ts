@@ -1970,6 +1970,16 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private handleRealtimeUpdate(event: RealtimeChatEvent): void {
+    if (event?.eventType === 'status') {
+      console.log('[Chat] realtime status update', {
+        phone: event.phone,
+        messageId: event.messageId,
+        status: event.status,
+        source: event.source,
+        destination: event.destination,
+        timestamp: event.timestamp,
+      });
+    }
     this.refreshConversationsFromApi();
 
     const eventPhone = this.normalizePhone(event.phone || event.destination || event.source || '');

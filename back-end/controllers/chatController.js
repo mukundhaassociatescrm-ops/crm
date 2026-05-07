@@ -23,6 +23,14 @@ const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
 // controllers/ -> back-end/ -> project root -> uploads/
 const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
 
+const isChatDebugEnabled = () => String(process.env.CHAT_DEBUG || '').toLowerCase() === 'true';
+const chatDebug = (...args) => {
+  if (!isChatDebugEnabled()) {
+    return;
+  }
+  console.log('[CHAT_DEBUG]', ...args);
+};
+
 const getPublicBaseUrl = () => {
   if (process.env.PUBLIC_BASE_URL) {
     return process.env.PUBLIC_BASE_URL.replace(/\/$/, '');
@@ -697,6 +705,15 @@ exports.processGupshupWebhook = async (body) => {
   const isIncomingEvent = eventType.includes('message') || (!isStatusUpdate && (Boolean(displayText) || isMediaType || Boolean(attachmentUrl)));
 
   if (isStatusUpdate) {
+    chatDebug('gupshup:status received', {
+      eventType,
+      rawStatus,
+      normalizedStatus: status,
+      messageId: messageId || '(missing)',
+      phone,
+      source,
+      destination,
+    });
     const updated = await updateMessageStatus({
       messageId,
       status,
@@ -705,6 +722,14 @@ exports.processGupshupWebhook = async (body) => {
       timestamp: eventTimestamp,
       reason,
       phone,
+    });
+
+    chatDebug('gupshup:status persisted', {
+      messageId: messageId || '(missing)',
+      status,
+      phone,
+      updated: Boolean(updated),
+      updatedMessageId: updated?.messageId,
     });
 
     emitChatUpdate({
@@ -716,6 +741,12 @@ exports.processGupshupWebhook = async (body) => {
       destination,
     });
 
+    chatDebug('gupshup:status socket emitted', {
+      eventType: 'status',
+      phone,
+      messageId,
+      status,
+    });
     return updated;
   }
 
