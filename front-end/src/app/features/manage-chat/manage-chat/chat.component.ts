@@ -6,7 +6,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { Subject, interval, of } from 'rxjs';
-import { catchError, startWith, switchMap, takeUntil } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, takeUntil } from 'rxjs/operators';
 import {
   ChatConversation,
   ChatStartResponse,
@@ -17,6 +17,7 @@ import {
   SendFileRequest,
   WhatsAppTemplateOption,
 } from './chat.service';
+import { Customer } from '../../../shared/models/customer.model';
 
 interface PendingMessage extends ChatMessage {
   isPending?: boolean;
@@ -83,6 +84,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   isStartingNewChat = false;
   newChatPhoneInput = '';
   newChatError = '';
+  customerSearchInput = '';
+  customerSuggestions: Customer[] = [];
+  selectedCustomer: Customer | null = null;
+  isSearchingCustomers = false;
+  hasSearchedCustomers = false;
   isCheckingSession = false;
   showScrollToBottomButton = false;
   unreadNewMessages = 0;
@@ -108,6 +114,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private readonly destroy$ = new Subject<void>();
   private readonly selectedConversation$ = new Subject<string>();
+  private readonly customerSearch$ = new Subject<string>();
   private readonly mockCampaigns = ['Lead Reactivation', 'KYC Follow-up', 'Payment Reminder', 'Demo Scheduling'];
   private readonly mockJourneySteps = ['new-enquiry', 'documents-pending', 'awaiting-payment', 'follow-up'];
   private readonly mockTags = ['priority', 'ivr-transfer', 'repeat-user', 'new-user', 'escalation'];
@@ -305,6 +312,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         const queryPhone = this.normalizePhone(params.get('phone') || '');
         if (queryPhone) {
           this.targetConversationPhone = queryPhone;
+          console.log('[Chat] query param phone received', queryPhone);
         }
 
         if (params.has('phone') && !this.hasSanitizedPhoneQueryParam) {
@@ -321,12 +329,41 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
           return;
         }
 
+        console.log('[Chat] attempting to select target phone', this.targetConversationPhone, {
+          conversationsLoaded: this.conversations.length,
+        });
         this.trySelectTargetConversation();
       });
 
     this.startConversationPolling();
     this.startMessagePolling();
     this.startRealtimeUpdates();
+
+    this.customerSearch$
+      .pipe(
+        map((value) => String(value || '').trim()),
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((query) => {
+          if (!query) {
+            this.customerSuggestions = [];
+            this.isSearchingCustomers = false;
+            this.hasSearchedCustomers = false;
+            return of({ success: true, data: [] as Customer[] });
+          }
+
+          this.isSearchingCustomers = true;
+          this.hasSearchedCustomers = true;
+          return this.chatService.searchCustomers(query).pipe(
+            catchError(() => of({ success: false, data: [] as Customer[] }))
+          );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((response) => {
+        this.isSearchingCustomers = false;
+        this.customerSuggestions = response.success && Array.isArray(response.data) ? response.data : [];
+      });
   }
 
   ngAfterViewInit(): void {
@@ -488,6 +525,16 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   selectConversation(conversation: ChatConversation): void {
+    // Backward-compatible wrapper for existing calls.
+    this.selectConversationInternal(conversation, false);
+  }
+
+  private selectConversationInternal(conversation: ChatConversation, skipSessionRefresh: boolean): void {
+    console.log('[Chat] selectConversation', {
+      id: conversation?._id,
+      phoneNumber: conversation?.phoneNumber,
+      skipSessionRefresh,
+    });
     const wasAlreadySelected = this.selectedConversation?._id === conversation._id;
     const normalizedPhone = this.normalizePhone(conversation.phoneNumber);
     const shouldPromptTemplate = Boolean(
@@ -514,7 +561,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       this.availableTemplates = [];
       this.selectedTemplateId = '';
     } else {
-      this.refreshSessionState(conversation.phoneNumber, shouldPromptTemplate);
+      if (!skipSessionRefresh) {
+        this.refreshSessionState(conversation.phoneNumber, shouldPromptTemplate);
+      }
     }
 
     if (wasAlreadySelected) {
@@ -538,6 +587,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.showNewChatModal = true;
     this.newChatError = '';
     this.newChatPhoneInput = '';
+    this.customerSearchInput = '';
+    this.customerSuggestions = [];
+    this.selectedCustomer = null;
+    this.isSearchingCustomers = false;
+    this.hasSearchedCustomers = false;
   }
 
   closeNewChatModal(): void {
@@ -548,10 +602,52 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.showNewChatModal = false;
     this.newChatError = '';
     this.newChatPhoneInput = '';
+    this.customerSearchInput = '';
+    this.customerSuggestions = [];
+    this.selectedCustomer = null;
+    this.isSearchingCustomers = false;
+    this.hasSearchedCustomers = false;
+  }
+
+  onCustomerSearchInputChanged(value: string): void {
+    if (this.isStartingNewChat) {
+      return;
+    }
+
+    this.customerSearchInput = value;
+    this.newChatError = '';
+
+    // If user edits input after selecting, clear selection until they pick again.
+    if (this.selectedCustomer) {
+      this.selectedCustomer = null;
+      this.newChatPhoneInput = '';
+    }
+
+    this.customerSearch$.next(value);
+  }
+
+  selectCustomerForNewChat(customer: Customer): void {
+    this.selectedCustomer = customer;
+    this.newChatError = '';
+
+    const phone = this.getCustomerPhone(customer);
+    this.newChatPhoneInput = phone;
+    const label = this.getCustomerLabel(customer, phone);
+    this.customerSearchInput = label;
+
+    // Keep suggestions around for a moment, but collapse UX-wise by clearing list.
+    this.customerSuggestions = [];
+    this.isSearchingCustomers = false;
+    this.hasSearchedCustomers = false;
   }
 
   startNewChat(): void {
     if (this.isStartingNewChat) {
+      return;
+    }
+
+    if (!this.selectedCustomer) {
+      this.newChatError = 'Select a customer to start chat.';
       return;
     }
 
@@ -563,26 +659,113 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.isStartingNewChat = true;
     this.newChatError = '';
+    console.log('[StartNewChat] clicked', {
+      selectedCustomer: this.selectedCustomer,
+      normalizedPhone,
+    });
 
-    const existingConversation = this.conversations.find((conversation) => this.normalizePhone(conversation.phoneNumber) === normalizedPhone);
-    const targetConversation = existingConversation || this.buildAdhocConversation(normalizedPhone);
-    if (!targetConversation) {
-      this.isStartingNewChat = false;
-      this.newChatError = 'Unable to start chat for this number. Please try again.';
-      return;
-    }
-
-    if (!existingConversation) {
-      this.conversations = this.sortConversationsForInbox([targetConversation, ...this.conversations]);
-    }
-
-    this.pendingTemplatePromptPhone = normalizedPhone;
-    this.selectConversation(targetConversation);
-    this.refreshConversationsFromApi(true);
-
-    this.isStartingNewChat = false;
+    // Close the modal immediately for snappy UX.
     this.showNewChatModal = false;
-    this.newChatPhoneInput = '';
+
+    // Navigate with query param for shareable deep-link + consistent selection logic.
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { phone: normalizedPhone },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    }).catch(() => {
+      // ignore navigation errors
+    });
+
+    // Also select immediately (don't rely solely on async route subscription timing).
+    this.targetConversationPhone = normalizedPhone;
+    this.trySelectTargetConversation();
+
+    const selectedName = String(this.selectedCustomer?.name || '').trim();
+
+    this.chatService.startChat(normalizedPhone)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          console.log('[StartNewChat] startChat response', response);
+
+          const existingConversation = this.conversations.find((conversation) => this.normalizePhone(conversation.phoneNumber) === normalizedPhone);
+          const baseConversation = existingConversation || this.buildAdhocConversation(normalizedPhone);
+          if (!baseConversation) {
+            this.isStartingNewChat = false;
+            this.newChatError = 'Unable to start chat for this number. Please try again.';
+            this.showNewChatModal = true;
+            return;
+          }
+
+          const targetConversation: ChatConversation = {
+            ...baseConversation,
+            clientName: selectedName || baseConversation.clientName,
+            phoneNumber: baseConversation.phoneNumber.startsWith('+') ? baseConversation.phoneNumber : `+${normalizedPhone}`,
+            updatedAt: new Date().toISOString(),
+          };
+
+          if (!existingConversation) {
+            this.conversations = this.sortConversationsForInbox([targetConversation, ...this.conversations]);
+          } else {
+            this.conversations = this.sortConversationsForInbox(this.conversations.map((item) => {
+              if (item._id !== existingConversation._id) {
+                return item;
+              }
+              return { ...item, clientName: targetConversation.clientName || item.clientName };
+            }));
+          }
+
+          // Apply session/templates returned by startChat without triggering a duplicate refresh call.
+          this.applyStartChatResponse(response);
+          this.selectConversationInternal(targetConversation, true);
+          if (!this.isSessionActive) {
+            this.openTemplateModal();
+          }
+          this.refreshConversationsFromApi(true);
+
+          this.isStartingNewChat = false;
+          this.newChatPhoneInput = '';
+          this.customerSearchInput = '';
+          this.customerSuggestions = [];
+          this.selectedCustomer = null;
+          this.isSearchingCustomers = false;
+          this.hasSearchedCustomers = false;
+        },
+        error: (error: unknown) => {
+          console.log('[StartNewChat] startChat error', error);
+          this.isStartingNewChat = false;
+          this.newChatError = 'Unable to start chat right now. Please try again.';
+          this.showNewChatModal = true;
+        },
+      });
+  }
+
+  get showNoCustomerResults(): boolean {
+    return (
+      !this.selectedCustomer
+      && this.hasSearchedCustomers
+      && !this.isSearchingCustomers
+      && this.customerSuggestions.length === 0
+      && this.customerSearchInput.trim().length > 0
+    );
+  }
+
+  get canStartNewChat(): boolean {
+    return !!this.selectedCustomer && !this.isStartingNewChat;
+  }
+
+  getCustomerPhone(customer: Customer): string {
+    return String(customer.mobile || customer.phoneNumber || customer.phone || '').trim();
+  }
+
+  getCustomerLabel(customer: Customer, phoneOverride?: string): string {
+    const name = String(customer.name || '').trim();
+    const phone = String((phoneOverride ?? this.getCustomerPhone(customer)) || '').trim();
+    if (name && phone) {
+      return `${name} • ${phone}`;
+    }
+    return name || phone || 'Customer';
   }
 
   toggleNotificationSound(): void {
@@ -1530,6 +1713,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       }
 
       const previousSelectionId = this.selectedConversation?._id;
+      const previousSelectionPhone = this.selectedConversation ? this.normalizePhone(this.selectedConversation.phoneNumber) : '';
       this.maybeNotifyForUnreadCountChanges(conversationsToRender);
       this.conversations = this.sortConversationsForInbox(conversationsToRender);
       this.lastConversationFetchAt = Date.now();
@@ -1546,6 +1730,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         }
       }
 
+      if (previousSelectionPhone) {
+        const refreshedByPhone = this.conversations.find((item) => this.normalizePhone(item.phoneNumber) === previousSelectionPhone);
+        if (refreshedByPhone) {
+          // Preserve selection when server-side _id differs from adhoc conversation id.
+          this.selectConversationInternal(refreshedByPhone, false);
+          return;
+        }
+      }
+
       if (!this.selectedConversation && this.conversations.length) {
         this.selectConversation(this.conversations[0]);
       }
@@ -1558,6 +1751,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         return false;
       }
     }
+
+    console.log('[Chat] trySelectTargetConversation', {
+      targetPhone: this.targetConversationPhone,
+      conversations: this.conversations.length,
+    });
 
     const match = this.conversations.find((conversation) => {
       return this.normalizePhone(conversation.phoneNumber) === this.targetConversationPhone;
@@ -1688,12 +1886,20 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
           return;
         }
 
+        const previousSelectionPhone = this.selectedConversation ? this.normalizePhone(this.selectedConversation.phoneNumber) : '';
         this.lastConversationFetchAt = Date.now();
         this.conversations = this.sortConversationsForInbox(response.data);
 
         if (this.selectedConversation?._id) {
           const refreshedSelection = this.conversations.find((item) => item._id === this.selectedConversation?._id) || null;
           this.selectedConversation = refreshedSelection;
+
+          if (!this.selectedConversation && previousSelectionPhone) {
+            const refreshedByPhone = this.conversations.find((item) => this.normalizePhone(item.phoneNumber) === previousSelectionPhone) || null;
+            if (refreshedByPhone) {
+              this.selectConversationInternal(refreshedByPhone, false);
+            }
+          }
         }
       });
   }

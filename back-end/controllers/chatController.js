@@ -19,7 +19,9 @@ const { resolveClientIdByPhone } = require('../services/activityHistoryService')
 const { getApprovedTemplates, invalidateTemplateCache } = require('../services/chatTemplateService');
 
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+// Persist mirrored attachments outside the backend folder so rebuilds/deploys don't wipe them.
+// controllers/ -> back-end/ -> project root -> uploads/
+const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
 
 const getPublicBaseUrl = () => {
   if (process.env.PUBLIC_BASE_URL) {

@@ -5,6 +5,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 
 dotenv.config();
 
@@ -68,7 +69,13 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   res.sendStatus(204);
 });
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Serve persistent uploads from project root (/uploads).
+const uploadsDir = path.resolve(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }

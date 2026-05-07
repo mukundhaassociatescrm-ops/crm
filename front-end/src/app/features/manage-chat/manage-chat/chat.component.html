@@ -491,25 +491,41 @@
           </div>
 
           <p class="template-helper">
-            Enter customer mobile number. We will check the WhatsApp session and guide you to direct chat or template start.
+            Search customer by name or phone. Select a customer to start a WhatsApp chat.
           </p>
 
-          <label class="template-field">
-            <span>Mobile number</span>
+          <label class="template-field customer-autocomplete">
+            <span>Customer</span>
             <input
-              type="tel"
-              [(ngModel)]="newChatPhoneInput"
-              placeholder="e.g. +91 9876543210"
+              type="text"
+              [ngModel]="customerSearchInput"
+              (ngModelChange)="onCustomerSearchInputChanged($event)"
+              placeholder="Type name or phone number"
+              autocomplete="off"
               [disabled]="isStartingNewChat"
               (keydown.enter)="startNewChat()"
             >
+
+            <div class="customer-suggestion-list" *ngIf="(customerSuggestions.length > 0) || isSearchingCustomers || showNoCustomerResults">
+              <div class="customer-suggestion-empty" *ngIf="isSearchingCustomers">Searching...</div>
+              <button
+                type="button"
+                class="customer-suggestion-item"
+                *ngFor="let customer of customerSuggestions"
+                (click)="selectCustomerForNewChat(customer)"
+              >
+                <span class="customer-suggestion-name">{{ customer.name || getCustomerPhone(customer) }}</span>
+                <span class="customer-suggestion-meta" *ngIf="customer.name">{{ getCustomerPhone(customer) }}</span>
+              </button>
+              <div class="customer-suggestion-empty" *ngIf="showNoCustomerResults">No results found.</div>
+            </div>
           </label>
 
           <p class="template-error" *ngIf="newChatError">{{ newChatError }}</p>
 
           <div class="template-modal-actions">
             <button type="button" class="template-secondary" (click)="closeNewChatModal()" [disabled]="isStartingNewChat">Cancel</button>
-            <button type="button" class="template-primary" (click)="startNewChat()" [disabled]="isStartingNewChat">
+            <button type="button" class="template-primary" (click)="startNewChat()" [disabled]="!canStartNewChat">
               {{ isStartingNewChat ? 'Starting...' : 'Start Chat' }}
             </button>
           </div>

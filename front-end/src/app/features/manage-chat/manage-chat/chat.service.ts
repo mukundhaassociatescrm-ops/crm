@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../../environments/environment';
+import { Customer } from '../../../shared/models/customer.model';
 
 export interface ChatConversation {
   _id: string;
@@ -165,6 +166,32 @@ export class ChatService {
 
   getConversations(): Observable<ApiListResponse<ChatConversation[]>> {
     return this.http.get<ApiListResponse<ChatConversation[]>>('/api/chat/conversations');
+  }
+
+  searchCustomers(query: string): Observable<ApiListResponse<Customer[]>> {
+    const q = String(query || '').trim();
+    if (!q) {
+      return new Observable<ApiListResponse<Customer[]>>((subscriber) => {
+        subscriber.next({ success: true, data: [] });
+        subscriber.complete();
+      });
+    }
+
+    // Backend uses "clients" as customers. Search is supported via GET /api/clients?search=...
+    // (The response also includes pagination; we only need `data` here.)
+    const params = new HttpParams()
+      .set('search', q)
+      .set('page', '1')
+      .set('limit', '10')
+      .set('sort', 'desc');
+
+    return this.http.get<any>('/api/clients', { params }).pipe(
+      map((response) => ({
+        success: Boolean(response?.success),
+        data: Array.isArray(response?.data) ? (response.data as Customer[]) : [],
+        message: response?.message,
+      }))
+    );
   }
 
   getMessages(conversationId: string): Observable<ApiListResponse<ChatMessage[]>> {

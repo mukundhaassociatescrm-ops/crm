@@ -2,7 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+// Persist uploads outside the backend folder so rebuilds/deploys don't wipe them.
+// controllers/ -> back-end/ -> project root -> uploads/
+const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
