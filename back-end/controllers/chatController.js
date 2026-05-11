@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const { sendGupshupTextMessage, sendGupshupFileMessage, sendGupshupTemplateMessage } = require('../services/gupshupApiService');
+const { sendGupshupTextMessage, sendGupshupFileMessage, sendGupshupTemplateMessage, normalizeDestination } = require('../services/gupshupApiService');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Client = require('../models/Client');
@@ -419,22 +419,41 @@ exports.sendChatFile = async (req, res, next) => {
 // Sends a WhatsApp template message through Gupshup and stores a local outgoing record.
 exports.sendChatTemplate = async (req, res, next) => {
   try {
-    const { to, templateId, params } = req.body || {};
+    console.log('[TEMPLATE REQUEST]', req.body);
 
-    if (!to || !templateId) {
+    const to = String(req.body?.to || req.body?.phone || '').trim();
+    const templateId = String(req.body?.templateId || '').trim();
+    const normalizedTo = normalizeDestination(to);
+    const templateParams = Array.isArray(req.body?.params) ? req.body.params : [];
+
+    if (!to) {
       return res.status(400).json({
         success: false,
-        message: 'to and templateId are required.',
+        message: 'Recipient is required',
       });
     }
 
-    await ensureChatParticipant(to);
+    if (!templateId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Template ID is required',
+      });
+    }
+
+    if (!/^91\d{10}$/.test(normalizedTo)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Recipient must be a valid WhatsApp number in 91XXXXXXXXXX format.',
+      });
+    }
+
+    await ensureChatParticipant(normalizedTo);
 
     // Validate that the templateId exists in the approved catalog before sending.
     const approvedTemplates = await safeLoadTemplates();
     const isApproved = approvedTemplates.some((t) => t.id === templateId);
     if (!isApproved) {
-      console.warn(`[sendChatTemplate] Rejected templateId "${templateId}" for ${to} — not found in approved catalog.`);
+      console.warn(`[sendChatTemplate] Rejected templateId "${templateId}" for ${normalizedTo} — not found in approved catalog.`);
       return res.status(400).json({
         success: false,
         code: 'TEMPLATE_NOT_APPROVED',
@@ -442,40 +461,33 @@ exports.sendChatTemplate = async (req, res, next) => {
       });
     }
 
-    const templateParams = Array.isArray(params) ? params : [];
-    console.log(`[sendChatTemplate] Sending template "${templateId}" to ${to} with ${templateParams.length} param(s).`);
+    console.log(`[sendChatTemplate] Sending template "${templateId}" to ${normalizedTo} with ${templateParams.length} param(s).`);
 
-    let result;
-    try {
-      result = await sendGupshupTemplateMessage({
-        to,
-        templateId,
-        params: templateParams,
-      });
-    } catch (providerError) {
-      console.error(`[sendChatTemplate] Provider error sending template "${templateId}" to ${to}:`, providerError?.message || providerError);
-      throw providerError;
-    }
+    const result = await sendGupshupTemplateMessage({
+      to: normalizedTo,
+      templateId,
+      params: templateParams,
+    });
 
     const messageId = result.messageId || `local-template-${Date.now()}`;
-    console.log(`[sendChatTemplate] Template "${templateId}" sent to ${to}, messageId=${messageId}.`);
+    console.log(`[sendChatTemplate] Template "${templateId}" sent to ${normalizedTo}, messageId=${messageId}.`);
 
     const summaryText = `Template: ${templateId}`;
     await saveMessage({
       messageId,
-      phone: to,
+      phone: normalizedTo,
       text: summaryText,
       type: 'text',
       direction: 'out',
       status: 'sent',
       timestamp: new Date(),
-      destination: to,
+      destination: normalizedTo,
       source: process.env.GUPSHUP_SOURCE || '916384322139',
     });
 
     emitChatUpdate({
       eventType: 'outgoing',
-      phone: normalizePhone(to),
+      phone: normalizePhone(normalizedTo),
       messageId,
       status: 'sent',
     });
@@ -490,7 +502,11 @@ exports.sendChatTemplate = async (req, res, next) => {
       },
     });
   } catch (error) {
-    next(error);
+    console.error('[TEMPLATE ERROR]', error?.response?.data || error?.message || error);
+    return res.status(400).json({
+      success: false,
+      message: error?.response?.data?.message || error?.message || 'Failed to send template message.',
+    });
   }
 };
 

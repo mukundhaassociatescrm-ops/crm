@@ -4,6 +4,7 @@ import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, 
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
+import { ToastrService } from 'ngx-toastr';
 import { environment } from '../../../../environments/environment';
 import { Subject, interval, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, takeUntil } from 'rxjs/operators';
@@ -49,6 +50,7 @@ interface ActiveFileViewer {
   styleUrl: './chat.component.scss'
 })
 export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
+  private readonly welcomeTemplateId = '979db7f9-5375-4067-9890-72fe87ffbb40';
   @ViewChild('messageScroller') private messageScroller?: ElementRef<HTMLDivElement>;
   @ViewChild('imageAttachmentInput') private imageAttachmentInput?: ElementRef<HTMLInputElement>;
   @ViewChild('documentAttachmentInput') private documentAttachmentInput?: ElementRef<HTMLInputElement>;
@@ -279,6 +281,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     private readonly sanitizer: DomSanitizer,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
+    private readonly toastr: ToastrService,
   ) {}
 
   ngOnInit(): void {
@@ -662,39 +665,27 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     console.log('[StartNewChat] clicked', {
       selectedCustomer: this.selectedCustomer,
       normalizedPhone,
+      templateId: this.welcomeTemplateId,
     });
-
-    // Close the modal immediately for snappy UX.
-    this.showNewChatModal = false;
-
-    // Navigate with query param for shareable deep-link + consistent selection logic.
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { phone: normalizedPhone },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    }).catch(() => {
-      // ignore navigation errors
-    });
-
-    // Also select immediately (don't rely solely on async route subscription timing).
-    this.targetConversationPhone = normalizedPhone;
-    this.trySelectTargetConversation();
 
     const selectedName = String(this.selectedCustomer?.name || '').trim();
 
-    this.chatService.startChat(normalizedPhone)
+    this.chatService.sendTemplate({
+      to: normalizedPhone,
+      phone: normalizedPhone,
+      templateId: this.welcomeTemplateId,
+      params: [],
+    })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
-          console.log('[StartNewChat] startChat response', response);
+          console.log('[StartNewChat] sendTemplate response', response);
 
           const existingConversation = this.conversations.find((conversation) => this.normalizePhone(conversation.phoneNumber) === normalizedPhone);
           const baseConversation = existingConversation || this.buildAdhocConversation(normalizedPhone);
           if (!baseConversation) {
             this.isStartingNewChat = false;
             this.newChatError = 'Unable to start chat for this number. Please try again.';
-            this.showNewChatModal = true;
             return;
           }
 
@@ -702,6 +693,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
             ...baseConversation,
             clientName: selectedName || baseConversation.clientName,
             phoneNumber: baseConversation.phoneNumber.startsWith('+') ? baseConversation.phoneNumber : `+${normalizedPhone}`,
+            lastMessage: `Template: ${this.welcomeTemplateId}`,
             updatedAt: new Date().toISOString(),
           };
 
@@ -712,16 +704,34 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
               if (item._id !== existingConversation._id) {
                 return item;
               }
-              return { ...item, clientName: targetConversation.clientName || item.clientName };
+              return {
+                ...item,
+                clientName: targetConversation.clientName || item.clientName,
+                lastMessage: targetConversation.lastMessage,
+                updatedAt: targetConversation.updatedAt,
+              };
             }));
           }
 
-          // Apply session/templates returned by startChat without triggering a duplicate refresh call.
-          this.applyStartChatResponse(response);
+          this.showNewChatModal = false;
+          this.targetConversationPhone = normalizedPhone;
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { phone: normalizedPhone },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+          }).catch(() => {
+            // ignore navigation errors
+          });
+
           this.selectConversationInternal(targetConversation, true);
-          if (!this.isSessionActive) {
-            this.openTemplateModal();
-          }
+          this.syncSelectedConversationPreview(targetConversation.lastMessage, targetConversation._id);
+          this.sessionState = 'active';
+          this.sessionInfo = {
+            lastIncomingAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          };
+          this.templateSentAwaitingReply = false;
           this.refreshConversationsFromApi(true);
 
           this.isStartingNewChat = false;
@@ -733,10 +743,13 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
           this.hasSearchedCustomers = false;
         },
         error: (error: unknown) => {
-          console.log('[StartNewChat] startChat error', error);
+          console.log('[StartNewChat] sendTemplate error', error);
           this.isStartingNewChat = false;
-          this.newChatError = 'Unable to start chat right now. Please try again.';
-          this.showNewChatModal = true;
+          const message = error instanceof HttpErrorResponse
+            ? String(error.error?.message || error.message || 'Unable to send welcome template right now. Please try again.')
+            : 'Unable to send welcome template right now. Please try again.';
+          this.newChatError = message;
+          this.toastr.error(message, 'Template Failed');
         },
       });
   }

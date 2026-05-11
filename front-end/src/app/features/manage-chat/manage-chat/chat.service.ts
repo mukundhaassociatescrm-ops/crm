@@ -93,6 +93,7 @@ export interface SendFileRequest {
 
 export interface SendTemplateRequest {
   to: string;
+  phone?: string;
   templateId: string;
   params: string[];
 }
@@ -286,7 +287,10 @@ export class ChatService {
   }
 
   sendTemplate(data: SendTemplateRequest): Observable<SendMessageResponse> {
-    return this.http.post<SendMessageResponse>('/api/chat/send-template', data);
+    return this.http.post<SendMessageResponse>('/api/chat/send-template', {
+      ...data,
+      phone: data.phone || data.to,
+    });
   }
 
   getTemplates(options?: { language?: string; refresh?: boolean }): Observable<ApiListResponse<WhatsAppTemplateOption[]>> {
