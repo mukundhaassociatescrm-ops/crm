@@ -449,32 +449,10 @@ exports.sendChatTemplate = async (req, res, next) => {
 
     await ensureChatParticipant(normalizedTo);
 
-    // Resolve template against approved catalog (match by id or name; Gupshup expects id).
-    const approvedTemplates = await safeLoadTemplates();
-    const template = approvedTemplates.find(
-      (t) => t.id === templateId || t.name === templateId
-    );
+    const finalTemplateId = templateId;
 
-    if (!template) {
-      console.error('[TEMPLATE VALIDATION FAILED]', {
-        templateId,
-        availableTemplates: approvedTemplates.map((t) => ({
-          id: t.id,
-          name: t.name,
-        })),
-      });
-      return res.status(400).json({
-        success: false,
-        code: 'TEMPLATE_NOT_APPROVED',
-        message: 'Template not found in approved template list',
-      });
-    }
-
-    const finalTemplateId = template.id;
-
-    console.log('[TEMPLATE SEND]', {
-      requestedTemplateId: templateId,
-      resolvedTemplateId: finalTemplateId,
+    console.log('[TEMPLATE SEND DIRECT]', {
+      templateId,
       params: templateParams,
     });
 
