@@ -449,30 +449,45 @@ exports.sendChatTemplate = async (req, res, next) => {
 
     await ensureChatParticipant(normalizedTo);
 
-    // Validate that the templateId exists in the approved catalog before sending.
+    // Resolve template against approved catalog (match by id or name; Gupshup expects id).
     const approvedTemplates = await safeLoadTemplates();
-    const isApproved = approvedTemplates.some((t) => t.id === templateId);
-    if (!isApproved) {
-      console.warn(`[sendChatTemplate] Rejected templateId "${templateId}" for ${normalizedTo} — not found in approved catalog.`);
+    const template = approvedTemplates.find(
+      (t) => t.id === templateId || t.name === templateId
+    );
+
+    if (!template) {
+      console.error('[TEMPLATE VALIDATION FAILED]', {
+        templateId,
+        availableTemplates: approvedTemplates.map((t) => ({
+          id: t.id,
+          name: t.name,
+        })),
+      });
       return res.status(400).json({
         success: false,
         code: 'TEMPLATE_NOT_APPROVED',
-        message: 'The specified template is not in the approved catalog.',
+        message: 'Template not found in approved template list',
       });
     }
 
-    console.log(`[sendChatTemplate] Sending template "${templateId}" to ${normalizedTo} with ${templateParams.length} param(s).`);
+    const finalTemplateId = template.id;
+
+    console.log('[TEMPLATE SEND]', {
+      requestedTemplateId: templateId,
+      resolvedTemplateId: finalTemplateId,
+      params: templateParams,
+    });
 
     const result = await sendGupshupTemplateMessage({
       to: normalizedTo,
-      templateId,
+      templateId: finalTemplateId,
       params: templateParams,
     });
 
     const messageId = result.messageId || `local-template-${Date.now()}`;
-    console.log(`[sendChatTemplate] Template "${templateId}" sent to ${normalizedTo}, messageId=${messageId}.`);
+    console.log(`[sendChatTemplate] Template "${finalTemplateId}" sent to ${normalizedTo}, messageId=${messageId}.`);
 
-    const summaryText = `Template: ${templateId}`;
+    const summaryText = `Template: ${finalTemplateId}`;
     await saveMessage({
       messageId,
       phone: normalizedTo,
@@ -497,7 +512,7 @@ exports.sendChatTemplate = async (req, res, next) => {
       data: {
         messageId,
         type: 'template',
-        templateId,
+        templateId: finalTemplateId,
         status: 'sent',
       },
     });

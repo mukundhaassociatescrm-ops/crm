@@ -50,7 +50,7 @@ interface ActiveFileViewer {
   styleUrl: './chat.component.scss'
 })
 export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
-  private readonly welcomeTemplateId = '979db7f9-5375-4067-9890-72fe87ffbb40';
+  private readonly welcomeTemplateId = '952044904124366';
   @ViewChild('messageScroller') private messageScroller?: ElementRef<HTMLDivElement>;
   @ViewChild('imageAttachmentInput') private imageAttachmentInput?: ElementRef<HTMLInputElement>;
   @ViewChild('documentAttachmentInput') private documentAttachmentInput?: ElementRef<HTMLInputElement>;
