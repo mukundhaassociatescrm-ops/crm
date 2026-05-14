@@ -451,9 +451,9 @@ exports.sendChatTemplate = async (req, res, next) => {
 
     const finalTemplateId = templateId;
 
-    console.log('[TEMPLATE SEND DIRECT]', {
-      templateId,
-      params: templateParams,
+    console.log('[TEMPLATE SEND CONFIRM]', {
+      type: 'template',
+      templateId: finalTemplateId,
     });
 
     const result = await sendGupshupTemplateMessage({

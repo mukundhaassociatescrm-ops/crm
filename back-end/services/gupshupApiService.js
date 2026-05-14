@@ -1,6 +1,9 @@
 const axios = require('axios');
 
 const GUPSHUP_SEND_URL = process.env.GUPSHUP_SEND_URL || 'https://api.gupshup.io/wa/api/v1/msg';
+/** HSM / template sends must use the template endpoint — /msg treats payloads as session messages and can trigger (#470) outside the 24h window. */
+const GUPSHUP_TEMPLATE_SEND_URL =
+  process.env.GUPSHUP_TEMPLATE_SEND_URL || 'https://api.gupshup.io/wa/api/v1/template/msg';
 const GUPSHUP_SOURCE = process.env.GUPSHUP_SOURCE || '916384322139';
 const GUPSHUP_SRC_NAME = process.env.GUPSHUP_SRC_NAME || '';
 
@@ -152,16 +155,32 @@ const sendGupshupTemplateMessage = async ({ to, templateId, params = [] }) => {
     ? params.map((value) => String(value ?? ''))
     : [];
 
+  const apiKey = process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY;
+  if (!apiKey) {
+    throw new Error('GUPSHUP_API_KEY is not configured.');
+  }
+
   const form = buildBaseForm(destination);
-  form.append('message', JSON.stringify({
-    type: 'template',
-    template: {
+  form.append(
+    'template',
+    JSON.stringify({
       id: String(templateId),
       params: normalizedParams,
-    },
-  }));
+    }),
+  );
 
-  return sendGupshupMessage(form);
+  const response = await axios.post(GUPSHUP_TEMPLATE_SEND_URL, form.toString(), {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      apikey: apiKey,
+    },
+    timeout: 15000,
+  });
+
+  return {
+    messageId: extractMessageId(response.data),
+    providerResponse: response.data,
+  };
 };
 
 module.exports = {
