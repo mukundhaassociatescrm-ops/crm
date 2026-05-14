@@ -50,7 +50,6 @@ interface ActiveFileViewer {
   styleUrl: './chat.component.scss'
 })
 export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
-  private readonly welcomeTemplateId = '952044904124366';
   @ViewChild('messageScroller') private messageScroller?: ElementRef<HTMLDivElement>;
   @ViewChild('imageAttachmentInput') private imageAttachmentInput?: ElementRef<HTMLInputElement>;
   @ViewChild('documentAttachmentInput') private documentAttachmentInput?: ElementRef<HTMLInputElement>;
@@ -92,6 +91,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   isSearchingCustomers = false;
   hasSearchedCustomers = false;
   isCheckingSession = false;
+  newChatAvailableTemplates: WhatsAppTemplateOption[] = [];
+  selectedNewChatTemplateId = '';
+  newChatTemplateVariables: Record<number, string> = {};
+  isLoadingNewChatTemplates = false;
   showScrollToBottomButton = false;
   unreadNewMessages = 0;
   selectedAttachment: SelectedAttachment | null = null;
@@ -496,6 +499,26 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.availableTemplates.find((item) => item.id === this.selectedTemplateId) || null;
   }
 
+  get selectedNewChatTemplate(): WhatsAppTemplateOption | null {
+    return this.newChatAvailableTemplates.find((item) => item.id === this.selectedNewChatTemplateId) || null;
+  }
+
+  get newChatTemplateVariableIndexes(): number[] {
+    const variables = this.selectedNewChatTemplate?.variables;
+    if (!Array.isArray(variables)) {
+      return [];
+    }
+    return [...variables].sort((a, b) => a - b);
+  }
+
+  getTemplateVariableCount(template: WhatsAppTemplateOption | null | undefined): number {
+    const variables = template?.variables;
+    if (!Array.isArray(variables)) {
+      return 0;
+    }
+    return variables.length;
+  }
+
   get templateCategories(): string[] {
     const categories = [...new Set(this.availableTemplates.map((item) => String(item.category || 'Utility').trim()).filter(Boolean))];
     return categories.sort((a, b) => a.localeCompare(b));
@@ -595,6 +618,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.selectedCustomer = null;
     this.isSearchingCustomers = false;
     this.hasSearchedCustomers = false;
+    this.selectedNewChatTemplateId = '';
+    this.newChatTemplateVariables = {};
+    this.loadNewChatTemplates();
   }
 
   closeNewChatModal(): void {
@@ -610,6 +636,49 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.selectedCustomer = null;
     this.isSearchingCustomers = false;
     this.hasSearchedCustomers = false;
+    this.selectedNewChatTemplateId = '';
+    this.newChatTemplateVariables = {};
+  }
+
+  onNewChatTemplateIdChanged(): void {
+    this.syncNewChatTemplateVariableMap();
+    this.newChatError = '';
+  }
+
+  onNewChatTemplateVariableChanged(index: number, value: string): void {
+    this.newChatTemplateVariables = {
+      ...this.newChatTemplateVariables,
+      [index]: value,
+    };
+  }
+
+  private loadNewChatTemplates(): void {
+    this.isLoadingNewChatTemplates = true;
+    this.newChatError = '';
+    this.chatService.getTemplates().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response) => {
+        this.isLoadingNewChatTemplates = false;
+        const templates = Array.isArray(response?.data) ? response.data : [];
+        this.newChatAvailableTemplates = templates;
+        if (!templates.length) {
+          this.newChatError = 'No WhatsApp templates available.';
+        }
+      },
+      error: () => {
+        this.isLoadingNewChatTemplates = false;
+        this.newChatAvailableTemplates = [];
+        this.newChatError = 'Unable to load WhatsApp templates. Try again later.';
+      },
+    });
+  }
+
+  private syncNewChatTemplateVariableMap(): void {
+    const requiredIndexes = this.newChatTemplateVariableIndexes;
+    const nextMap: Record<number, string> = {};
+    requiredIndexes.forEach((index) => {
+      nextMap[index] = this.newChatTemplateVariables[index] || '';
+    });
+    this.newChatTemplateVariables = nextMap;
   }
 
   onCustomerSearchInputChanged(value: string): void {
@@ -660,12 +729,25 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    if (!this.selectedNewChatTemplateId) {
+      this.newChatError = 'Select a WhatsApp template.';
+      return;
+    }
+
+    const variableIndexes = this.newChatTemplateVariableIndexes;
+    const params = variableIndexes.map((index) => String(this.newChatTemplateVariables[index] || '').trim());
+    if (variableIndexes.length > 0 && params.some((value) => !value)) {
+      this.newChatError = 'Fill all template variables.';
+      return;
+    }
+
     this.isStartingNewChat = true;
     this.newChatError = '';
     console.log('[StartNewChat] clicked', {
       selectedCustomer: this.selectedCustomer,
       normalizedPhone,
-      templateId: this.welcomeTemplateId,
+      templateId: this.selectedNewChatTemplateId,
+      expectedParamCount: variableIndexes.length,
     });
 
     const selectedName = String(this.selectedCustomer?.name || '').trim();
@@ -673,8 +755,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.chatService.sendTemplate({
       to: normalizedPhone,
       phone: normalizedPhone,
-      templateId: this.welcomeTemplateId,
-      params: [],
+      templateId: this.selectedNewChatTemplateId,
+      params,
+      expectedParamCount: variableIndexes.length,
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -693,7 +776,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
             ...baseConversation,
             clientName: selectedName || baseConversation.clientName,
             phoneNumber: baseConversation.phoneNumber.startsWith('+') ? baseConversation.phoneNumber : `+${normalizedPhone}`,
-            lastMessage: `Template: ${this.welcomeTemplateId}`,
+            lastMessage: `Template: ${this.selectedNewChatTemplateId}`,
             updatedAt: new Date().toISOString(),
           };
 
@@ -765,7 +848,17 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get canStartNewChat(): boolean {
-    return !!this.selectedCustomer && !this.isStartingNewChat;
+    if (!this.selectedCustomer || this.isStartingNewChat || this.isLoadingNewChatTemplates) {
+      return false;
+    }
+    if (!this.selectedNewChatTemplateId) {
+      return false;
+    }
+    const indexes = this.newChatTemplateVariableIndexes;
+    if (indexes.length === 0) {
+      return true;
+    }
+    return indexes.every((index) => String(this.newChatTemplateVariables[index] || '').trim().length > 0);
   }
 
   getCustomerPhone(customer: Customer): string {
@@ -1465,14 +1558,21 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    const variableIndexes = this.selectedTemplateVariableIndexes;
+    const params = variableIndexes.map((index) => String(this.templateVariables[index] || '').trim());
+    if (variableIndexes.length > 0 && params.some((value) => !value)) {
+      this.templateModalError = 'Fill all template variables.';
+      return;
+    }
+
     this.isSendingTemplate = true;
     this.templateModalError = '';
 
-    const params = this.selectedTemplateVariableIndexes.map((index) => String(this.templateVariables[index] || '').trim());
     this.chatService.sendTemplate({
       to: this.selectedConversation.phoneNumber,
       templateId: this.selectedTemplateId,
       params,
+      expectedParamCount: variableIndexes.length,
     }).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.isSendingTemplate = false;

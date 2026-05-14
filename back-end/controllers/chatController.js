@@ -419,12 +419,9 @@ exports.sendChatFile = async (req, res, next) => {
 // Sends a WhatsApp template message through Gupshup and stores a local outgoing record.
 exports.sendChatTemplate = async (req, res, next) => {
   try {
-    console.log('[TEMPLATE REQUEST]', req.body);
-
     const to = String(req.body?.to || req.body?.phone || '').trim();
     const templateId = String(req.body?.templateId || '').trim();
     const normalizedTo = normalizeDestination(to);
-    const templateParams = Array.isArray(req.body?.params) ? req.body.params : [];
 
     if (!to) {
       return res.status(400).json({
@@ -436,9 +433,41 @@ exports.sendChatTemplate = async (req, res, next) => {
     if (!templateId) {
       return res.status(400).json({
         success: false,
-        message: 'Template ID is required',
+        message: 'Template ID required',
       });
     }
+
+    if (!Array.isArray(req.body?.params)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Params must be array',
+      });
+    }
+
+    const templateParams = req.body.params.map((value) => String(value ?? ''));
+
+    const expectedRaw = req.body?.expectedParamCount ?? req.body?.variableCount;
+    const expectedParamCount = Number.parseInt(String(expectedRaw ?? ''), 10);
+    if (Number.isFinite(expectedParamCount) && expectedParamCount > 0) {
+      if (templateParams.length !== expectedParamCount) {
+        return res.status(400).json({
+          success: false,
+          message: `Template requires ${expectedParamCount} parameter(s)`,
+        });
+      }
+      const allFilled = templateParams.every((p) => String(p).trim() !== '');
+      if (!allFilled) {
+        return res.status(400).json({
+          success: false,
+          message: 'Template parameters required',
+        });
+      }
+    }
+
+    console.log('[TEMPLATE REQUEST]', {
+      templateId,
+      params: templateParams,
+    });
 
     if (!/^91\d{10}$/.test(normalizedTo)) {
       return res.status(400).json({
@@ -449,23 +478,21 @@ exports.sendChatTemplate = async (req, res, next) => {
 
     await ensureChatParticipant(normalizedTo);
 
-    const finalTemplateId = templateId;
-
     console.log('[TEMPLATE SEND CONFIRM]', {
       type: 'template',
-      templateId: finalTemplateId,
+      templateId,
     });
 
     const result = await sendGupshupTemplateMessage({
       to: normalizedTo,
-      templateId: finalTemplateId,
+      templateId,
       params: templateParams,
     });
 
     const messageId = result.messageId || `local-template-${Date.now()}`;
-    console.log(`[sendChatTemplate] Template "${finalTemplateId}" sent to ${normalizedTo}, messageId=${messageId}.`);
+    console.log(`[sendChatTemplate] Template "${templateId}" sent to ${normalizedTo}, messageId=${messageId}.`);
 
-    const summaryText = `Template: ${finalTemplateId}`;
+    const summaryText = `Template: ${templateId}`;
     await saveMessage({
       messageId,
       phone: normalizedTo,
@@ -490,7 +517,7 @@ exports.sendChatTemplate = async (req, res, next) => {
       data: {
         messageId,
         type: 'template',
-        templateId: finalTemplateId,
+        templateId,
         status: 'sent',
       },
     });

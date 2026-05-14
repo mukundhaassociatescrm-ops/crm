@@ -38,21 +38,52 @@
         <label>Message Channel</label>
         <div class="channel-toggle">
           <label>
-            <input type="radio" name="channel" [(ngModel)]="selectedChannel" value="sms">
+            <input type="radio" name="channel" [(ngModel)]="selectedChannel" value="sms" (ngModelChange)="onMessageChannelChange()">
             SMS
           </label>
           <label>
-            <input type="radio" name="channel" [(ngModel)]="selectedChannel" value="whatsapp">
+            <input type="radio" name="channel" [(ngModel)]="selectedChannel" value="whatsapp" (ngModelChange)="onMessageChannelChange()">
             WhatsApp
           </label>
         </div>
       </div>
 
+      <div class="form-group" *ngIf="selectedChannel === 'whatsapp'">
+        <label>WhatsApp template</label>
+        <select
+          [(ngModel)]="selectedBulkTemplateId"
+          (ngModelChange)="onBulkTemplateIdChanged()"
+          [disabled]="isSending || isLoadingBulkTemplates"
+        >
+          <option value="">{{ isLoadingBulkTemplates ? 'Loading templates...' : '-- Select template --' }}</option>
+          <option *ngFor="let t of bulkWhatsAppTemplates" [value]="t.id">
+            {{ t.name || t.id }} · {{ getTemplateVariableCount(t) }} variable(s)
+          </option>
+        </select>
+        <div class="field-note" *ngIf="!isLoadingBulkTemplates && selectedChannel === 'whatsapp' && !bulkWhatsAppTemplates.length">
+          No templates loaded. Check API configuration or try again after switching channel.
+        </div>
+      </div>
+
+      <div class="form-group" *ngIf="selectedChannel === 'whatsapp' && bulkTemplateVariableIndexes.length > 0">
+        <label>Template variables</label>
+        <div *ngFor="let index of bulkTemplateVariableIndexes" class="template-var-row">
+          <span class="var-label">Variable {{ index }}</span>
+          <input
+            type="text"
+            [ngModel]="bulkTemplateVariables[index] || ''"
+            (ngModelChange)="onBulkTemplateVariableChanged(index, $event)"
+            [attr.placeholder]="'Value for variable ' + index"
+            [disabled]="isSending"
+          >
+        </div>
+      </div>
+
       <!-- Message -->
       <div class="form-group">
-        <label>Message</label>
+        <label>{{ selectedChannel === 'whatsapp' ? 'Log label (optional)' : 'Message' }}</label>
         <textarea rows="6"
-                  placeholder="Enter your message..."
+                  [placeholder]="selectedChannel === 'whatsapp' ? 'Optional note for message log…' : 'Enter your message...'"
                   [(ngModel)]="messageText">
         </textarea>
       </div>

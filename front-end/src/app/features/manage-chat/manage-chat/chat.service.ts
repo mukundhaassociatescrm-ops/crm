@@ -96,6 +96,8 @@ export interface SendTemplateRequest {
   phone?: string;
   templateId: string;
   params: string[];
+  /** When set and > 0, server validates param count and non-empty values. */
+  expectedParamCount?: number;
 }
 
 export interface WhatsAppTemplateOption {

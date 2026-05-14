@@ -8,6 +8,10 @@ export interface SendBulkMessagePayload {
   groupId: string;
   message: string;
   channel: MessageChannel;
+  /** Required when channel is whatsapp */
+  templateId?: string;
+  params?: string[];
+  expectedParamCount?: number;
 }
 
 export interface SendBulkMessageResponse {

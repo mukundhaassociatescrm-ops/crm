@@ -2,7 +2,7 @@ const Group = require('../models/Group');
 const MessageLog = require('../models/MessageLog');
 const Message = require('../models/Message');
 const { sendWhatsAppMessage, sendMessage: sendWhatsAppChatMessage } = require('../services/whatsappService');
-const { sendGupshupTextMessage, normalizeDestination } = require('../services/gupshupApiService');
+const { sendGupshupTextMessage, sendGupshupTemplateMessage, normalizeDestination } = require('../services/gupshupApiService');
 const { sendFast2SmsBulk, normalizeIndianMobile } = require('../services/fast2smsService');
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -13,13 +13,48 @@ exports.sendBulkMessage = async (req, res, next) => {
     const { groupId, message, channel = 'sms' } = req.body;
     const normalizedChannel = String(channel).toLowerCase();
 
-    if (!groupId || !message) {
-      return res.status(400).json({ success: false, message: 'groupId and message are required.' });
+    if (!groupId) {
+      return res.status(400).json({ success: false, message: 'groupId is required.' });
     }
 
     if (!['sms', 'whatsapp'].includes(normalizedChannel)) {
       return res.status(400).json({ success: false, message: "channel must be either 'sms' or 'whatsapp'." });
     }
+
+    if (normalizedChannel === 'sms' && !String(message || '').trim()) {
+      return res.status(400).json({ success: false, message: 'message is required for SMS.' });
+    }
+
+    let whatsappTemplateId = '';
+    let whatsappTemplateParams = [];
+    if (normalizedChannel === 'whatsapp') {
+      whatsappTemplateId = String(req.body?.templateId || '').trim();
+      if (!whatsappTemplateId) {
+        return res.status(400).json({ success: false, message: 'templateId is required for WhatsApp bulk sends.' });
+      }
+      if (!Array.isArray(req.body?.params)) {
+        return res.status(400).json({ success: false, message: 'Params must be array' });
+      }
+      whatsappTemplateParams = req.body.params.map((value) => String(value ?? ''));
+      const expectedRaw = req.body?.expectedParamCount ?? req.body?.variableCount;
+      const expectedParamCount = Number.parseInt(String(expectedRaw ?? ''), 10);
+      if (Number.isFinite(expectedParamCount) && expectedParamCount > 0) {
+        if (whatsappTemplateParams.length !== expectedParamCount) {
+          return res.status(400).json({
+            success: false,
+            message: `Template requires ${expectedParamCount} parameter(s)`,
+          });
+        }
+        const allFilled = whatsappTemplateParams.every((p) => String(p).trim() !== '');
+        if (!allFilled) {
+          return res.status(400).json({ success: false, message: 'Template parameters required' });
+        }
+      }
+    }
+
+    const logMessage = normalizedChannel === 'sms'
+      ? String(message || '').trim()
+      : `WhatsApp template ${whatsappTemplateId}`;
 
     const group = await Group.findById(groupId);
     if (!group) {
@@ -38,7 +73,7 @@ exports.sendBulkMessage = async (req, res, next) => {
 
     log = await MessageLog.create({
       groupId,
-      message,
+      message: logMessage,
       channel: normalizedChannel,
       sentBy: req.user._id,
       totalRecipients,
@@ -80,10 +115,13 @@ exports.sendBulkMessage = async (req, res, next) => {
       const perMessageDelayMs = 300;
       for (const contact of contacts) {
         const normalizedPhone = normalizeDestination(contact.mobile);
-        console.log('[WA TRY]', contact.mobile, { normalizedPhone });
+        console.log('[WA TRY]', contact.mobile, { normalizedPhone, templateId: whatsappTemplateId });
         try {
-          // Reuse the same working WhatsApp sender used by chat flow.
-          const providerResult = await sendGupshupTextMessage({ to: normalizedPhone || contact.mobile, message });
+          const providerResult = await sendGupshupTemplateMessage({
+            to: normalizedPhone || contact.mobile,
+            templateId: whatsappTemplateId,
+            params: whatsappTemplateParams,
+          });
           sentCount += 1;
           console.log('[WA SUCCESS]', contact.mobile, providerResult);
           console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'success' });

@@ -5,7 +5,8 @@ const GUPSHUP_SEND_URL = process.env.GUPSHUP_SEND_URL || 'https://api.gupshup.io
 const GUPSHUP_TEMPLATE_SEND_URL =
   process.env.GUPSHUP_TEMPLATE_SEND_URL || 'https://api.gupshup.io/wa/api/v1/template/msg';
 const GUPSHUP_SOURCE = process.env.GUPSHUP_SOURCE || '916384322139';
-const GUPSHUP_SRC_NAME = process.env.GUPSHUP_SRC_NAME || '';
+const GUPSHUP_SRC_NAME =
+  process.env.GUPSHUP_SRC_NAME || process.env.GUPSHUP_APP_NAME || '';
 
 const normalizeDestination = (value) => {
   const raw = String(value || '').trim();

@@ -521,6 +521,33 @@
             </div>
           </label>
 
+          <label class="template-field" *ngIf="newChatAvailableTemplates.length || isLoadingNewChatTemplates">
+            <span>WhatsApp template</span>
+            <select
+              [(ngModel)]="selectedNewChatTemplateId"
+              (ngModelChange)="onNewChatTemplateIdChanged()"
+              [disabled]="isStartingNewChat || isLoadingNewChatTemplates"
+            >
+              <option value="">{{ isLoadingNewChatTemplates ? 'Loading templates...' : '-- Select template --' }}</option>
+              <option *ngFor="let t of newChatAvailableTemplates" [value]="t.id">
+                {{ t.name || t.id }} · {{ getTemplateVariableCount(t) }} variable(s)
+              </option>
+            </select>
+          </label>
+
+          <div class="template-variables" *ngIf="newChatTemplateVariableIndexes.length > 0">
+            <label class="template-field" *ngFor="let index of newChatTemplateVariableIndexes">
+              <span>Variable {{ index }}</span>
+              <input
+                type="text"
+                [ngModel]="newChatTemplateVariables[index] || ''"
+                (ngModelChange)="onNewChatTemplateVariableChanged(index, $event)"
+                [attr.placeholder]="'Value for variable ' + index"
+                [disabled]="isStartingNewChat"
+              >
+            </label>
+          </div>
+
           <p class="template-error" *ngIf="newChatError">{{ newChatError }}</p>
 
           <div class="template-modal-actions">
