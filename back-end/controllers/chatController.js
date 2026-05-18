@@ -11,6 +11,7 @@ const {
   getMessagesByPhone,
   getConversationSummaries,
   normalizePhone,
+  buildPhoneLookupCandidates,
   normalizeStatus,
   markConversationAsRead,
 } = require('../services/chatMessageStore');
@@ -171,7 +172,18 @@ const ensureChatParticipant = async (phoneNumber, { ensureConversation = false }
 
 const getSessionStateForPhone = async (phoneNumber) => {
   const normalizedPhone = normalizePhone(phoneNumber);
+  const phoneCandidates = buildPhoneLookupCandidates(normalizedPhone);
+  const now = new Date();
+
   if (!normalizedPhone) {
+    console.log('[SESSION CHECK DEBUG]', {
+      phone: phoneNumber,
+      normalizedPhone,
+      phoneCandidates,
+      conversationFound: false,
+      lastIncoming: null,
+      reason: 'empty_phone',
+    });
     return {
       isActive: false,
       lastIncomingAt: null,
@@ -179,8 +191,20 @@ const getSessionStateForPhone = async (phoneNumber) => {
     };
   }
 
-  const conversation = await Conversation.findOne({ phoneNumber: normalizedPhone }).select('_id');
+  const conversation = await Conversation.findOne({
+    phoneNumber: { $in: phoneCandidates },
+  }).select('_id phoneNumber').sort({ updatedAt: -1 });
+
   if (!conversation?._id) {
+    console.log('[SESSION CHECK DEBUG]', {
+      phone: phoneNumber,
+      normalizedPhone,
+      phoneCandidates,
+      conversationFound: false,
+      lastIncoming: null,
+      reason: 'no_conversation',
+      now,
+    });
     return {
       isActive: false,
       lastIncomingAt: null,
@@ -191,7 +215,39 @@ const getSessionStateForPhone = async (phoneNumber) => {
   const latestIncoming = await Message.findOne({
     conversationId: conversation._id,
     direction: { $in: ['in', 'incoming'] },
-  }).sort({ timestamp: -1 }).select('timestamp');
+  }).sort({ timestamp: -1 }).select('timestamp direction createdAt messageId');
+
+  const lastIncomingAt = latestIncoming?.timestamp ? new Date(latestIncoming.timestamp) : null;
+  const diffHours = lastIncomingAt
+    ? (now.getTime() - lastIncomingAt.getTime()) / (1000 * 60 * 60)
+    : null;
+  const expiresAt = lastIncomingAt
+    ? new Date(lastIncomingAt.getTime() + SESSION_WINDOW_MS)
+    : null;
+  const isActive = Boolean(lastIncomingAt && Date.now() < expiresAt.getTime());
+
+  console.log('[SESSION CHECK DEBUG]', {
+    phone: phoneNumber,
+    normalizedPhone,
+    phoneCandidates,
+    conversationId: String(conversation._id),
+    conversationPhone: conversation.phoneNumber,
+    lastIncoming: latestIncoming
+      ? {
+        messageId: latestIncoming.messageId,
+        direction: latestIncoming.direction,
+        timestamp: latestIncoming.timestamp,
+        createdAt: latestIncoming.createdAt,
+      }
+      : null,
+    direction: latestIncoming?.direction,
+    createdAt: latestIncoming?.createdAt,
+    now,
+    diffHours: diffHours !== null ? Number(diffHours.toFixed(2)) : null,
+    within24h: diffHours !== null ? diffHours < 24 : false,
+    isActive,
+    expiresAt,
+  });
 
   if (!latestIncoming?.timestamp) {
     return {
@@ -201,11 +257,8 @@ const getSessionStateForPhone = async (phoneNumber) => {
     };
   }
 
-  const lastIncomingAt = new Date(latestIncoming.timestamp);
-  const expiresAt = new Date(lastIncomingAt.getTime() + SESSION_WINDOW_MS);
-
   return {
-    isActive: Date.now() < expiresAt.getTime(),
+    isActive,
     lastIncomingAt,
     expiresAt,
   };
@@ -336,11 +389,13 @@ exports.sendChatMessage = async (req, res, next) => {
 
     await ensureChatParticipant(to);
 
+    const normalizedTo = normalizePhone(to);
     const sessionState = await getSessionStateForPhone(to);
     const hasActiveSession = sessionState.isActive;
     console.log('[SESSION CHECK]', {
       to,
-      normalizedPhone: normalizePhone(to),
+      normalizedPhone: normalizedTo,
+      outgoingDestination: normalizeDestination(to),
       hasActiveSession,
       lastIncomingAt: sessionState.lastIncomingAt,
       expiresAt: sessionState.expiresAt,
@@ -841,19 +896,34 @@ exports.processGupshupWebhook = async (body) => {
       }
     }
 
+    const inboundDirection = isFromBusiness ? 'out' : 'in';
+    const normalizedCustomerPhone = normalizePhone(phone);
+
     const saved = await saveMessage({
       messageId: messageId || `incoming-${Date.now()}`,
-      phone,
+      phone: normalizedCustomerPhone,
       text: displayText,
       type: isKnownMediaType || attachmentUrl ? 'file' : 'text',
       fileUrl: persistedAttachmentUrl,
       filename: persistedFilename,
       mimeType: persistedMimeType,
-      direction: isFromBusiness ? 'out' : 'in',
+      direction: inboundDirection,
       status: 'sent',
       timestamp: eventTimestamp,
       source,
       destination,
+    });
+
+    console.log('[INCOMING MESSAGE SAVED]', {
+      phone: normalizedCustomerPhone,
+      rawPhone: phone,
+      source,
+      destination,
+      businessSource,
+      isFromBusiness,
+      direction: saved?.direction || inboundDirection,
+      createdAt: saved?.timestamp || eventTimestamp,
+      messageId: saved?.messageId || messageId,
     });
 
     chatDebug('gupshup:incoming saved', {

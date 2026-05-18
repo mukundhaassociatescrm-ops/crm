@@ -14,7 +14,28 @@ const normalizePhone = (value) => {
   if (!value) {
     return '';
   }
-  return String(value).replace(/^whatsapp:/i, '').replace(/\D/g, '').trim();
+  const digits = String(value).replace(/^whatsapp:/i, '').replace(/\D/g, '').trim();
+  if (!digits) {
+    return '';
+  }
+  // Align with Gupshup destination format (91XXXXXXXXXX) so session lookup matches stored conversations.
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+  return digits;
+};
+
+const buildPhoneLookupCandidates = (normalizedPhone) => {
+  if (!normalizedPhone) {
+    return [];
+  }
+  const candidates = new Set([normalizedPhone]);
+  if (normalizedPhone.length === 12 && normalizedPhone.startsWith('91')) {
+    candidates.add(normalizedPhone.slice(2));
+  } else if (normalizedPhone.length === 10) {
+    candidates.add(`91${normalizedPhone}`);
+  }
+  return Array.from(candidates);
 };
 
 const normalizeStatus = (value, fallback = 'sent') => {
@@ -30,8 +51,11 @@ const normalizeStatus = (value, fallback = 'sent') => {
 
 const normalizeDirection = (value, fallback = 'out') => {
   const direction = String(value || '').toLowerCase();
-  if (direction === 'in' || direction === 'out') {
-    return direction;
+  if (direction === 'in' || direction === 'incoming') {
+    return 'in';
+  }
+  if (direction === 'out' || direction === 'outgoing') {
+    return 'out';
   }
   return fallback;
 };
@@ -301,7 +325,10 @@ const getMessagesByPhone = async (phone) => {
     return [];
   }
 
-  const conversation = await Conversation.findOne({ phoneNumber: normalizedPhone }).select('_id phoneNumber');
+  const phoneCandidates = buildPhoneLookupCandidates(normalizedPhone);
+  const conversation = await Conversation.findOne({ phoneNumber: { $in: phoneCandidates } })
+    .select('_id phoneNumber')
+    .sort({ updatedAt: -1 });
   if (!conversation?._id) {
     return [];
   }
@@ -329,8 +356,9 @@ const markConversationAsRead = async (phone) => {
     return null;
   }
 
+  const phoneCandidates = buildPhoneLookupCandidates(normalizedPhone);
   return Conversation.findOneAndUpdate(
-    { phoneNumber: normalizedPhone },
+    { phoneNumber: { $in: phoneCandidates } },
     {
       $set: {
         unreadCount: 0,
@@ -343,6 +371,7 @@ const markConversationAsRead = async (phone) => {
 
 module.exports = {
   normalizePhone,
+  buildPhoneLookupCandidates,
   normalizeStatus,
   saveMessage,
   updateMessageStatus,
