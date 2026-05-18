@@ -1,5 +1,9 @@
+const mongoose = require('mongoose');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+
+const INBOUND_DIRECTIONS = ['in', 'incoming'];
+const OUTBOUND_DIRECTIONS = ['out', 'outgoing'];
 
 const isChatDebugEnabled = () => String(process.env.CHAT_DEBUG || '').toLowerCase() === 'true';
 
@@ -62,34 +66,181 @@ const maybeNormalizeEndpoint = (value) => {
   return normalizePhone(raw) || raw;
 };
 
-const resolveConversationByPhone = async (phone, { sortByRecent = true } = {}) => {
+const pickPrimaryConversation = async (canonicalPhone, conversations) => {
+  if (!conversations.length) {
+    return null;
+  }
+  if (conversations.length === 1) {
+    return conversations[0];
+  }
+
+  const conversationIds = conversations.map((item) => item._id);
+  const inboundStats = await Message.aggregate([
+    {
+      $match: {
+        conversationId: { $in: conversationIds },
+        direction: { $in: INBOUND_DIRECTIONS },
+      },
+    },
+    {
+      $group: {
+        _id: '$conversationId',
+        inboundCount: { $sum: 1 },
+        latestInboundAt: { $max: '$timestamp' },
+      },
+    },
+  ]);
+
+  const statsByConversationId = new Map(
+    inboundStats.map((item) => [String(item._id), item]),
+  );
+
+  let primary = conversations[0];
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const conversation of conversations) {
+    const stats = statsByConversationId.get(String(conversation._id)) || {};
+    const inboundCount = Number(stats.inboundCount || 0);
+    const latestInboundAt = stats.latestInboundAt ? new Date(stats.latestInboundAt).getTime() : 0;
+    const canonicalBonus = conversation.phoneNumber === canonicalPhone ? 1e12 : 0;
+    const score = canonicalBonus + inboundCount * 1e9 + latestInboundAt;
+
+    if (score > bestScore) {
+      bestScore = score;
+      primary = conversation;
+    }
+  }
+
+  return primary;
+};
+
+const mergeDuplicateConversations = async (canonicalPhone, conversations) => {
+  if (!conversations.length) {
+    return null;
+  }
+
+  const primary = await pickPrimaryConversation(canonicalPhone, conversations);
+  if (!primary?._id) {
+    return null;
+  }
+
+  const duplicates = conversations.filter((item) => String(item._id) !== String(primary._id));
+  let mergedUnread = Number(primary.unreadCount || 0);
+  let mergedLastMessage = String(primary.lastMessage || '');
+  let mergedLastReadAt = primary.lastReadAt || null;
+  let mergedUpdatedAt = primary.updatedAt || primary.createdAt || new Date();
+
+  for (const duplicate of duplicates) {
+    await Message.updateMany(
+      { conversationId: duplicate._id },
+      { $set: { conversationId: primary._id } },
+    );
+
+    mergedUnread += Number(duplicate.unreadCount || 0);
+    if (!mergedLastMessage && duplicate.lastMessage) {
+      mergedLastMessage = String(duplicate.lastMessage);
+    }
+    if (duplicate.lastReadAt && (!mergedLastReadAt || new Date(duplicate.lastReadAt) > new Date(mergedLastReadAt))) {
+      mergedLastReadAt = duplicate.lastReadAt;
+    }
+    if (duplicate.updatedAt && new Date(duplicate.updatedAt) > new Date(mergedUpdatedAt)) {
+      mergedUpdatedAt = duplicate.updatedAt;
+    }
+
+    await Conversation.deleteOne({ _id: duplicate._id });
+  }
+
+  primary.phoneNumber = canonicalPhone;
+  primary.unreadCount = mergedUnread;
+  if (mergedLastMessage) {
+    primary.lastMessage = mergedLastMessage;
+  }
+  if (mergedLastReadAt) {
+    primary.lastReadAt = mergedLastReadAt;
+  }
+  primary.updatedAt = mergedUpdatedAt;
+  await primary.save();
+
+  return primary;
+};
+
+const resolveConversationByPhone = async (phone) => {
   const canonicalPhone = normalizePhone(phone);
   if (!canonicalPhone) {
     return { canonicalPhone: '', conversation: null };
   }
 
   const phoneCandidates = buildPhoneLookupCandidates(canonicalPhone);
-  const query = Conversation.findOne({ phoneNumber: { $in: phoneCandidates } });
-  let conversation = sortByRecent
-    ? await query.sort({ updatedAt: -1 })
-    : await query;
+  const conversations = await Conversation.find({ phoneNumber: { $in: phoneCandidates } });
+  const conversation = await mergeDuplicateConversations(canonicalPhone, conversations);
 
-  if (conversation && conversation.phoneNumber !== canonicalPhone) {
-    const duplicate = await Conversation.findOne({ phoneNumber: canonicalPhone }).select('_id phoneNumber');
-    if (duplicate && String(duplicate._id) !== String(conversation._id)) {
-      await Message.updateMany(
-        { conversationId: conversation._id },
-        { $set: { conversationId: duplicate._id } },
-      );
-      await Conversation.deleteOne({ _id: conversation._id });
-      conversation = duplicate;
-    } else {
-      conversation.phoneNumber = canonicalPhone;
-      await conversation.save();
+  return { canonicalPhone, conversation };
+};
+
+const findLastIncomingMessage = async (phone) => {
+  const canonicalPhone = normalizePhone(phone);
+  if (!canonicalPhone) {
+    return null;
+  }
+
+  const phoneCandidates = buildPhoneLookupCandidates(canonicalPhone);
+  const { conversation } = await resolveConversationByPhone(canonicalPhone);
+
+  const conversationIds = new Set();
+  if (conversation?._id) {
+    conversationIds.add(conversation._id);
+  }
+
+  const relatedConversations = await Conversation.find({ phoneNumber: { $in: phoneCandidates } }).select('_id');
+  for (const item of relatedConversations) {
+    conversationIds.add(item._id);
+  }
+
+  const conversationObjectIds = Array.from(conversationIds).map((id) => (
+    id instanceof mongoose.Types.ObjectId ? id : new mongoose.Types.ObjectId(String(id))
+  ));
+
+  if (conversationObjectIds.length) {
+    const byConversation = await Message.findOne({
+      conversationId: { $in: conversationObjectIds },
+      direction: { $in: INBOUND_DIRECTIONS },
+    }).sort({ timestamp: -1 }).select('timestamp direction createdAt messageId conversationId from to');
+
+    if (byConversation) {
+      return byConversation;
+    }
+
+    const misclassifiedInbound = await Message.findOne({
+      conversationId: { $in: conversationObjectIds },
+      direction: { $in: OUTBOUND_DIRECTIONS },
+      from: { $in: phoneCandidates },
+      text: { $nin: ['', null] },
+    }).sort({ timestamp: -1 }).select('timestamp direction createdAt messageId conversationId from to');
+
+    if (misclassifiedInbound) {
+      misclassifiedInbound.direction = 'in';
+      await misclassifiedInbound.save();
+      return misclassifiedInbound;
     }
   }
 
-  return { canonicalPhone, conversation };
+  return Message.findOne({
+    direction: { $in: INBOUND_DIRECTIONS },
+    $or: [
+      { from: { $in: phoneCandidates } },
+      { to: { $in: phoneCandidates }, from: { $nin: ['business', ''] } },
+    ],
+  }).sort({ timestamp: -1 }).select('timestamp direction createdAt messageId conversationId from to');
+};
+
+const applyMessageDirection = (existing, incomingDirection) => {
+  if (incomingDirection === 'in') {
+    existing.direction = 'in';
+    return;
+  }
+  if (incomingDirection === 'out' && existing.direction !== 'in') {
+    existing.direction = 'out';
+  }
 };
 
 const normalizeStatus = (value, fallback = 'sent') => {
@@ -199,7 +350,7 @@ const findBestOutgoingMatch = async ({ phone, timestamp }) => {
 
   const candidatesQuery = {
     conversationId: conversation._id,
-    direction: { $in: ['out', 'outgoing'] },
+    direction: { $in: OUTBOUND_DIRECTIONS },
     timestamp: { $gte: windowStart, $lte: windowEnd },
   };
   const candidates = await Message.find(candidatesQuery).sort({ timestamp: -1 });
@@ -260,7 +411,7 @@ const saveMessage = async (message) => {
       existing.fileUrl = normalized.fileUrl || existing.fileUrl;
       existing.filename = normalized.filename || existing.filename;
       existing.mimeType = normalized.mimeType || existing.mimeType;
-      existing.direction = existing.direction || normalized.direction;
+      applyMessageDirection(existing, normalized.direction);
       existing.status = normalized.status || existing.status;
       existing.timestamp = normalized.timestamp || existing.timestamp;
       await existing.save();
@@ -385,10 +536,33 @@ const getMessagesByPhone = async (phone) => {
 };
 
 const getConversationSummaries = async () => {
-  const conversations = await Conversation.find({}).sort({ unreadCount: -1, updatedAt: -1 }).lean();
-  return conversations.map((item) => ({
-    _id: item.phoneNumber,
-    phoneNumber: item.phoneNumber,
+  const conversations = await Conversation.find({}).sort({ unreadCount: -1, updatedAt: -1 });
+  const groupedByCanonical = new Map();
+
+  for (const conversation of conversations) {
+    const canonicalPhone = normalizePhone(conversation.phoneNumber);
+    if (!canonicalPhone) {
+      continue;
+    }
+    if (!groupedByCanonical.has(canonicalPhone)) {
+      groupedByCanonical.set(canonicalPhone, []);
+    }
+    groupedByCanonical.get(canonicalPhone).push(conversation);
+  }
+
+  for (const [canonicalPhone, group] of groupedByCanonical.entries()) {
+    if (group.length > 1) {
+      await mergeDuplicateConversations(canonicalPhone, group);
+    } else if (group[0].phoneNumber !== canonicalPhone) {
+      group[0].phoneNumber = canonicalPhone;
+      await group[0].save();
+    }
+  }
+
+  const mergedConversations = await Conversation.find({}).sort({ unreadCount: -1, updatedAt: -1 }).lean();
+  return mergedConversations.map((item) => ({
+    _id: normalizePhone(item.phoneNumber) || item.phoneNumber,
+    phoneNumber: normalizePhone(item.phoneNumber) || item.phoneNumber,
     lastMessage: item.lastMessage || '',
     unreadCount: Number(item.unreadCount || 0),
     lastReadAt: item.lastReadAt || null,
@@ -420,6 +594,7 @@ module.exports = {
   normalizePhone,
   buildPhoneLookupCandidates,
   resolveConversationByPhone,
+  findLastIncomingMessage,
   maybeNormalizeEndpoint,
   normalizeStatus,
   findOrCreateConversation,

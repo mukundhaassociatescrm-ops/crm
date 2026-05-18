@@ -13,6 +13,7 @@ const {
   normalizePhone,
   buildPhoneLookupCandidates,
   resolveConversationByPhone,
+  findLastIncomingMessage,
   findOrCreateConversation,
   normalizeStatus,
   markConversationAsRead,
@@ -205,10 +206,7 @@ const getSessionStateForPhone = async (phoneNumber) => {
     };
   }
 
-  const latestIncoming = await Message.findOne({
-    conversationId: conversation._id,
-    direction: { $in: ['in', 'incoming'] },
-  }).sort({ timestamp: -1 }).select('timestamp direction createdAt messageId');
+  const latestIncoming = await findLastIncomingMessage(canonicalPhone);
 
   const lastIncomingAt = latestIncoming?.timestamp ? new Date(latestIncoming.timestamp) : null;
   const diffHours = lastIncomingAt
@@ -403,14 +401,14 @@ exports.sendChatMessage = async (req, res, next) => {
 
     await saveMessage({
       messageId,
-      phone: to,
+      phone: normalizedTo,
       text: messageText,
       type: 'text',
       direction: 'out',
       status: 'sent',
       timestamp: new Date(),
-      destination: to,
-      source: process.env.GUPSHUP_SOURCE || '916384322139',
+      destination: normalizedTo,
+      source: normalizePhone(process.env.GUPSHUP_SOURCE || '916384322139'),
     });
 
     emitChatUpdate({
@@ -470,10 +468,11 @@ exports.sendChatFile = async (req, res, next) => {
       mimeType: mimeType || '',
     });
     const messageId = result.messageId || `local-file-${Date.now()}`;
+    const normalizedTo = normalizePhone(to);
 
     await saveMessage({
       messageId,
-      phone: to,
+      phone: normalizedTo,
       text: filename,
       type: 'file',
       fileUrl: normalizedFileUrl,
@@ -482,8 +481,8 @@ exports.sendChatFile = async (req, res, next) => {
       direction: 'out',
       status: 'sent',
       timestamp: new Date(),
-      destination: to,
-      source: process.env.GUPSHUP_SOURCE || '916384322139',
+      destination: normalizedTo,
+      source: normalizePhone(process.env.GUPSHUP_SOURCE || '916384322139'),
     });
 
     emitChatUpdate({
@@ -591,7 +590,7 @@ exports.sendChatTemplate = async (req, res, next) => {
       status: 'sent',
       timestamp: new Date(),
       destination: normalizedTo,
-      source: process.env.GUPSHUP_SOURCE || '916384322139',
+      source: normalizePhone(process.env.GUPSHUP_SOURCE || '916384322139'),
     });
 
     emitChatUpdate({
@@ -929,10 +928,10 @@ exports.processGupshupWebhook = async (body) => {
 
     // Auto-create client record for unknown inbound senders
     let resolvedClientId = null;
-    if (!isFromBusiness && phone) {
+    if (!isFromBusiness && normalizedCustomerPhone) {
       try {
         const { findOrCreateClientByMobile } = require('./clientController');
-        const client = await findOrCreateClientByMobile(phone);
+        const client = await findOrCreateClientByMobile(normalizedCustomerPhone);
         resolvedClientId = client?._id || null;
       } catch (_) {
         // Non-critical – never block message save
@@ -941,7 +940,7 @@ exports.processGupshupWebhook = async (body) => {
 
     emitChatUpdate({
       eventType: isFromBusiness ? 'outgoing' : 'incoming',
-      phone,
+      phone: normalizedCustomerPhone,
       messageId: saved.messageId,
       status: 'sent',
       text,
