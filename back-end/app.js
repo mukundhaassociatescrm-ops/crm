@@ -10,6 +10,8 @@ const { ensureUploadsDir, resolveUploadsDir } = require('./config/uploads');
 
 dotenv.config();
 
+console.log('[ENV TEMPLATE URL]', process.env.GUPSHUP_TEMPLATES_URL);
+
 try {
   const { resolveGupshupSource } = require('./services/gupshupApiService');
   const gupshupSource = resolveGupshupSource();

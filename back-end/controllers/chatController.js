@@ -382,7 +382,7 @@ exports.getChatTemplates = async (req, res, next) => {
     });
     console.log('[TEMPLATE API CONFIG]', {
       envUrl: process.env.GUPSHUP_TEMPLATES_URL,
-      usingFallback: !process.env.GUPSHUP_TEMPLATES_URL,
+      usingFallback: false,
       apiKeyPresent: Boolean(process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY),
     });
 

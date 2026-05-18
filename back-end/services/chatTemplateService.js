@@ -1,5 +1,10 @@
 const axios = require('axios');
 
+/** Single source: template list URL from environment only (no hardcoded fallback). */
+const GUPSHUP_TEMPLATES_URL = process.env.GUPSHUP_TEMPLATES_URL;
+
+console.log('[SERVICE TEMPLATE URL]', GUPSHUP_TEMPLATES_URL);
+
 const CACHE_TTL_MS = Math.max(30000, Number(process.env.WHATSAPP_TEMPLATE_CACHE_TTL_MS || 5 * 60 * 1000));
 const cacheByLanguage = new Map();
 
@@ -197,12 +202,12 @@ const resolveTemplatesPathType = (url) => {
 };
 
 const fetchTemplatesFromProvider = async () => {
-  const templatesUrl = normalizeText(process.env.GUPSHUP_TEMPLATES_URL || process.env.WHATSAPP_PROVIDER_TEMPLATES_URL);
+  const templatesUrl = normalizeText(GUPSHUP_TEMPLATES_URL);
 
   console.log('[TEMPLATE API CONFIG]', {
     envUrl: process.env.GUPSHUP_TEMPLATES_URL,
-    providerUrl: process.env.WHATSAPP_PROVIDER_TEMPLATES_URL,
-    usingFallback: !process.env.GUPSHUP_TEMPLATES_URL,
+    moduleConstant: GUPSHUP_TEMPLATES_URL,
+    usingFallback: false,
     apiKeyPresent: Boolean(process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY),
   });
 
@@ -210,6 +215,7 @@ const fetchTemplatesFromProvider = async () => {
     throw new Error('GUPSHUP_TEMPLATES_URL is not configured.');
   }
 
+  console.log('[FINAL URL USED]', templatesUrl);
   console.log('[CALLING PROVIDER API]', {
     finalUrl: templatesUrl,
     method: 'GET',
@@ -328,7 +334,7 @@ const getApprovedTemplates = async ({ language, forceRefresh = false } = {}) => 
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
-      url: process.env.GUPSHUP_TEMPLATES_URL || process.env.WHATSAPP_PROVIDER_TEMPLATES_URL || '',
+      url: GUPSHUP_TEMPLATES_URL || '',
     });
 
     if (String(error?.message || '').includes('GUPSHUP_TEMPLATES_URL is not configured.')) {

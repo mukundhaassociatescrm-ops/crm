@@ -5,8 +5,13 @@ const GUPSHUP_SEND_URL = process.env.GUPSHUP_SEND_URL || 'https://api.gupshup.io
 /** HSM / template sends must use the template endpoint — /msg treats payloads as session messages and can trigger (#470) outside the 24h window. */
 const GUPSHUP_TEMPLATE_SEND_URL =
   process.env.GUPSHUP_TEMPLATE_SEND_URL || 'https://api.gupshup.io/wa/api/v1/template/msg';
+/** Template list fetch (GET) — resolved in chatTemplateService; logged here at load for env trace. */
+const GUPSHUP_TEMPLATES_URL = process.env.GUPSHUP_TEMPLATES_URL;
 const GUPSHUP_SRC_NAME =
   process.env.GUPSHUP_SRC_NAME || process.env.GUPSHUP_APP_NAME || '';
+
+console.log('[SERVICE TEMPLATE URL]', GUPSHUP_TEMPLATES_URL);
+console.log('[SERVICE TEMPLATE SEND URL]', process.env.GUPSHUP_TEMPLATE_SEND_URL || GUPSHUP_TEMPLATE_SEND_URL);
 
 /**
  * WhatsApp business number for Gupshup `source` — must match the number linked in the Gupshup app dashboard.
@@ -280,6 +285,7 @@ const sendGupshupTemplateMessage = async ({ to, templateId, params = [] }) => {
 };
 
 module.exports = {
+  GUPSHUP_TEMPLATES_URL,
   normalizeDestination,
   resolveGupshupSource,
   sendGupshupTextMessage,
