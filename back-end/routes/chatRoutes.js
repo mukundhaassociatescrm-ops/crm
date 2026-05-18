@@ -1,6 +1,7 @@
 const express = require('express');
 const {
 	startChatSession,
+	getChatSessionStatus,
 	getChatTemplates,
 	refreshChatTemplates,
 	sendChatMessage,
@@ -14,6 +15,7 @@ const {
 const router = express.Router();
 
 router.post('/start', startChatSession);
+router.get('/session-status', getChatSessionStatus);
 router.get('/templates', getChatTemplates);
 router.post('/templates/refresh', refreshChatTemplates);
 

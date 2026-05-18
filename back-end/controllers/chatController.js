@@ -264,6 +264,36 @@ exports.startChatSession = async (req, res, next) => {
   }
 };
 
+// GET /api/chat/session-status?phone=...
+// Returns WhatsApp 24-hour session window state for a phone number (source of truth for UI).
+exports.getChatSessionStatus = async (req, res, next) => {
+  try {
+    const phone = String(req.query?.phone || req.query?.to || '').trim();
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'phone query parameter is required.' });
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+    const session = await getSessionStateForPhone(normalizedPhone);
+
+    const payload = {
+      active: session.isActive,
+      lastIncomingAt: session.lastIncomingAt,
+      expiresAt: session.expiresAt,
+      phone: normalizedPhone,
+    };
+
+    console.log('[SESSION STATUS RESPONSE]', payload);
+
+    return res.status(200).json({
+      success: true,
+      data: payload,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // GET /api/chat/templates
 // Fetches approved WhatsApp templates from provider with cache support.
 exports.getChatTemplates = async (req, res, next) => {
@@ -295,6 +325,8 @@ exports.getChatTemplates = async (req, res, next) => {
 // Sends a WhatsApp message through Gupshup and stores a local outgoing record.
 exports.sendChatMessage = async (req, res, next) => {
   try {
+    console.log('[SESSION REQUEST BODY]', req.body);
+
     const { to, message, text } = req.body || {};
     const messageText = String(text || message || '').trim();
 
@@ -304,7 +336,16 @@ exports.sendChatMessage = async (req, res, next) => {
 
     await ensureChatParticipant(to);
 
-    const hasActiveSession = await isSessionActiveForPhone(to);
+    const sessionState = await getSessionStateForPhone(to);
+    const hasActiveSession = sessionState.isActive;
+    console.log('[SESSION CHECK]', {
+      to,
+      normalizedPhone: normalizePhone(to),
+      hasActiveSession,
+      lastIncomingAt: sessionState.lastIncomingAt,
+      expiresAt: sessionState.expiresAt,
+    });
+
     if (!hasActiveSession) {
       return sendSessionExpiredResponse(res, to, { language: req.body?.language });
     }

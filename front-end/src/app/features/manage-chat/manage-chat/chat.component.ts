@@ -6,10 +6,11 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { environment } from '../../../../environments/environment';
-import { Subject, interval, of } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, takeUntil } from 'rxjs/operators';
+import { EMPTY, Observable, Subject, interval, of } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, take, takeUntil, tap } from 'rxjs/operators';
 import {
   ChatConversation,
+  ChatSessionStatusResponse,
   ChatStartResponse,
   ChatMessage,
   ChatMessageMetadata,
@@ -66,7 +67,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   isSending = false;
   isUploadingAttachment = false;
   uploadProgress = 0;
-  sessionState: 'active' | 'expired' = 'active';
+  sessionState: 'active' | 'expired' = 'expired';
   sessionInfo: { lastIncomingAt: string | null; expiresAt: string | null } = {
     lastIncomingAt: null,
     expiresAt: null,
@@ -470,7 +471,17 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get sessionStateLabel(): string {
-    return this.isSessionActive ? 'Active session' : 'Session expired';
+    if (this.isCheckingSession) {
+      return 'Checking session...';
+    }
+    if (this.isSessionActive) {
+      const expiresLabel = this.formatSessionDateTime(this.sessionInfo.expiresAt);
+      return expiresLabel ? `Session active (expires ${expiresLabel})` : 'Session active';
+    }
+    if (this.templateSentAwaitingReply) {
+      return 'Template sent, waiting for reply';
+    }
+    return 'Waiting for customer reply';
   }
 
   get notificationSoundLabel(): string {
@@ -586,10 +597,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       };
       this.availableTemplates = [];
       this.selectedTemplateId = '';
-    } else {
-      if (!skipSessionRefresh) {
-        this.refreshSessionState(conversation.phoneNumber, shouldPromptTemplate);
-      }
+    } else if (!skipSessionRefresh) {
+      this.refreshSessionStatusFromBackend(conversation.phoneNumber, shouldPromptTemplate).subscribe();
     }
 
     if (wasAlreadySelected) {
@@ -809,12 +818,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
           this.selectConversationInternal(targetConversation, true);
           this.syncSelectedConversationPreview(targetConversation.lastMessage, targetConversation._id);
-          this.sessionState = 'active';
-          this.sessionInfo = {
-            lastIncomingAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          };
-          this.templateSentAwaitingReply = false;
+          this.templateSentAwaitingReply = true;
+          this.refreshSessionStatusFromBackend(normalizedPhone);
           this.refreshConversationsFromApi(true);
 
           this.isStartingNewChat = false;
@@ -907,11 +912,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    if (!this.isSessionActive) {
-      this.openTemplateModal();
-      return;
-    }
-
     if (this.hasAttachmentDrafts) {
       this.sendAttachmentMessage(this.selectedConversation, attachmentText);
       return;
@@ -922,6 +922,39 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const selectedConversation = this.selectedConversation;
+
+    if (this.isMockConversation(selectedConversation._id)) {
+      const localPendingId = this.buildLocalPendingMessageId();
+      this.addOptimisticOutgoingMessage(text, selectedConversation, localPendingId);
+      this.draftMessage = '';
+      this.onDraftChanged();
+      this.resolvePendingMessage(localPendingId, `mock-${Date.now()}`);
+      return;
+    }
+
+    this.isSending = true;
+    this.refreshSessionStatusFromBackend(selectedConversation.phoneNumber)
+      .pipe(take(1), takeUntil(this.destroy$))
+      .subscribe({
+        next: (active) => {
+          if (!active) {
+            this.isSending = false;
+            console.log('[AUTO SWITCH DECISION]', { active: false, action: 'open_template_modal' });
+            this.openTemplateModal();
+            return;
+          }
+
+          console.log('[MESSAGE SEND TYPE]', 'session');
+          this.performSendTextMessage(selectedConversation, text);
+        },
+        error: () => {
+          this.isSending = false;
+          this.openTemplateModal();
+        },
+      });
+  }
+
+  private performSendTextMessage(selectedConversation: ChatConversation, text: string): void {
     const localPendingId = this.buildLocalPendingMessageId();
 
     this.addOptimisticOutgoingMessage(text, selectedConversation, localPendingId);
@@ -929,14 +962,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.onDraftChanged();
     this.syncSelectedConversationPreview(text, selectedConversation._id);
     this.queueScrollToBottom(true);
-
-    this.isSending = true;
-
-    if (this.isMockConversation(selectedConversation._id)) {
-      this.isSending = false;
-      this.resolvePendingMessage(localPendingId, `mock-${Date.now()}`);
-      return;
-    }
 
     this.chatService.sendMessage({
       to: selectedConversation.phoneNumber,
@@ -953,7 +978,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
           return;
         }
         this.markPendingMessageFailed(localPendingId);
-      }
+      },
     });
   }
 
@@ -1109,10 +1134,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     event.preventDefault();
     this.showEmojiPicker = false;
     this.showAttachmentMenu = false;
-    if (!this.isSessionActive) {
-      this.openTemplateModal();
-      return;
-    }
     this.sendMessage();
   }
 
@@ -1176,13 +1197,27 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    if (!this.isSessionActive) {
-      this.openTemplateModal();
-      return;
-    }
+    const conversation = this.selectedConversation;
+    this.refreshSessionStatusFromBackend(conversation.phoneNumber)
+      .pipe(take(1), takeUntil(this.destroy$))
+      .subscribe({
+        next: (active) => {
+          if (!active) {
+            console.log('[AUTO SWITCH DECISION]', { active: false, action: 'open_template_modal', context: 'retry' });
+            this.openTemplateModal();
+            return;
+          }
+          if (this.isFileMessage(message)) {
+            this.retryFailedFileMessage(message);
+            return;
+          }
+          this.retryFailedTextMessage(message, conversation);
+        },
+      });
+  }
 
+  private retryFailedTextMessage(message: PendingMessage, conversation: ChatConversation): void {
     if (this.isFileMessage(message)) {
-      this.retryFailedFileMessage(message);
       return;
     }
 
@@ -1192,12 +1227,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const localPendingId = this.buildLocalPendingMessageId();
-    this.addOptimisticOutgoingMessage(retryText, this.selectedConversation, localPendingId);
+    this.addOptimisticOutgoingMessage(retryText, conversation, localPendingId);
     this.queueScrollToBottom(true);
     this.retryingMessageId = message.messageId;
 
     this.chatService.sendMessage({
-      to: this.selectedConversation.phoneNumber,
+      to: conversation.phoneNumber,
       text: retryText,
     }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
@@ -1578,9 +1613,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         this.isSendingTemplate = false;
         this.showTemplateModal = false;
         this.templateSentAwaitingReply = true;
+        console.log('[MESSAGE SEND TYPE]', 'template');
         if (this.selectedConversation) {
           this.syncSelectedConversationPreview(`Template: ${this.selectedTemplateId}`, this.selectedConversation._id);
           this.selectedConversation$.next(this.selectedConversation._id);
+          this.refreshSessionStatusFromBackend(this.selectedConversation.phoneNumber);
           this.refreshConversationsFromApi(true);
         }
       },
@@ -1612,43 +1649,75 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     };
   }
 
-  private refreshSessionState(phoneNumber: string, promptTemplateWhenExpired = false): void {
+  /** Fetches session state from backend (single source of truth). Returns whether session is active. */
+  private refreshSessionStatusFromBackend(
+    phoneNumber: string,
+    promptTemplateWhenExpired = false,
+  ): Observable<boolean> {
     const normalizedPhone = this.normalizePhone(phoneNumber);
     if (!normalizedPhone) {
-      this.sessionState = 'expired';
-      this.sessionInfo = { lastIncomingAt: null, expiresAt: null };
-      return;
+      this.applySessionStatusResponse({
+        success: true,
+        data: { active: false, lastIncomingAt: null, expiresAt: null },
+      });
+      if (promptTemplateWhenExpired) {
+        this.openTemplateModal();
+      }
+      return of(false);
     }
 
     this.isCheckingSession = true;
-    this.chatService.startChat(normalizedPhone)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (response) => {
-          this.isCheckingSession = false;
-          this.applyStartChatResponse(response);
-          if (promptTemplateWhenExpired && !this.isSessionActive) {
-            this.openTemplateModal();
-          }
-        },
-        error: () => {
-          this.isCheckingSession = false;
-          this.sessionState = 'expired';
-          this.sessionInfo = { lastIncomingAt: null, expiresAt: null };
-          if (promptTemplateWhenExpired) {
-            this.openTemplateModal();
-          }
-        },
-      });
+    return this.chatService.getSessionStatus(normalizedPhone).pipe(
+      tap((response) => {
+        console.log('[SESSION STATUS RESPONSE]', response?.data);
+        this.applySessionStatusResponse(response);
+      }),
+      map((response) => Boolean(response?.data?.active)),
+      catchError(() => {
+        this.applySessionStatusResponse({
+          success: false,
+          data: { active: false, lastIncomingAt: null, expiresAt: null },
+        });
+        return of(false);
+      }),
+      tap(() => {
+        this.isCheckingSession = false;
+        if (promptTemplateWhenExpired && !this.isSessionActive) {
+          this.openTemplateModal();
+        }
+      }),
+      takeUntil(this.destroy$),
+    );
+  }
+
+  private applySessionStatusResponse(
+    response: ChatSessionStatusResponse | {
+      success: boolean;
+      data?: { active: boolean; lastIncomingAt: string | null; expiresAt: string | null };
+    },
+  ): void {
+    const data = response?.data;
+    const active = Boolean(data?.active);
+    this.sessionState = active ? 'active' : 'expired';
+    this.sessionInfo = {
+      lastIncomingAt: data?.lastIncomingAt ?? null,
+      expiresAt: data?.expiresAt ?? null,
+    };
+    if (active) {
+      this.templateSentAwaitingReply = false;
+    }
   }
 
   private applyStartChatResponse(response: ChatStartResponse): void {
     const session = response?.data?.session;
-    this.sessionState = session?.isActive ? 'active' : 'expired';
-    this.sessionInfo = {
-      lastIncomingAt: session?.lastIncomingAt || null,
-      expiresAt: session?.expiresAt || null,
-    };
+    this.applySessionStatusResponse({
+      success: true,
+      data: {
+        active: Boolean(session?.isActive),
+        lastIncomingAt: session?.lastIncomingAt ?? null,
+        expiresAt: session?.expiresAt ?? null,
+      },
+    });
 
     const templates = Array.isArray(response?.data?.templates) ? response.data?.templates : [];
     this.availableTemplates = templates || [];
@@ -1664,6 +1733,22 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     this.syncTemplateVariableMap();
+  }
+
+  private formatSessionDateTime(value: string | null): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString(undefined, {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 
   private loadTemplatesFromApi(forceRefresh = false): void {
@@ -1717,10 +1802,24 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return false;
     }
 
-    this.applyStartChatResponse({
-      success: false,
-      data: error.error?.data,
-    });
+    const errorData = error.error?.data;
+    const session = errorData?.session;
+    if (session) {
+      this.applySessionStatusResponse({
+        success: true,
+        data: {
+          active: Boolean(session.isActive),
+          lastIncomingAt: session.lastIncomingAt ?? null,
+          expiresAt: session.expiresAt ?? null,
+        },
+      });
+    } else if (this.selectedConversation) {
+      this.refreshSessionStatusFromBackend(this.selectedConversation.phoneNumber).subscribe();
+    }
+    const templates = Array.isArray(errorData?.templates) ? errorData.templates : [];
+    if (templates.length) {
+      this.availableTemplates = templates;
+    }
     this.openTemplateModal();
     return true;
   }
@@ -2103,11 +2202,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     if (event.eventType === 'incoming') {
       this.maybeNotifyIncomingRealtimeEvent(event, eventPhone);
       if (this.selectedConversation && this.normalizePhone(this.selectedConversation.phoneNumber) === eventPhone) {
-        this.sessionState = 'active';
-        this.sessionInfo = {
-          lastIncomingAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        };
+        this.refreshSessionStatusFromBackend(this.selectedConversation.phoneNumber).subscribe();
         this.markConversationAsRead(this.selectedConversation, true);
       } else {
         this.incrementUnreadForPhone(eventPhone);
@@ -2171,10 +2266,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    // Customer replied — clear the "awaiting reply" banner for this conversation.
-    if (this.templateSentAwaitingReply) {
-      this.templateSentAwaitingReply = false;
-      this.refreshSessionState(phoneNumber);
+    // Customer replied — refresh session from backend (do not assume active locally).
+    if (this.templateSentAwaitingReply || this.selectedConversation) {
+      const refreshPhone = this.normalizePhone(phoneNumber || this.selectedConversation?.phoneNumber || '');
+      if (refreshPhone) {
+        this.refreshSessionStatusFromBackend(refreshPhone).subscribe();
+      }
     }
 
     const incomingKey = this.buildIncomingNotificationKey({
@@ -2419,11 +2516,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    if (!this.isSessionActive) {
-      this.openTemplateModal();
-      return;
-    }
-
     if (this.isMockConversation(conversation._id)) {
       attachments.forEach((item) => this.addMockOutgoingFileMessage(conversation, item));
       this.resetAttachmentDraftState();
@@ -2432,6 +2524,32 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    this.isSending = true;
+    this.refreshSessionStatusFromBackend(conversation.phoneNumber)
+      .pipe(take(1), takeUntil(this.destroy$))
+      .subscribe({
+        next: (active) => {
+          if (!active) {
+            this.isSending = false;
+            console.log('[AUTO SWITCH DECISION]', { active: false, action: 'open_template_modal', context: 'attachment' });
+            this.openTemplateModal();
+            return;
+          }
+          console.log('[MESSAGE SEND TYPE]', 'session');
+          this.performSendAttachmentMessage(conversation, text, attachments);
+        },
+        error: () => {
+          this.isSending = false;
+          this.openTemplateModal();
+        },
+      });
+  }
+
+  private performSendAttachmentMessage(
+    conversation: ChatConversation,
+    text: string,
+    attachments: SelectedAttachment[],
+  ): void {
     const pendingIds = attachments.map(() => this.buildLocalPendingMessageId());
     attachments.forEach((item, index) => {
       const caption = index === 0 ? text : '';

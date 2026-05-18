@@ -125,6 +125,18 @@ export interface ChatStartResponse {
   message?: string;
 }
 
+/** Source of truth for WhatsApp 24h session window (GET /api/chat/session-status). */
+export interface ChatSessionStatusResponse {
+  success: boolean;
+  data?: {
+    active: boolean;
+    lastIncomingAt: string | null;
+    expiresAt: string | null;
+    phone?: string;
+  };
+  message?: string;
+}
+
 export interface RealtimeChatEvent {
   eventType: 'incoming' | 'outgoing' | 'status' | 'read';
   phone: string;
@@ -309,6 +321,11 @@ export class ChatService {
 
   startChat(to: string): Observable<ChatStartResponse> {
     return this.http.post<ChatStartResponse>('/api/chat/start', { to });
+  }
+
+  getSessionStatus(phone: string): Observable<ChatSessionStatusResponse> {
+    const params = new HttpParams().set('phone', phone);
+    return this.http.get<ChatSessionStatusResponse>('/api/chat/session-status', { params });
   }
 
   markConversationAsRead(phone: string): Observable<{ success: boolean; data?: { phoneNumber: string; unreadCount: number; lastReadAt?: string | null } }> {

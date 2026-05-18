@@ -123,18 +123,29 @@ const sendGupshupTextMessage = async ({ to, message }) => {
 
   console.log('[SESSION MESSAGE PAYLOAD]', formData);
 
-  const response = await axios.post(sendUrl, formData, {
-    headers: {
-      apikey: apiKey,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    timeout: 15000,
-  });
+  try {
+    const response = await axios.post(sendUrl, formData, {
+      headers: {
+        apikey: apiKey,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      timeout: 15000,
+    });
 
-  return {
-    messageId: extractMessageId(response.data),
-    providerResponse: response.data,
-  };
+    console.log('[GUPSHUP RESPONSE]', response.data);
+
+    return {
+      messageId: extractMessageId(response.data),
+      providerResponse: response.data,
+    };
+  } catch (error) {
+    console.error('[GUPSHUP RESPONSE ERROR]', {
+      status: error?.response?.status,
+      data: error?.response?.data,
+      message: error?.message,
+    });
+    throw error;
+  }
 };
 
 /** Session (24h window) text messages — alias for sendGupshupTextMessage. */

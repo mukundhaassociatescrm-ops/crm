@@ -367,12 +367,19 @@
               (keydown)="onComposerKeydown($event)"
             ></textarea>
           </div>
-          <div class="session-expired-notice" *ngIf="!isSessionActive">
-            Session has expired. Send an approved template to start the conversation.
-            <button type="button" class="inline-template-action" (click)="openTemplateModal()">Choose Template</button>
+          <div class="session-expired-notice" *ngIf="!isSessionActive && !isCheckingSession">
+            <ng-container *ngIf="templateSentAwaitingReply; else sessionExpiredDefault">
+              Template sent. Waiting for the customer to reply before you can send free-form messages.
+            </ng-container>
+            <ng-template #sessionExpiredDefault>
+              Send a template to start the conversation.
+            </ng-template>
+            <button type="button" class="inline-template-action" (click)="openTemplateModal()">
+              Send template to start conversation
+            </button>
           </div>
-          <div class="template-awaiting-reply-notice" *ngIf="isSessionActive && templateSentAwaitingReply">
-            Template sent. Waiting for the customer to reply before you can continue chatting.
+          <div class="session-checking-notice" *ngIf="isCheckingSession">
+            Verifying WhatsApp session...
           </div>
           <div class="attachment-mode-hint" *ngIf="hasAttachmentDrafts">
             Add caption in preview bubble and press Send.
