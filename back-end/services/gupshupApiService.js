@@ -96,15 +96,49 @@ const sendGupshupTextMessage = async ({ to, message }) => {
     throw new Error('A valid destination number is required.');
   }
 
-  // Gupshup requires x-www-form-urlencoded payload.
-  const form = buildBaseForm(destination);
-  form.append('message', JSON.stringify({
-    type: 'text',
-    text: String(message),
-  }));
+  const cleanMessage = String(message || '').trim();
+  if (!cleanMessage) {
+    throw new Error('Message text is required.');
+  }
 
-  return sendGupshupMessage(form);
+  const apiKey = process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY;
+  if (!apiKey) {
+    throw new Error('GUPSHUP_API_KEY is not configured.');
+  }
+
+  const source = process.env.GUPSHUP_SOURCE || GUPSHUP_SOURCE;
+  const srcName = process.env.GUPSHUP_APP_NAME || process.env.GUPSHUP_SRC_NAME || GUPSHUP_SRC_NAME;
+  const sendUrl = process.env.GUPSHUP_SEND_URL || GUPSHUP_SEND_URL;
+
+  const formData = qs.stringify({
+    channel: 'whatsapp',
+    source,
+    destination,
+    'src.name': srcName,
+    message: JSON.stringify({
+      type: 'text',
+      text: cleanMessage,
+    }),
+  });
+
+  console.log('[SESSION MESSAGE PAYLOAD]', formData);
+
+  const response = await axios.post(sendUrl, formData, {
+    headers: {
+      apikey: apiKey,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    timeout: 15000,
+  });
+
+  return {
+    messageId: extractMessageId(response.data),
+    providerResponse: response.data,
+  };
 };
+
+/** Session (24h window) text messages — alias for sendGupshupTextMessage. */
+const sendWhatsAppMessage = sendGupshupTextMessage;
 
 const sendGupshupFileMessage = async ({ to, fileUrl, filename, mimeType }) => {
   const destination = normalizeDestination(to);
@@ -196,6 +230,7 @@ const sendGupshupTemplateMessage = async ({ to, templateId, params = [] }) => {
 module.exports = {
   normalizeDestination,
   sendGupshupTextMessage,
+  sendWhatsAppMessage,
   sendGupshupFileMessage,
   sendGupshupTemplateMessage,
 };
