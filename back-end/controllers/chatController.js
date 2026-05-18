@@ -374,10 +374,16 @@ exports.getChatSessionStatus = async (req, res, next) => {
 // Fetches approved WhatsApp templates from provider with cache support.
 exports.getChatTemplates = async (req, res, next) => {
   try {
+    console.log('[TEMPLATE SERVICE START]');
     console.log('[BACKEND TEMPLATE FETCH CALLED]', {
       path: '/api/chat/templates',
       language: req.query?.language || '',
       refresh: req.query?.refresh || false,
+    });
+    console.log('[TEMPLATE API CONFIG]', {
+      envUrl: process.env.GUPSHUP_TEMPLATES_URL,
+      usingFallback: !process.env.GUPSHUP_TEMPLATES_URL,
+      apiKeyPresent: Boolean(process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY),
     });
 
     const language = String(req.query?.language || '').trim();
@@ -402,6 +408,11 @@ exports.getChatTemplates = async (req, res, next) => {
       source: templateResult.source === 'HARDCODED' ? 'HARDCODED' : 'API',
       count: templateResult.templates.length,
       rawSource: templateResult.source,
+    });
+    console.log('[TEMPLATE FINAL SOURCE]', {
+      source: templateResult.source === 'HARDCODED' ? 'FALLBACK' : templateResult.source,
+      templatesFromApi: templateResult.source === 'API',
+      count: templateResult.templates.length,
     });
 
     return res.status(200).json({

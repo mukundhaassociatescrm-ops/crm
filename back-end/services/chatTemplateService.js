@@ -185,15 +185,40 @@ const readFallbackTemplatesFromEnv = () => {
   }
 };
 
+const resolveTemplatesPathType = (url) => {
+  const normalized = String(url || '').toLowerCase();
+  if (normalized.includes('/sm/')) {
+    return 'sm';
+  }
+  if (normalized.includes('/wa/')) {
+    return 'wa';
+  }
+  return 'other';
+};
+
 const fetchTemplatesFromProvider = async () => {
   const templatesUrl = normalizeText(process.env.GUPSHUP_TEMPLATES_URL || process.env.WHATSAPP_PROVIDER_TEMPLATES_URL);
+
+  console.log('[TEMPLATE API CONFIG]', {
+    envUrl: process.env.GUPSHUP_TEMPLATES_URL,
+    providerUrl: process.env.WHATSAPP_PROVIDER_TEMPLATES_URL,
+    usingFallback: !process.env.GUPSHUP_TEMPLATES_URL,
+    apiKeyPresent: Boolean(process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY),
+  });
+
   if (!templatesUrl) {
     throw new Error('GUPSHUP_TEMPLATES_URL is not configured.');
   }
 
+  console.log('[CALLING PROVIDER API]', {
+    finalUrl: templatesUrl,
+    method: 'GET',
+    pathType: resolveTemplatesPathType(templatesUrl),
+  });
+
   const apiKey = normalizeText(process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY);
   const authToken = normalizeText(process.env.WHATSAPP_PROVIDER_AUTH_TOKEN);
-  const sourceName = normalizeText(process.env.GUPSHUP_SRC_NAME);
+  const sourceName = normalizeText(process.env.GUPSHUP_SRC_NAME || process.env.GUPSHUP_APP_NAME);
 
   const headers = {
     Accept: 'application/json',
@@ -206,13 +231,41 @@ const fetchTemplatesFromProvider = async () => {
     headers.Authorization = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
   }
 
-  const response = await axios.get(templatesUrl, {
-    headers,
-    params: sourceName ? { appName: sourceName } : undefined,
-    timeout: 20000,
+  const requestParams = sourceName ? { appName: sourceName } : undefined;
+
+  console.log('[AXIOS REQUEST]', {
+    url: templatesUrl,
+    headers: {
+      apikey: apiKey ? 'present' : 'missing',
+      authorization: authToken ? 'present' : 'missing',
+    },
+    params: requestParams,
   });
 
-  return extractTemplateList(response.data);
+  try {
+    const response = await axios.get(templatesUrl, {
+      headers,
+      params: requestParams,
+      timeout: 20000,
+    });
+
+    console.log('[PROVIDER SUCCESS]', {
+      status: response.status,
+      keys: Object.keys(response.data || {}),
+      pathType: resolveTemplatesPathType(templatesUrl),
+    });
+
+    return extractTemplateList(response.data);
+  } catch (error) {
+    console.log('[PROVIDER FAILURE]', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+      url: templatesUrl,
+      pathType: resolveTemplatesPathType(templatesUrl),
+    });
+    throw error;
+  }
 };
 
 const getApprovedTemplates = async ({ language, forceRefresh = false } = {}) => {
@@ -222,14 +275,17 @@ const getApprovedTemplates = async ({ language, forceRefresh = false } = {}) => 
     const cached = readCache(normalizedLanguage);
     if (cached) {
       console.log('[TEMPLATE SOURCE]', { source: 'CACHE', count: cached.length });
+      console.log('[TEMPLATE FINAL SOURCE]', {
+        source: 'CACHE',
+        templatesFromApi: false,
+        count: cached.length,
+      });
       return { templates: cached, source: 'CACHE' };
     }
   }
 
   try {
-    console.log('[BACKEND TEMPLATE FETCH CALLED]', {
-      url: process.env.GUPSHUP_TEMPLATES_URL || process.env.WHATSAPP_PROVIDER_TEMPLATES_URL || '',
-    });
+    console.log('[TEMPLATE SERVICE START]', { layer: 'chatTemplateService' });
     const rawTemplates = await fetchTemplatesFromProvider();
     const normalizedTemplates = rawTemplates
       .map(normalizeTemplate)
@@ -261,8 +317,20 @@ const getApprovedTemplates = async ({ language, forceRefresh = false } = {}) => 
 
     writeCache(normalizedLanguage, normalizedTemplates);
     console.log('[TEMPLATE SOURCE]', { source: 'API', count: normalizedTemplates.length });
+    console.log('[TEMPLATE FINAL SOURCE]', {
+      source: 'API',
+      templatesFromApi: true,
+      count: normalizedTemplates.length,
+    });
     return { templates: normalizedTemplates, source: 'API' };
   } catch (error) {
+    console.log('[PROVIDER FAILURE]', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+      url: process.env.GUPSHUP_TEMPLATES_URL || process.env.WHATSAPP_PROVIDER_TEMPLATES_URL || '',
+    });
+
     if (String(error?.message || '').includes('GUPSHUP_TEMPLATES_URL is not configured.')) {
       const fallbackTemplates = readFallbackTemplatesFromEnv();
       const filteredFallback = normalizedLanguage
@@ -277,6 +345,11 @@ const getApprovedTemplates = async ({ language, forceRefresh = false } = {}) => 
 
       writeCache(normalizedLanguage, filteredFallback);
       console.log('[TEMPLATE SOURCE]', { source: 'HARDCODED', count: filteredFallback.length });
+      console.log('[TEMPLATE FINAL SOURCE]', {
+        source: 'FALLBACK',
+        templatesFromApi: false,
+        count: filteredFallback.length,
+      });
       return { templates: filteredFallback, source: 'HARDCODED' };
     }
 
@@ -284,9 +357,19 @@ const getApprovedTemplates = async ({ language, forceRefresh = false } = {}) => 
     if (fallback?.templates?.length) {
       console.warn('[chatTemplateService] Using cached template fallback due to provider fetch error:', error?.message || error);
       console.log('[TEMPLATE SOURCE]', { source: 'CACHE', count: fallback.templates.length });
+      console.log('[TEMPLATE FINAL SOURCE]', {
+        source: 'CACHE',
+        templatesFromApi: false,
+        count: fallback.templates.length,
+      });
       return { templates: fallback.templates, source: 'CACHE' };
     }
 
+    console.log('[TEMPLATE FINAL SOURCE]', {
+      source: 'FALLBACK',
+      templatesFromApi: false,
+      count: 0,
+    });
     throw error;
   }
 };
