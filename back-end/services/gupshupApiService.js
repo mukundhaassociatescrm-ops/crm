@@ -5,9 +5,24 @@ const GUPSHUP_SEND_URL = process.env.GUPSHUP_SEND_URL || 'https://api.gupshup.io
 /** HSM / template sends must use the template endpoint — /msg treats payloads as session messages and can trigger (#470) outside the 24h window. */
 const GUPSHUP_TEMPLATE_SEND_URL =
   process.env.GUPSHUP_TEMPLATE_SEND_URL || 'https://api.gupshup.io/wa/api/v1/template/msg';
-const GUPSHUP_SOURCE = process.env.GUPSHUP_SOURCE || '916384322139';
 const GUPSHUP_SRC_NAME =
   process.env.GUPSHUP_SRC_NAME || process.env.GUPSHUP_APP_NAME || '';
+
+/**
+ * WhatsApp business number for Gupshup `source` — must match the number linked in the Gupshup app dashboard.
+ * Set GUPSHUP_SOURCE in .env (e.g. 916384322139, digits only).
+ */
+const resolveGupshupSource = () => {
+  console.log('[FINAL SOURCE]', process.env.GUPSHUP_SOURCE);
+
+  const source = normalizeDestination(process.env.GUPSHUP_SOURCE);
+  if (!source) {
+    throw new Error('Missing GUPSHUP_SOURCE');
+  }
+
+  console.log('[FINAL SOURCE USED]', source);
+  return source;
+};
 
 const normalizeDestination = (value) => {
   const raw = String(value || '').trim();
@@ -60,9 +75,10 @@ const extractMessageId = (responseBody) => {
 };
 
 const buildBaseForm = (destination) => {
+  const source = resolveGupshupSource();
   const form = new URLSearchParams();
   form.append('channel', 'whatsapp');
-  form.append('source', GUPSHUP_SOURCE);
+  form.append('source', source);
   form.append('destination', destination);
   if (GUPSHUP_SRC_NAME) {
     form.append('src.name', GUPSHUP_SRC_NAME);
@@ -108,16 +124,7 @@ const sendGupshupTextMessage = async ({ to, message }) => {
     throw new Error('GUPSHUP_API_KEY is not configured.');
   }
 
-  if (!process.env.GUPSHUP_SOURCE) {
-    throw new Error('GUPSHUP_SOURCE is missing');
-  }
-
-  const source = String(process.env.GUPSHUP_SOURCE).replace(/\D/g, '').trim();
-  if (!source) {
-    throw new Error('GUPSHUP_SOURCE is invalid');
-  }
-
-  console.log('[FINAL SOURCE USED]', source);
+  const source = resolveGupshupSource();
 
   const srcName = process.env.GUPSHUP_APP_NAME || process.env.GUPSHUP_SRC_NAME || GUPSHUP_SRC_NAME;
   const sendUrl = process.env.GUPSHUP_SEND_URL || GUPSHUP_SEND_URL;
@@ -148,6 +155,10 @@ const sendGupshupTextMessage = async ({ to, message }) => {
   console.log('[SESSION MESSAGE RAW]', messageObject);
   console.log('[SESSION MESSAGE STRING]', messageJson);
   console.log('[SESSION PAYLOAD STRING]', formData);
+  console.log('[SESSION PAYLOAD SOURCE]', {
+    sourceInPayload: formData.includes(`source=${source}`),
+    source,
+  });
 
   try {
     const response = await axios.post(sendUrl, formData, {
@@ -236,7 +247,7 @@ const sendGupshupTemplateMessage = async ({ to, templateId, params = [] }) => {
     throw new Error('GUPSHUP_API_KEY is not configured.');
   }
 
-  const source = process.env.GUPSHUP_SOURCE || GUPSHUP_SOURCE;
+  const source = resolveGupshupSource();
   const srcName = process.env.GUPSHUP_APP_NAME || process.env.GUPSHUP_SRC_NAME || GUPSHUP_SRC_NAME;
   const templateSendUrl = process.env.GUPSHUP_TEMPLATE_SEND_URL || GUPSHUP_TEMPLATE_SEND_URL;
 
@@ -270,6 +281,7 @@ const sendGupshupTemplateMessage = async ({ to, templateId, params = [] }) => {
 
 module.exports = {
   normalizeDestination,
+  resolveGupshupSource,
   sendGupshupTextMessage,
   sendWhatsAppMessage,
   sendGupshupFileMessage,

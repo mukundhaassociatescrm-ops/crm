@@ -50,6 +50,41 @@ const buildPhoneLookupCandidates = (normalizedPhone) => {
   return Array.from(candidates);
 };
 
+/** Hide test/legacy threads from inbox list only (data stays in DB). */
+const CHAT_LIST_EXCLUDED_PHONES = ['6384322139', '916384322139'];
+const CHAT_LIST_MIN_UPDATED_AT = new Date('2026-05-18T00:00:00.000Z');
+
+const buildExcludedPhoneVariants = () => {
+  const variants = new Set();
+  for (const phone of CHAT_LIST_EXCLUDED_PHONES) {
+    for (const candidate of buildPhoneLookupCandidates(normalizePhone(phone))) {
+      variants.add(candidate);
+    }
+  }
+  return variants;
+};
+
+const EXCLUDED_CHAT_PHONE_VARIANTS = buildExcludedPhoneVariants();
+
+const isExcludedFromChatList = (phoneNumber) => {
+  const candidates = buildPhoneLookupCandidates(normalizePhone(phoneNumber));
+  return candidates.some((candidate) => EXCLUDED_CHAT_PHONE_VARIANTS.has(candidate));
+};
+
+const shouldShowInChatList = (conversation) => {
+  if (!conversation) {
+    return false;
+  }
+  if (isExcludedFromChatList(conversation.phoneNumber)) {
+    return false;
+  }
+  const updatedAt = conversation.updatedAt ? new Date(conversation.updatedAt) : null;
+  if (!updatedAt || Number.isNaN(updatedAt.getTime()) || updatedAt < CHAT_LIST_MIN_UPDATED_AT) {
+    return false;
+  }
+  return true;
+};
+
 const isPhoneLike = (value) => {
   const digits = String(value || '').replace(/\D/g, '');
   return digits.length >= 10;
@@ -540,6 +575,9 @@ const getConversationSummaries = async () => {
   const groupedByCanonical = new Map();
 
   for (const conversation of conversations) {
+    if (!shouldShowInChatList(conversation)) {
+      continue;
+    }
     const canonicalPhone = normalizePhone(conversation.phoneNumber);
     if (!canonicalPhone) {
       continue;
@@ -560,7 +598,9 @@ const getConversationSummaries = async () => {
   }
 
   const mergedConversations = await Conversation.find({}).sort({ unreadCount: -1, updatedAt: -1 }).lean();
-  return mergedConversations.map((item) => ({
+  return mergedConversations
+    .filter(shouldShowInChatList)
+    .map((item) => ({
     _id: normalizePhone(item.phoneNumber) || item.phoneNumber,
     phoneNumber: normalizePhone(item.phoneNumber) || item.phoneNumber,
     lastMessage: item.lastMessage || '',

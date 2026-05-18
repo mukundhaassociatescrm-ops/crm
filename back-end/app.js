@@ -10,6 +10,14 @@ const { ensureUploadsDir, resolveUploadsDir } = require('./config/uploads');
 
 dotenv.config();
 
+try {
+  const { resolveGupshupSource } = require('./services/gupshupApiService');
+  const gupshupSource = resolveGupshupSource();
+  console.log('[GUPSHUP STARTUP] WhatsApp business source ready:', gupshupSource);
+} catch (error) {
+  console.warn('[GUPSHUP STARTUP] GUPSHUP_SOURCE not configured — WhatsApp sends will fail until set:', error?.message || error);
+}
+
 const authRoutes = require('./routes/auth');
 const employeeRoutes = require('./routes/employeeRoutes');
 const taskRoutes = require('./routes/taskRoutes');

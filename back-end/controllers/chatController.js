@@ -1,7 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const { sendGupshupTextMessage, sendGupshupFileMessage, sendGupshupTemplateMessage, normalizeDestination } = require('../services/gupshupApiService');
+const {
+  sendGupshupTextMessage,
+  sendGupshupFileMessage,
+  sendGupshupTemplateMessage,
+  normalizeDestination,
+  resolveGupshupSource,
+} = require('../services/gupshupApiService');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Client = require('../models/Client');
@@ -447,7 +453,7 @@ exports.sendChatMessage = async (req, res, next) => {
       status: 'sent',
       timestamp: new Date(),
       destination: normalizedTo,
-      source: normalizePhone(process.env.GUPSHUP_SOURCE || '916384322139'),
+      source: resolveGupshupSource(),
     });
 
     emitChatUpdate({
@@ -526,7 +532,7 @@ exports.sendChatFile = async (req, res, next) => {
       status: 'sent',
       timestamp: new Date(),
       destination: normalizedTo,
-      source: normalizePhone(process.env.GUPSHUP_SOURCE || '916384322139'),
+      source: resolveGupshupSource(),
     });
 
     emitChatUpdate({
@@ -634,7 +640,7 @@ exports.sendChatTemplate = async (req, res, next) => {
       status: 'sent',
       timestamp: new Date(),
       destination: normalizedTo,
-      source: normalizePhone(process.env.GUPSHUP_SOURCE || '916384322139'),
+      source: resolveGupshupSource(),
     });
 
     emitChatUpdate({
@@ -701,7 +707,13 @@ exports.processGupshupWebhook = async (body) => {
   const sender = payload?.sender || {};
   const context = payload?.context || {};
   const eventType = String(body?.type || '').toLowerCase();
-  const businessSource = normalizePhone(process.env.GUPSHUP_SOURCE || '916384322139');
+  let businessSource = '';
+  try {
+    businessSource = resolveGupshupSource();
+  } catch (error) {
+    console.error('[WEBHOOK] GUPSHUP_SOURCE not configured:', error?.message || error);
+    return null;
+  }
   const payloadType = String(payload.type || nestedPayload.type || '').toLowerCase();
   const mediaPayloadTypes = new Set(['image', 'file', 'document', 'video', 'audio', 'sticker']);
   const rawStatus = payload.status || nestedPayload.status || payload.eventType || nestedPayload.eventType || payloadType;
