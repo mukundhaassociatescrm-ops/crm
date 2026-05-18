@@ -544,45 +544,85 @@
   }
 }
 
-.template-list {
-  max-height: 150px;
-  overflow-y: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  margin-bottom: 10px;
-  background: #f8fafc;
+.template-selection-hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f766e;
 }
 
-.template-item {
+.template-list {
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 2px;
+}
+
+.template-card {
   width: 100%;
-  border: 0;
-  border-bottom: 1px solid #e2e8f0;
-  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
   text-align: left;
-  padding: 8px 10px;
+  padding: 10px 12px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 
-  &:last-child {
-    border-bottom: 0;
+  &:hover {
+    border-color: #86efac;
+    background: #f8fffb;
   }
 
   &.active {
-    background: #dcfce7;
+    border-color: #16a34a;
+    background: #ecfdf3;
+    box-shadow: 0 0 0 1px #16a34a;
   }
 }
 
-.template-item-name {
-  font-size: 12px;
-  font-weight: 700;
-  color: #0f172a;
+.template-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.template-item-meta {
+.template-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.template-card-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: #166534;
+  background: #dcfce7;
+  border-radius: 999px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.template-card-body {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #334155;
+  font-style: italic;
+}
+
+.template-card-meta {
   font-size: 11px;
-  color: #475569;
+  color: #64748b;
+  font-weight: 600;
 }
 
 .template-empty {
@@ -693,13 +733,27 @@
     font-size: 11px;
     color: #64748b;
     margin-bottom: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
   }
 
   p {
     margin: 0;
     font-size: 13px;
     color: #334155;
+    line-height: 1.45;
   }
+
+  &.template-preview--empty {
+    background: #fff;
+    border-style: dashed;
+  }
+}
+
+.template-preview-placeholder {
+  color: #94a3b8 !important;
+  font-style: italic;
 }
 
 .template-modal-actions {

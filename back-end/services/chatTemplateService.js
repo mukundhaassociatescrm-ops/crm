@@ -221,11 +221,15 @@ const getApprovedTemplates = async ({ language, forceRefresh = false } = {}) => 
   if (!forceRefresh) {
     const cached = readCache(normalizedLanguage);
     if (cached) {
-      return cached;
+      console.log('[TEMPLATE SOURCE]', { source: 'CACHE', count: cached.length });
+      return { templates: cached, source: 'CACHE' };
     }
   }
 
   try {
+    console.log('[BACKEND TEMPLATE FETCH CALLED]', {
+      url: process.env.GUPSHUP_TEMPLATES_URL || process.env.WHATSAPP_PROVIDER_TEMPLATES_URL || '',
+    });
     const rawTemplates = await fetchTemplatesFromProvider();
     const normalizedTemplates = rawTemplates
       .map(normalizeTemplate)
@@ -256,7 +260,8 @@ const getApprovedTemplates = async ({ language, forceRefresh = false } = {}) => 
       }));
 
     writeCache(normalizedLanguage, normalizedTemplates);
-    return normalizedTemplates;
+    console.log('[TEMPLATE SOURCE]', { source: 'API', count: normalizedTemplates.length });
+    return { templates: normalizedTemplates, source: 'API' };
   } catch (error) {
     if (String(error?.message || '').includes('GUPSHUP_TEMPLATES_URL is not configured.')) {
       const fallbackTemplates = readFallbackTemplatesFromEnv();
@@ -271,17 +276,29 @@ const getApprovedTemplates = async ({ language, forceRefresh = false } = {}) => 
       }
 
       writeCache(normalizedLanguage, filteredFallback);
-      return filteredFallback;
+      console.log('[TEMPLATE SOURCE]', { source: 'HARDCODED', count: filteredFallback.length });
+      return { templates: filteredFallback, source: 'HARDCODED' };
     }
 
     const fallback = cacheByLanguage.get(toCacheKey(normalizedLanguage));
     if (fallback?.templates?.length) {
       console.warn('[chatTemplateService] Using cached template fallback due to provider fetch error:', error?.message || error);
-      return fallback.templates;
+      console.log('[TEMPLATE SOURCE]', { source: 'CACHE', count: fallback.templates.length });
+      return { templates: fallback.templates, source: 'CACHE' };
     }
 
     throw error;
   }
+};
+
+const unwrapTemplateResult = (result) => {
+  if (Array.isArray(result)) {
+    return { templates: result, source: 'API' };
+  }
+  return {
+    templates: Array.isArray(result?.templates) ? result.templates : [],
+    source: result?.source || 'API',
+  };
 };
 
 const invalidateTemplateCache = () => {
@@ -290,5 +307,6 @@ const invalidateTemplateCache = () => {
 
 module.exports = {
   getApprovedTemplates,
+  unwrapTemplateResult,
   invalidateTemplateCache,
 };

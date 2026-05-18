@@ -49,6 +49,9 @@ export interface ApiListResponse<T> {
   success: boolean;
   data: T;
   message?: string;
+  meta?: {
+    source?: string;
+  };
 }
 
 export interface SendMessageRequest {
@@ -310,13 +313,31 @@ export class ChatService {
   }
 
   sendTemplate(data: SendTemplateRequest): Observable<SendMessageResponse> {
-    return this.http.post<SendMessageResponse>('/api/chat/send-template', {
-      ...data,
+    const payload = {
+      to: data.to,
       phone: data.phone || data.to,
+      templateId: data.templateId,
+      params: Array.isArray(data.params) ? data.params : [],
+      ...(data.expectedParamCount !== undefined ? { expectedParamCount: data.expectedParamCount } : {}),
+    };
+    console.log('[UI TEMPLATE API CALL]', {
+      url: '/api/chat/send-template',
+      payload,
     });
+    return this.http.post<SendMessageResponse>('/api/chat/send-template', payload).pipe(
+      tap((response) => {
+        console.log('[UI HTTP TEMPLATE RESPONSE]', response);
+      }),
+    );
   }
 
   getTemplates(options?: { language?: string; refresh?: boolean }): Observable<ApiListResponse<WhatsAppTemplateOption[]>> {
+    console.log('[UI FETCH TEMPLATES TRIGGERED]', {
+      endpoint: '/api/chat/templates',
+      language: options?.language || '',
+      refresh: Boolean(options?.refresh),
+    });
+
     let params = new HttpParams();
     if (options?.language) {
       params = params.set('language', options.language);
@@ -325,7 +346,18 @@ export class ChatService {
       params = params.set('refresh', 'true');
     }
 
-    return this.http.get<ApiListResponse<WhatsAppTemplateOption[]>>('/api/chat/templates', { params });
+    return this.http.get<ApiListResponse<WhatsAppTemplateOption[]>>('/api/chat/templates', { params }).pipe(
+      tap((response) => {
+        const templates = Array.isArray(response?.data) ? response.data : [];
+        const rawSource = String(response?.meta?.source || 'API').toUpperCase();
+        const source = rawSource === 'HARDCODED' ? 'HARDCODED' : 'API';
+        console.log('[TEMPLATE SOURCE]', {
+          source,
+          count: templates.length,
+          rawSource,
+        });
+      }),
+    );
   }
 
   startChat(to: string): Observable<ChatStartResponse> {

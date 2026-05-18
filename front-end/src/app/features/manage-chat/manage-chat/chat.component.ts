@@ -495,11 +495,28 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.notificationSoundReady ? 'Sound on' : 'Tap to enable sound';
   }
 
+  get canSendSelectedTemplate(): boolean {
+    if (!this.selectedTemplateId || this.isSendingTemplate || this.isLoadingTemplates) {
+      return false;
+    }
+
+    const variableIndexes = this.selectedTemplateVariableIndexes;
+    if (!variableIndexes.length) {
+      return true;
+    }
+
+    return variableIndexes.every((index) => String(this.templateVariables[index] || '').trim().length > 0);
+  }
+
   get selectedTemplatePreview(): string {
+    if (!this.selectedTemplateId) {
+      return 'Select a template from the list to see the message preview.';
+    }
+
     const selectedTemplate = this.selectedTemplate;
     const templateBody = String(selectedTemplate?.body || '').trim();
     if (!templateBody) {
-      return 'Template preview will appear here.';
+      return 'No preview text available for this template.';
     }
 
     return templateBody.replace(/\{\{\s*(\d+)\s*\}\}/g, (_match, index) => {
@@ -531,6 +548,17 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return 0;
     }
     return variables.length;
+  }
+
+  getTemplateBodySnippet(body: string | undefined, maxLength = 140): string {
+    const normalized = String(body || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return 'No message preview available.';
+    }
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+    return `${normalized.slice(0, maxLength).trim()}…`;
   }
 
   get templateCategories(): string[] {
@@ -653,8 +681,47 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onNewChatTemplateIdChanged(): void {
+    this.logTemplateSelected('new_chat_modal', this.selectedNewChatTemplate, this.selectedNewChatTemplateId);
     this.syncNewChatTemplateVariableMap();
     this.newChatError = '';
+  }
+
+  private logTemplateSelected(
+    source: string,
+    template: WhatsAppTemplateOption | null,
+    templateId: string,
+  ): void {
+    const resolvedTemplate = template
+      || this.availableTemplates.find((item) => item.id === templateId)
+      || this.newChatAvailableTemplates.find((item) => item.id === templateId)
+      || null;
+    const variableIndexes = Array.isArray(resolvedTemplate?.variables) ? resolvedTemplate.variables : [];
+
+    console.log('[UI TEMPLATE SELECTED]', {
+      source,
+      templateId: templateId || resolvedTemplate?.id || '',
+      templateName: resolvedTemplate?.name || '',
+      hasVariables: variableIndexes.length > 0,
+      variableCount: variableIndexes.length,
+    });
+  }
+
+  private buildTemplateSendPayload(
+    phoneNumber: string,
+    templateId: string,
+    variableIndexes: number[],
+    variableValues: Record<number, string>,
+  ): { to: string; templateId: string; params: string[]; expectedParamCount: number } {
+    const params = variableIndexes.length > 0
+      ? variableIndexes.map((index) => String(variableValues[index] || '').trim())
+      : [];
+
+    return {
+      to: phoneNumber,
+      templateId,
+      params,
+      expectedParamCount: variableIndexes.length,
+    };
   }
 
   onNewChatTemplateVariableChanged(index: number, value: string): void {
@@ -667,10 +734,17 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   private loadNewChatTemplates(): void {
     this.isLoadingNewChatTemplates = true;
     this.newChatError = '';
+    console.log('[UI FETCH TEMPLATES TRIGGERED]', { trigger: 'loadNewChatTemplates' });
     this.chatService.getTemplates().pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
         this.isLoadingNewChatTemplates = false;
         const templates = Array.isArray(response?.data) ? response.data : [];
+        const rawSource = String(response?.meta?.source || 'API').toUpperCase();
+        console.log('[TEMPLATE SOURCE]', {
+          source: rawSource === 'HARDCODED' ? 'HARDCODED' : 'API',
+          count: templates.length,
+          context: 'new_chat_modal',
+        });
         this.newChatAvailableTemplates = templates;
         if (!templates.length) {
           this.newChatError = 'No WhatsApp templates available.';
@@ -747,34 +821,48 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const variableIndexes = this.newChatTemplateVariableIndexes;
-    const params = variableIndexes.map((index) => String(this.newChatTemplateVariables[index] || '').trim());
-    if (variableIndexes.length > 0 && params.some((value) => !value)) {
+    const payload = this.buildTemplateSendPayload(
+      normalizedPhone,
+      this.selectedNewChatTemplateId,
+      variableIndexes,
+      this.newChatTemplateVariables,
+    );
+    if (variableIndexes.length > 0 && payload.params.some((value) => !value)) {
       this.newChatError = 'Fill all template variables.';
       return;
     }
 
     this.isStartingNewChat = true;
     this.newChatError = '';
+    console.log('--- UI TEMPLATE SEND START (new chat) ---');
+    console.log('[UI TEMPLATE PAYLOAD]', payload);
     console.log('[StartNewChat] clicked', {
       selectedCustomer: this.selectedCustomer,
       normalizedPhone,
-      templateId: this.selectedNewChatTemplateId,
-      expectedParamCount: variableIndexes.length,
+      templateId: payload.templateId,
+      expectedParamCount: payload.expectedParamCount,
     });
 
     const selectedName = String(this.selectedCustomer?.name || '').trim();
 
     this.chatService.sendTemplate({
-      to: normalizedPhone,
-      phone: normalizedPhone,
-      templateId: this.selectedNewChatTemplateId,
-      params,
-      expectedParamCount: variableIndexes.length,
+      to: payload.to,
+      phone: payload.to,
+      templateId: payload.templateId,
+      params: payload.params,
+      expectedParamCount: payload.expectedParamCount,
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
+          console.log('[UI TEMPLATE RESPONSE]', response);
           console.log('[StartNewChat] sendTemplate response', response);
+          if (!response?.success) {
+            this.isStartingNewChat = false;
+            this.newChatError = response?.message || 'Unable to send welcome template right now. Please try again.';
+            this.toastr.error(this.newChatError, 'Template Failed');
+            return;
+          }
 
           const existingConversation = this.conversations.find((conversation) => this.normalizePhone(conversation.phoneNumber) === normalizedPhone);
           const baseConversation = existingConversation || this.buildAdhocConversation(normalizedPhone);
@@ -834,6 +922,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
           this.hasSearchedCustomers = false;
         },
         error: (error: unknown) => {
+          const httpError = error instanceof HttpErrorResponse ? error : null;
+          console.log('[UI TEMPLATE ERROR]', {
+            status: httpError?.status,
+            message: httpError?.message || (error instanceof Error ? error.message : String(error)),
+            data: httpError?.error,
+          });
           console.log('[StartNewChat] sendTemplate error', error);
           this.isStartingNewChat = false;
           const message = error instanceof HttpErrorResponse
@@ -1609,9 +1703,13 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    this.clearTemplateModalSelection();
     this.templateModalError = '';
     if (!this.availableTemplates.length) {
+      console.log('[UI FETCH TEMPLATES TRIGGERED]', { trigger: 'openTemplateModal' });
       this.loadTemplatesFromApi();
+    } else {
+      console.log('[UI TEMPLATE LIST]', this.availableTemplates);
     }
     this.showTemplateModal = true;
   }
@@ -1623,6 +1721,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.showTemplateModal = false;
     this.templateModalError = '';
+    this.clearTemplateModalSelection();
+  }
+
+  private clearTemplateModalSelection(): void {
+    this.selectedTemplateId = '';
+    this.templateVariables = {};
   }
 
   sendTemplateToStartChat(): void {
@@ -1630,37 +1734,84 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    const selectedConversation = this.selectedConversation;
     const variableIndexes = this.selectedTemplateVariableIndexes;
-    const params = variableIndexes.map((index) => String(this.templateVariables[index] || '').trim());
-    if (variableIndexes.length > 0 && params.some((value) => !value)) {
+    const phoneNumber = this.normalizePhone(selectedConversation.phoneNumber);
+    const payload = this.buildTemplateSendPayload(
+      phoneNumber,
+      this.selectedTemplateId,
+      variableIndexes,
+      this.templateVariables,
+    );
+
+    if (variableIndexes.length > 0 && payload.params.some((value) => !value)) {
       this.templateModalError = 'Fill all template variables.';
       return;
     }
 
+    const template = this.selectedTemplate;
+    const localPendingId = this.buildLocalPendingMessageId();
+    const templateDisplayText = template?.name
+      ? `Template message: ${template.name}`
+      : `Template message: ${this.selectedTemplateId}`;
+
+    console.log('--- UI TEMPLATE SEND START ---');
+    console.log('[UI TEMPLATE PAYLOAD]', payload);
+
     this.isSendingTemplate = true;
     this.templateModalError = '';
 
+    if (!this.isMockConversation(selectedConversation._id)) {
+      this.addOptimisticOutgoingMessage(templateDisplayText, selectedConversation, localPendingId);
+      this.queueScrollToBottom(true);
+    }
+
     this.chatService.sendTemplate({
-      to: this.selectedConversation.phoneNumber,
-      templateId: this.selectedTemplateId,
-      params,
-      expectedParamCount: variableIndexes.length,
+      to: payload.to,
+      phone: payload.to,
+      templateId: payload.templateId,
+      params: payload.params,
+      expectedParamCount: payload.expectedParamCount,
     }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
+      next: (response) => {
+        console.log('[UI TEMPLATE RESPONSE]', response);
         this.isSendingTemplate = false;
+
+        if (!response?.success) {
+          if (!this.isMockConversation(selectedConversation._id)) {
+            this.markPendingMessageFailed(localPendingId);
+          }
+          this.templateModalError = response?.message || 'Template failed to send';
+          return;
+        }
+
+        if (!this.isMockConversation(selectedConversation._id)) {
+          this.resolvePendingMessage(localPendingId, response.data?.messageId);
+        }
+
+        this.clearTemplateModalSelection();
         this.showTemplateModal = false;
         this.templateSentAwaitingReply = true;
         console.log('[MESSAGE SEND TYPE]', 'template');
-        if (this.selectedConversation) {
-          this.syncSelectedConversationPreview(`Template: ${this.selectedTemplateId}`, this.selectedConversation._id);
-          this.selectedConversation$.next(this.selectedConversation._id);
-          this.refreshSessionStatusFromBackend(this.selectedConversation.phoneNumber);
-          this.refreshConversationsFromApi(true);
-        }
+        this.syncSelectedConversationPreview(templateDisplayText, selectedConversation._id);
+        this.selectedConversation$.next(selectedConversation._id);
+        this.refreshSessionStatusFromBackend(selectedConversation.phoneNumber);
+        this.refreshConversationsFromApi(true);
       },
-      error: () => {
+      error: (error: unknown) => {
+        const httpError = error instanceof HttpErrorResponse ? error : null;
+        console.log('[UI TEMPLATE ERROR]', {
+          status: httpError?.status,
+          message: httpError?.message || (error instanceof Error ? error.message : String(error)),
+          data: httpError?.error,
+        });
         this.isSendingTemplate = false;
-        this.templateModalError = 'Unable to send template message. Please try again.';
+        if (!this.isMockConversation(selectedConversation._id)) {
+          this.markPendingMessageFailed(localPendingId);
+        }
+        this.templateModalError = httpError
+          ? String(httpError.error?.message || httpError.message || 'Template failed to send')
+          : 'Template failed to send';
       },
     });
   }
@@ -1672,6 +1823,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   selectTemplate(template: WhatsAppTemplateOption): void {
     this.selectedTemplateId = template.id;
+    console.log('[UI TEMPLATE SELECTED]', this.selectedTemplateId);
+    this.logTemplateSelected('template_modal', template, template.id);
     this.onTemplateChanged();
   }
 
@@ -1760,16 +1913,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.availableTemplates = templates || [];
 
     if (!this.availableTemplates.length) {
-      this.selectedTemplateId = '';
-      this.templateVariables = {};
-      return;
+      this.clearTemplateModalSelection();
     }
-
-    if (!this.availableTemplates.some((item) => item.id === this.selectedTemplateId)) {
-      this.selectedTemplateId = this.availableTemplates[0].id;
-    }
-
-    this.syncTemplateVariableMap();
   }
 
   private formatSessionDateTime(value: string | null): string {
@@ -1790,24 +1935,30 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private loadTemplatesFromApi(forceRefresh = false): void {
     this.isLoadingTemplates = true;
+    console.log('[UI FETCH TEMPLATES TRIGGERED]', { trigger: 'loadTemplatesFromApi', forceRefresh });
     this.chatService.getTemplates({
       refresh: forceRefresh,
     }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
         this.isLoadingTemplates = false;
         const templates = Array.isArray(response?.data) ? response.data : [];
+        const rawSource = String(response?.meta?.source || 'API').toUpperCase();
+        console.log('[TEMPLATE SOURCE]', {
+          source: rawSource === 'HARDCODED' ? 'HARDCODED' : 'API',
+          count: templates.length,
+          context: 'template_modal',
+        });
         this.availableTemplates = templates;
+        console.log('[UI TEMPLATE LIST]', templates);
 
         if (!this.availableTemplates.length) {
-          this.selectedTemplateId = '';
-          this.templateVariables = {};
+          this.clearTemplateModalSelection();
           return;
         }
 
-        if (!this.availableTemplates.some((item) => item.id === this.selectedTemplateId)) {
-          this.selectedTemplateId = this.availableTemplates[0].id;
+        if (this.selectedTemplateId && !this.availableTemplates.some((item) => item.id === this.selectedTemplateId)) {
+          this.clearTemplateModalSelection();
         }
-        this.syncTemplateVariableMap();
       },
       error: () => {
         this.isLoadingTemplates = false;
@@ -2226,6 +2377,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       status: event?.status,
     });
     if (event?.eventType === 'status') {
+      console.log('[UI TEMPLATE STATUS UPDATE]', {
+        messageId: event.messageId,
+        status: event.status,
+      });
       console.log('[UI STATUS UPDATE]', {
         phone: event.phone,
         messageId: event.messageId,
@@ -2865,7 +3020,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private markPendingMessageFailed(localPendingId: string): void {
-    console.log('[UI PENDING FAILED]', { localPendingId });
+    const pending = this.pendingMessages.find((message) => message.messageId === localPendingId);
+    console.log('[UI PENDING FAILED]', {
+      localPendingId,
+      text: pending?.text || '',
+      isTemplateMessage: String(pending?.text || '').toLowerCase().includes('template'),
+    });
     this.pendingMessages = this.pendingMessages.map((message) => {
       if (message.messageId !== localPendingId) {
         return message;

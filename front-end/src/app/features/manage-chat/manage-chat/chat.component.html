@@ -443,16 +443,25 @@
             </button>
           </div>
 
+          <p class="template-selection-hint" *ngIf="!isLoadingTemplates && filteredTemplates.length && !selectedTemplateId">
+            Select a template below to continue.
+          </p>
+
           <div class="template-list" *ngIf="!isLoadingTemplates; else templateLoadingTpl">
             <button
               type="button"
-              class="template-item"
+              class="template-card"
               *ngFor="let item of filteredTemplates"
               [class.active]="item.id === selectedTemplateId"
+              [attr.aria-pressed]="item.id === selectedTemplateId"
               (click)="selectTemplate(item)"
             >
-              <span class="template-item-name">{{ item.name || item.id }}</span>
-              <span class="template-item-meta">{{ item.category }} • {{ item.language }}</span>
+              <div class="template-card-header">
+                <span class="template-card-title">{{ item.name || item.id }}</span>
+                <span class="template-card-badge">{{ getTemplateVariableCount(item) }} variable(s)</span>
+              </div>
+              <p class="template-card-body">"{{ getTemplateBodySnippet(item.body) }}"</p>
+              <span class="template-card-meta">{{ item.category }} · {{ item.language }}</span>
             </button>
             <div class="template-empty" *ngIf="!filteredTemplates.length">No templates found.</div>
           </div>
@@ -460,7 +469,7 @@
             <div class="template-empty">Loading templates...</div>
           </ng-template>
 
-          <div class="template-variables" *ngIf="selectedTemplateVariableIndexes.length > 0">
+          <div class="template-variables" *ngIf="selectedTemplateId && selectedTemplateVariableIndexes.length > 0">
             <label class="template-field" *ngFor="let index of selectedTemplateVariableIndexes">
               <span>Variable {{ index }}</span>
               <input
@@ -472,17 +481,20 @@
             </label>
           </div>
 
-          <div class="template-preview">
-            <span class="label">Preview</span>
-            <p>{{ selectedTemplatePreview }}</p>
+          <div class="template-preview" [class.template-preview--empty]="!selectedTemplateId">
+            <span class="label">Selected template preview</span>
+            <p *ngIf="selectedTemplateId">{{ selectedTemplatePreview }}</p>
+            <p *ngIf="!selectedTemplateId" class="template-preview-placeholder">
+              Select a template from the list to preview the message before sending.
+            </p>
           </div>
 
           <p class="template-error" *ngIf="templateModalError">{{ templateModalError }}</p>
 
           <div class="template-modal-actions">
             <button type="button" class="template-secondary" (click)="closeTemplateModal()" [disabled]="isSendingTemplate">Cancel</button>
-            <button type="button" class="template-primary" (click)="sendTemplateToStartChat()" [disabled]="!selectedTemplateId || isSendingTemplate">
-              {{ isSendingTemplate ? 'Sending...' : 'Send Template' }}
+            <button type="button" class="template-primary" (click)="sendTemplateToStartChat()" [disabled]="!canSendSelectedTemplate">
+              {{ isSendingTemplate ? 'Sending...' : 'Send template' }}
             </button>
           </div>
         </div>

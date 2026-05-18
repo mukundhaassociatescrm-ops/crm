@@ -26,7 +26,7 @@ const {
 } = require('../services/chatMessageStore');
 const { emitChatUpdate } = require('../services/socketService');
 const { resolveClientIdByPhone } = require('../services/activityHistoryService');
-const { getApprovedTemplates, invalidateTemplateCache } = require('../services/chatTemplateService');
+const { getApprovedTemplates, unwrapTemplateResult, invalidateTemplateCache } = require('../services/chatTemplateService');
 const { ensureUploadsDir, resolveUploadsDir } = require('../config/uploads');
 
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -169,7 +169,7 @@ const isSessionActiveForPhone = async (phoneNumber) => {
 
 const safeLoadTemplates = async (language = '') => {
   try {
-    return await getApprovedTemplates({ language });
+    return unwrapTemplateResult(await getApprovedTemplates({ language })).templates;
   } catch (_error) {
     return [];
   }
@@ -374,23 +374,42 @@ exports.getChatSessionStatus = async (req, res, next) => {
 // Fetches approved WhatsApp templates from provider with cache support.
 exports.getChatTemplates = async (req, res, next) => {
   try {
+    console.log('[BACKEND TEMPLATE FETCH CALLED]', {
+      path: '/api/chat/templates',
+      language: req.query?.language || '',
+      refresh: req.query?.refresh || false,
+    });
+
     const language = String(req.query?.language || '').trim();
     const forceRefresh = String(req.query?.refresh || '').toLowerCase() === 'true';
-    let templates;
+    let templateResult = { templates: [], source: 'API' };
+
     if (forceRefresh) {
       try {
-        templates = await getApprovedTemplates({ language, forceRefresh: true });
+        templateResult = unwrapTemplateResult(await getApprovedTemplates({ language, forceRefresh: true }));
       } catch (error) {
         console.warn('[getChatTemplates] Provider refresh failed, returning safe fallback list:', error?.message || error);
-        templates = await safeLoadTemplates(language);
+        templateResult = {
+          templates: await safeLoadTemplates(language),
+          source: 'HARDCODED',
+        };
       }
     } else {
-      templates = await safeLoadTemplates(language);
+      templateResult = unwrapTemplateResult(await getApprovedTemplates({ language }));
     }
+
+    console.log('[TEMPLATE SOURCE]', {
+      source: templateResult.source === 'HARDCODED' ? 'HARDCODED' : 'API',
+      count: templateResult.templates.length,
+      rawSource: templateResult.source,
+    });
 
     return res.status(200).json({
       success: true,
-      data: templates,
+      data: templateResult.templates,
+      meta: {
+        source: templateResult.source,
+      },
     });
   } catch (error) {
     next(error);
@@ -677,7 +696,7 @@ exports.refreshChatTemplates = async (req, res, next) => {
     let templates = [];
     let usedFallback = false;
     try {
-      templates = await getApprovedTemplates({ forceRefresh: true });
+      templates = unwrapTemplateResult(await getApprovedTemplates({ forceRefresh: true })).templates;
     } catch (error) {
       usedFallback = true;
       console.warn('[refreshChatTemplates] Provider refresh failed, returning fallback list:', error?.message || error);
