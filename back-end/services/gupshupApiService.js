@@ -222,7 +222,8 @@ const sendGupshupTemplateMessage = async ({ to, templateId, params = [] }) => {
     }),
   });
 
-  console.log('[GUPSHUP TEMPLATE PAYLOAD]', formData);
+  console.log('[TEMPLATE PARAMS]', normalizedParams);
+  console.log('[FINAL TEMPLATE PAYLOAD]', formData);
 
   const response = await axios.post(templateSendUrl, formData, {
     headers: {
