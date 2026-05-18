@@ -7,15 +7,15 @@ const setSocketServer = (socketServer) => {
 };
 
 const emitChatUpdate = (event) => {
+  console.log('[SOCKET EMIT]', {
+    eventType: event?.eventType,
+    phone: event?.phone,
+    messageId: event?.messageId,
+    status: event?.status,
+  });
+
   if (!io) {
-    if (isChatDebugEnabled()) {
-      console.log('[CHAT_DEBUG]', 'socket:emit skipped (io not set)', {
-        eventType: event?.eventType,
-        phone: event?.phone,
-        messageId: event?.messageId,
-        status: event?.status,
-      });
-    }
+    console.log('[SOCKET EMIT SKIPPED]', { reason: 'io not set' });
     return;
   }
 

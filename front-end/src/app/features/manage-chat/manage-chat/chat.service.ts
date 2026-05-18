@@ -1,6 +1,6 @@
 import { HttpClient, HttpEventType, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import { map, Observable, tap } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../../environments/environment';
 import { Customer } from '../../../shared/models/customer.model';
@@ -256,13 +256,20 @@ export class ChatService {
   }
 
   sendMessage(data: SendMessageRequest): Observable<SendMessageResponse> {
-    const body = {
+    const payload = {
       to: data.to,
       text: data.text,
       message: data.message || data.text,
     };
-    console.log('[UI HTTP POST]', { url: '/api/chat/send', method: 'POST', body });
-    return this.http.post<SendMessageResponse>('/api/chat/send', body);
+    console.log('[UI HTTP POST]', {
+      url: '/api/chat/send',
+      body: payload,
+    });
+    return this.http.post<SendMessageResponse>('/api/chat/send', payload).pipe(
+      tap((response) => {
+        console.log('[UI HTTP RESPONSE]', response);
+      }),
+    );
   }
 
   uploadFile(file: File): Observable<UploadFileProgressEvent> {

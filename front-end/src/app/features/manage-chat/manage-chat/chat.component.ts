@@ -910,12 +910,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   sendMessage(): void {
     const text = this.draftMessage.trim();
+    const messageText = text;
     const attachmentText = this.attachmentCaption.trim();
     const phoneNumber = this.selectedConversation?.phoneNumber || '';
 
+    console.log('--- UI SEND START ---');
     console.log('[UI SEND START]', {
       phone: phoneNumber,
-      text,
+      text: messageText,
+      sessionState: this.sessionState,
     });
 
     if (!this.selectedConversation || this.isSending || this.isUploadingAttachment) {
@@ -974,11 +977,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     };
 
     console.log('[UI PAYLOAD]', payload);
-    console.log('[UI NETWORK]', {
-      url: '/api/chat/send',
-      method: 'POST',
-      body: payload,
-    });
+    console.log('[UI CALL API] POST /api/chat/send');
 
     this.addOptimisticOutgoingMessage(text, selectedConversation, localPendingId);
     this.draftMessage = '';
@@ -1004,7 +1003,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         this.resolvePendingMessage(localPendingId, response.data?.messageId);
       },
       error: (error: unknown) => {
-        console.log('[UI ERROR]', error);
+        const httpError = error instanceof HttpErrorResponse ? error : null;
+        console.log('[UI ERROR]', {
+          status: httpError?.status,
+          message: httpError?.message || (error instanceof Error ? error.message : String(error)),
+          data: httpError?.error,
+        });
         this.isSending = false;
         if (this.handleSessionExpiredError(error)) {
           this.removePendingMessage(localPendingId);
@@ -2215,8 +2219,14 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private handleRealtimeUpdate(event: RealtimeChatEvent): void {
+    console.log('[UI SOCKET RECEIVE]', {
+      eventType: event?.eventType,
+      phone: event?.phone,
+      messageId: event?.messageId,
+      status: event?.status,
+    });
     if (event?.eventType === 'status') {
-      console.log('[Chat] realtime status update', {
+      console.log('[UI STATUS UPDATE]', {
         phone: event.phone,
         messageId: event.messageId,
         status: event.status,
@@ -2848,9 +2858,14 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     });
 
     this.messages = this.mergePendingMessages(this.messages);
+    console.log('[UI PENDING RESOLVED]', {
+      localPendingId,
+      providerMessageId: resolvedId,
+    });
   }
 
   private markPendingMessageFailed(localPendingId: string): void {
+    console.log('[UI PENDING FAILED]', { localPendingId });
     this.pendingMessages = this.pendingMessages.map((message) => {
       if (message.messageId !== localPendingId) {
         return message;

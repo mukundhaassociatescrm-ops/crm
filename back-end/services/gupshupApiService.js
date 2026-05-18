@@ -91,6 +91,8 @@ const sendGupshupMessage = async (form) => {
 };
 
 const sendGupshupTextMessage = async ({ to, message }) => {
+  console.log('--- GUPSHUP SEND START ---');
+
   const destination = normalizeDestination(to);
   if (!destination) {
     throw new Error('A valid destination number is required.');
@@ -106,13 +108,24 @@ const sendGupshupTextMessage = async ({ to, message }) => {
     throw new Error('GUPSHUP_API_KEY is not configured.');
   }
 
-  const source = process.env.GUPSHUP_SOURCE || GUPSHUP_SOURCE;
+  if (!process.env.GUPSHUP_SOURCE) {
+    throw new Error('GUPSHUP_SOURCE is missing');
+  }
+
+  const source = String(process.env.GUPSHUP_SOURCE).replace(/\D/g, '').trim();
+  if (!source) {
+    throw new Error('GUPSHUP_SOURCE is invalid');
+  }
+
+  console.log('[FINAL SOURCE USED]', source);
+
   const srcName = process.env.GUPSHUP_APP_NAME || process.env.GUPSHUP_SRC_NAME || GUPSHUP_SRC_NAME;
   const sendUrl = process.env.GUPSHUP_SEND_URL || GUPSHUP_SEND_URL;
-  const messageJson = JSON.stringify({
+  const messageObject = {
     type: 'text',
     text: cleanMessage,
-  });
+  };
+  const messageJson = JSON.stringify(messageObject);
 
   const formData = qs.stringify({
     channel: 'whatsapp',
@@ -125,18 +138,16 @@ const sendGupshupTextMessage = async ({ to, message }) => {
   console.log('[SESSION CONFIG]', {
     url: sendUrl,
     source,
-    destination,
-    srcName,
-    hasApiKey: Boolean(apiKey),
+    destination: to,
+    srcName: process.env.GUPSHUP_APP_NAME || process.env.GUPSHUP_SRC_NAME || GUPSHUP_SRC_NAME,
   });
   console.log('[SESSION VALIDATION]', {
-    sourceEmpty: !String(source || '').trim(),
-    srcNameEmpty: !String(srcName || '').trim(),
-    messageIsJsonString: messageJson.startsWith('{') && messageJson.includes('"type":"text"'),
-    messageJson,
+    sourceEmpty: !source,
+    srcNameEmpty: !process.env.GUPSHUP_APP_NAME,
   });
-  console.log('[SESSION PAYLOAD]', formData);
-  console.log('[SESSION MESSAGE PAYLOAD]', formData);
+  console.log('[SESSION MESSAGE RAW]', messageObject);
+  console.log('[SESSION MESSAGE STRING]', messageJson);
+  console.log('[SESSION PAYLOAD STRING]', formData);
 
   try {
     const response = await axios.post(sendUrl, formData, {
@@ -147,18 +158,20 @@ const sendGupshupTextMessage = async ({ to, message }) => {
       timeout: 15000,
     });
 
-    console.log('[GUPSHUP RESPONSE]', response.data);
+    console.log('[GUPSHUP RESPONSE]', {
+      status: response.status,
+      data: response.data,
+    });
 
     return {
       messageId: extractMessageId(response.data),
       providerResponse: response.data,
     };
   } catch (error) {
-    console.log('[GUPSHUP ERROR]', error.response?.data || error.message);
-    console.error('[GUPSHUP RESPONSE ERROR]', {
+    console.log('[GUPSHUP ERROR]', {
       status: error?.response?.status,
       data: error?.response?.data,
-      message: error?.message,
+      message: error.message,
     });
     throw error;
   }

@@ -395,8 +395,8 @@ exports.getChatTemplates = async (req, res, next) => {
 // Sends a WhatsApp message through Gupshup and stores a local outgoing record.
 exports.sendChatMessage = async (req, res, next) => {
   try {
+    console.log('--- API REQUEST START ---');
     console.log('[API REQUEST BODY]', req.body);
-    console.log('[SESSION REQUEST BODY]', req.body);
 
     const { to, message, text } = req.body || {};
     const messageText = String(text || message || '').trim();
@@ -409,35 +409,33 @@ exports.sendChatMessage = async (req, res, next) => {
     await ensureChatParticipant(to);
 
     const normalizedTo = normalizePhone(to);
+    console.log('[API NORMALIZED]', { to, normalizedTo });
+
     const sessionState = await getSessionStateForPhone(to);
     const hasActiveSession = sessionState.isActive;
     console.log('[SESSION CHECK RESULT]', {
-      to,
-      normalizedPhone: normalizedTo,
-      outgoingDestination: normalizeDestination(to),
       hasActiveSession,
-      lastIncomingAt: sessionState.lastIncomingAt,
-      expiresAt: sessionState.expiresAt,
-    });
-    console.log('[SESSION CHECK]', {
-      to,
-      normalizedPhone: normalizedTo,
-      outgoingDestination: normalizeDestination(to),
-      hasActiveSession,
-      lastIncomingAt: sessionState.lastIncomingAt,
+      lastIncoming: sessionState.lastIncomingAt,
       expiresAt: sessionState.expiresAt,
     });
 
     if (!hasActiveSession) {
-      console.log('[API SESSION BLOCKED]', { to, normalizedTo });
+      console.log('[API SESSION BLOCKED]', {
+        to,
+        normalizedTo,
+        reason: 'No active session',
+      });
       return sendSessionExpiredResponse(res, to, { language: req.body?.language });
     }
 
     await waitForWhatsappSessionActivation(sessionState.lastIncomingAt);
 
-    console.log('[API CALLING GUPSHUP]', { to, normalizedTo, messageText });
+    console.log('[API CALLING GUPSHUP]', {
+      to: normalizedTo,
+      text: messageText,
+    });
     const result = await sendGupshupTextMessage({ to, message: messageText });
-    console.log('[API GUPSHUP OK]', { messageId: result?.messageId, providerResponse: result?.providerResponse });
+    console.log('[API GUPSHUP OK]', result);
     const messageId = result.messageId || `local-${Date.now()}`;
 
     await saveMessage({
@@ -470,11 +468,7 @@ exports.sendChatMessage = async (req, res, next) => {
     console.log('[API RESPONSE]', successPayload);
     return res.status(200).json(successPayload);
   } catch (error) {
-    console.log('[API ERROR]', {
-      message: error?.message,
-      status: error?.response?.status,
-      data: error?.response?.data,
-    });
+    console.log('[API ERROR]', error?.response?.data || error.message);
     next(error);
   }
 };
@@ -700,6 +694,8 @@ exports.refreshChatTemplates = async (req, res, next) => {
 // POST /webhook/gupshup helper
 // Normalizes and stores incoming/status events from Gupshup webhook payload.
 exports.processGupshupWebhook = async (body) => {
+  console.log('[WEBHOOK EVENT]', { type: body?.type });
+
   const payload = body?.payload || {};
   const nestedPayload = payload?.payload || {};
   const sender = payload?.sender || {};
@@ -878,6 +874,16 @@ exports.processGupshupWebhook = async (body) => {
   const isIncomingEvent = eventType.includes('message') || (!isStatusUpdate && (Boolean(displayText) || isMediaType || Boolean(attachmentUrl)));
 
   if (isStatusUpdate) {
+    console.log('--- WEBHOOK STATUS ---');
+    console.log('[WEBHOOK STATUS RAW]', body);
+    console.log('[STATUS PARSED]', {
+      messageId,
+      status,
+      reason,
+      phone,
+      source,
+      destination,
+    });
     chatDebug('gupshup:status received', {
       eventType,
       rawStatus,
@@ -924,6 +930,9 @@ exports.processGupshupWebhook = async (body) => {
   }
 
   if (isIncomingEvent) {
+    console.log('--- WEBHOOK INCOMING ---');
+    console.log('[WEBHOOK INCOMING RAW]', body);
+
     // Ignore non-status events that have no text and no usable phone fields.
     if (!String(text || '').trim() && !source && !destination) {
       return null;
@@ -940,6 +949,12 @@ exports.processGupshupWebhook = async (body) => {
 
     const inboundDirection = isFromBusiness ? 'out' : 'in';
     const normalizedCustomerPhone = normalizePhone(phone);
+
+    console.log('[INCOMING PARSED]', {
+      phone: normalizedCustomerPhone,
+      direction: inboundDirection,
+      messageId: messageId || `incoming-${Date.now()}`,
+    });
 
     const saved = await saveMessage({
       messageId: messageId || `incoming-${Date.now()}`,
