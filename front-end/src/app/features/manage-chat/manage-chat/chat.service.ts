@@ -256,11 +256,13 @@ export class ChatService {
   }
 
   sendMessage(data: SendMessageRequest): Observable<SendMessageResponse> {
-    return this.http.post<SendMessageResponse>('/api/chat/send', {
+    const body = {
       to: data.to,
       text: data.text,
       message: data.message || data.text,
-    });
+    };
+    console.log('[UI HTTP POST]', { url: '/api/chat/send', method: 'POST', body });
+    return this.http.post<SendMessageResponse>('/api/chat/send', body);
   }
 
   uploadFile(file: File): Observable<UploadFileProgressEvent> {

@@ -24,7 +24,33 @@ const { getApprovedTemplates, invalidateTemplateCache } = require('../services/c
 const { ensureUploadsDir, resolveUploadsDir } = require('../config/uploads');
 
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
+/** Gupshup may return #470 if a session send happens within seconds of the inbound webhook. */
+const SESSION_ACTIVATION_WINDOW_MS = 5000;
+const SESSION_ACTIVATION_DELAY_MS = 3000;
 const uploadsDir = ensureUploadsDir(resolveUploadsDir(process.env));
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForWhatsappSessionActivation = async (lastIncomingAt) => {
+  if (!lastIncomingAt) {
+    return;
+  }
+
+  const lastIncomingMs = new Date(lastIncomingAt).getTime();
+  if (Number.isNaN(lastIncomingMs)) {
+    return;
+  }
+
+  const ageMs = Date.now() - lastIncomingMs;
+  if (ageMs >= 0 && ageMs < SESSION_ACTIVATION_WINDOW_MS) {
+    console.log('[SESSION ACTIVATION DELAY]', {
+      ageMs,
+      delayMs: SESSION_ACTIVATION_DELAY_MS,
+      lastIncomingAt,
+    });
+    await sleep(SESSION_ACTIVATION_DELAY_MS);
+  }
+};
 
 const isChatDebugEnabled = () => String(process.env.CHAT_DEBUG || '').toLowerCase() === 'true';
 const chatDebug = (...args) => {
@@ -369,12 +395,14 @@ exports.getChatTemplates = async (req, res, next) => {
 // Sends a WhatsApp message through Gupshup and stores a local outgoing record.
 exports.sendChatMessage = async (req, res, next) => {
   try {
+    console.log('[API REQUEST BODY]', req.body);
     console.log('[SESSION REQUEST BODY]', req.body);
 
     const { to, message, text } = req.body || {};
     const messageText = String(text || message || '').trim();
 
     if (!to || !messageText) {
+      console.log('[API VALIDATION FAILED]', { reason: 'missing_to_or_text', to, messageText });
       return res.status(400).json({ success: false, message: 'to and text are required.' });
     }
 
@@ -383,6 +411,14 @@ exports.sendChatMessage = async (req, res, next) => {
     const normalizedTo = normalizePhone(to);
     const sessionState = await getSessionStateForPhone(to);
     const hasActiveSession = sessionState.isActive;
+    console.log('[SESSION CHECK RESULT]', {
+      to,
+      normalizedPhone: normalizedTo,
+      outgoingDestination: normalizeDestination(to),
+      hasActiveSession,
+      lastIncomingAt: sessionState.lastIncomingAt,
+      expiresAt: sessionState.expiresAt,
+    });
     console.log('[SESSION CHECK]', {
       to,
       normalizedPhone: normalizedTo,
@@ -393,10 +429,15 @@ exports.sendChatMessage = async (req, res, next) => {
     });
 
     if (!hasActiveSession) {
+      console.log('[API SESSION BLOCKED]', { to, normalizedTo });
       return sendSessionExpiredResponse(res, to, { language: req.body?.language });
     }
 
+    await waitForWhatsappSessionActivation(sessionState.lastIncomingAt);
+
+    console.log('[API CALLING GUPSHUP]', { to, normalizedTo, messageText });
     const result = await sendGupshupTextMessage({ to, message: messageText });
+    console.log('[API GUPSHUP OK]', { messageId: result?.messageId, providerResponse: result?.providerResponse });
     const messageId = result.messageId || `local-${Date.now()}`;
 
     await saveMessage({
@@ -419,14 +460,21 @@ exports.sendChatMessage = async (req, res, next) => {
       text: messageText,
     });
 
-    return res.status(200).json({
+    const successPayload = {
       success: true,
       data: {
         messageId,
         type: 'text',
       },
-    });
+    };
+    console.log('[API RESPONSE]', successPayload);
+    return res.status(200).json(successPayload);
   } catch (error) {
+    console.log('[API ERROR]', {
+      message: error?.message,
+      status: error?.response?.status,
+      data: error?.response?.data,
+    });
     next(error);
   }
 };
@@ -456,10 +504,12 @@ exports.sendChatFile = async (req, res, next) => {
       });
     }
 
-    const hasActiveSession = await isSessionActiveForPhone(to);
-    if (!hasActiveSession) {
+    const sessionState = await getSessionStateForPhone(to);
+    if (!sessionState.isActive) {
       return sendSessionExpiredResponse(res, to, { language: req.body?.language });
     }
+
+    await waitForWhatsappSessionActivation(sessionState.lastIncomingAt);
 
     const result = await sendGupshupFileMessage({
       to,

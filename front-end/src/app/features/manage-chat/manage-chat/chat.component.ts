@@ -6,7 +6,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { environment } from '../../../../environments/environment';
-import { EMPTY, Observable, Subject, interval, of } from 'rxjs';
+import { EMPTY, Observable, Subject, interval, of, timer } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, take, takeUntil, tap } from 'rxjs/operators';
 import {
   ChatConversation,
@@ -72,6 +72,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     lastIncomingAt: null,
     expiresAt: null,
   };
+  /** Gupshup/WhatsApp may reject session sends (#470) for a few seconds after inbound. */
+  private readonly sessionActivationWindowMs = 5000;
+  private readonly sessionActivationDelayMs = 3000;
   availableTemplates: WhatsAppTemplateOption[] = [];
   showTemplateModal = false;
   selectedTemplateId = '';
@@ -908,6 +911,13 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   sendMessage(): void {
     const text = this.draftMessage.trim();
     const attachmentText = this.attachmentCaption.trim();
+    const phoneNumber = this.selectedConversation?.phoneNumber || '';
+
+    console.log('[UI SEND START]', {
+      phone: phoneNumber,
+      text,
+    });
+
     if (!this.selectedConversation || this.isSending || this.isUploadingAttachment) {
       return;
     }
@@ -956,6 +966,19 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private performSendTextMessage(selectedConversation: ChatConversation, text: string): void {
     const localPendingId = this.buildLocalPendingMessageId();
+    const phoneNumber = this.normalizePhone(selectedConversation.phoneNumber);
+
+    const payload = {
+      to: phoneNumber,
+      text,
+    };
+
+    console.log('[UI PAYLOAD]', payload);
+    console.log('[UI NETWORK]', {
+      url: '/api/chat/send',
+      method: 'POST',
+      body: payload,
+    });
 
     this.addOptimisticOutgoingMessage(text, selectedConversation, localPendingId);
     this.draftMessage = '';
@@ -963,15 +986,25 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.syncSelectedConversationPreview(text, selectedConversation._id);
     this.queueScrollToBottom(true);
 
-    this.chatService.sendMessage({
-      to: selectedConversation.phoneNumber,
-      text,
-    }).pipe(takeUntil(this.destroy$)).subscribe({
+    const activationDelayMs = this.getSessionActivationDelayMs();
+    if (activationDelayMs > 0) {
+      console.log('[UI SESSION ACTIVATION DELAY]', {
+        delayMs: activationDelayMs,
+        lastIncomingAt: this.sessionInfo.lastIncomingAt,
+      });
+    }
+
+    timer(activationDelayMs).pipe(
+      switchMap(() => this.chatService.sendMessage(payload)),
+      takeUntil(this.destroy$),
+    ).subscribe({
       next: (response) => {
+        console.log('[UI RESPONSE]', response);
         this.isSending = false;
         this.resolvePendingMessage(localPendingId, response.data?.messageId);
       },
       error: (error: unknown) => {
+        console.log('[UI ERROR]', error);
         this.isSending = false;
         if (this.handleSessionExpiredError(error)) {
           this.removePendingMessage(localPendingId);
@@ -2200,6 +2233,13 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     if (event.eventType === 'incoming') {
+      const incomingAt = event.timestamp || new Date().toISOString();
+      if (this.selectedConversation && this.normalizePhone(this.selectedConversation.phoneNumber) === eventPhone) {
+        this.sessionInfo = {
+          ...this.sessionInfo,
+          lastIncomingAt: incomingAt,
+        };
+      }
       this.maybeNotifyIncomingRealtimeEvent(event, eventPhone);
       if (this.selectedConversation && this.normalizePhone(this.selectedConversation.phoneNumber) === eventPhone) {
         this.refreshSessionStatusFromBackend(this.selectedConversation.phoneNumber).subscribe();
@@ -2223,6 +2263,43 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private normalizePhone(value: string): string {
     return String(value || '').replace(/^whatsapp:/i, '').replace(/\D/g, '').trim();
+  }
+
+  private getLastIncomingTimestampMs(): number | null {
+    const timestamps: number[] = [];
+
+    if (this.sessionInfo.lastIncomingAt) {
+      const sessionTs = new Date(this.sessionInfo.lastIncomingAt).getTime();
+      if (!Number.isNaN(sessionTs)) {
+        timestamps.push(sessionTs);
+      }
+    }
+
+    for (const message of this.messages) {
+      if (message.direction !== 'incoming') {
+        continue;
+      }
+      const messageTs = new Date(message.timestamp).getTime();
+      if (!Number.isNaN(messageTs)) {
+        timestamps.push(messageTs);
+      }
+    }
+
+    return timestamps.length ? Math.max(...timestamps) : null;
+  }
+
+  private getSessionActivationDelayMs(): number {
+    const lastIncomingMs = this.getLastIncomingTimestampMs();
+    if (!lastIncomingMs) {
+      return 0;
+    }
+
+    const ageMs = Date.now() - lastIncomingMs;
+    if (ageMs >= 0 && ageMs < this.sessionActivationWindowMs) {
+      return this.sessionActivationDelayMs;
+    }
+
+    return 0;
   }
 
   private loadNotificationSoundPreference(): void {
@@ -2265,6 +2342,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     if (message.direction !== 'incoming') {
       return;
     }
+
+    this.sessionInfo = {
+      ...this.sessionInfo,
+      lastIncomingAt: message.timestamp || new Date().toISOString(),
+    };
 
     // Customer replied — refresh session from backend (do not assume active locally).
     if (this.templateSentAwaitingReply || this.selectedConversation) {

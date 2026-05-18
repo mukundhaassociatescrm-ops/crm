@@ -109,18 +109,33 @@ const sendGupshupTextMessage = async ({ to, message }) => {
   const source = process.env.GUPSHUP_SOURCE || GUPSHUP_SOURCE;
   const srcName = process.env.GUPSHUP_APP_NAME || process.env.GUPSHUP_SRC_NAME || GUPSHUP_SRC_NAME;
   const sendUrl = process.env.GUPSHUP_SEND_URL || GUPSHUP_SEND_URL;
+  const messageJson = JSON.stringify({
+    type: 'text',
+    text: cleanMessage,
+  });
 
   const formData = qs.stringify({
     channel: 'whatsapp',
     source,
     destination,
     'src.name': srcName,
-    message: JSON.stringify({
-      type: 'text',
-      text: cleanMessage,
-    }),
+    message: messageJson,
   });
 
+  console.log('[SESSION CONFIG]', {
+    url: sendUrl,
+    source,
+    destination,
+    srcName,
+    hasApiKey: Boolean(apiKey),
+  });
+  console.log('[SESSION VALIDATION]', {
+    sourceEmpty: !String(source || '').trim(),
+    srcNameEmpty: !String(srcName || '').trim(),
+    messageIsJsonString: messageJson.startsWith('{') && messageJson.includes('"type":"text"'),
+    messageJson,
+  });
+  console.log('[SESSION PAYLOAD]', formData);
   console.log('[SESSION MESSAGE PAYLOAD]', formData);
 
   try {
@@ -139,6 +154,7 @@ const sendGupshupTextMessage = async ({ to, message }) => {
       providerResponse: response.data,
     };
   } catch (error) {
+    console.log('[GUPSHUP ERROR]', error.response?.data || error.message);
     console.error('[GUPSHUP RESPONSE ERROR]', {
       status: error?.response?.status,
       data: error?.response?.data,
