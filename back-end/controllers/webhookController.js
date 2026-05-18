@@ -1,6 +1,7 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const { processGupshupWebhook } = require('./chatController');
+const { normalizePhone } = require('../services/chatMessageStore');
 
 // In-memory debug store for recent Gupshup webhook events.
 // This is intentionally small and non-persistent to avoid memory growth.
@@ -22,14 +23,8 @@ const prettyPrint = (value) => {
   }
 };
 
-// Normalize all phone numbers to digits only (no '+', no 'whatsapp:', no spaces).
-const normalizePhoneNumber = (value) => {
-  if (!value) {
-    return '';
-  }
-
-  return String(value).replace(/^whatsapp:/i, '').replace(/\D/g, '').trim();
-};
+// Normalize to canonical 91XXXXXXXXXX (shared with chat session + Gupshup).
+const normalizePhoneNumber = (value) => normalizePhone(value);
 
 const normalizeStatus = (status) => {
   switch (String(status || '').toLowerCase()) {
@@ -158,16 +153,17 @@ exports.verifyWebhook = async (req, res) => {
 };
 
 const persistWebhookEvent = async (event) => {
-  const existingConversation = await Conversation.findOne({ phoneNumber: event.conversationPhone });
+  const canonicalPhone = normalizePhone(event.conversationPhone);
+  const existingConversation = await Conversation.findOne({ phoneNumber: canonicalPhone });
   const conversation = await Conversation.findOneAndUpdate(
-    { phoneNumber: event.conversationPhone },
+    { phoneNumber: canonicalPhone },
     {
       $set: {
         lastMessage: event.text || existingConversation?.lastMessage || '',
         updatedAt: event.timestamp || new Date(),
       },
       $setOnInsert: {
-        phoneNumber: event.conversationPhone,
+        phoneNumber: canonicalPhone,
         createdAt: event.timestamp || new Date(),
       },
     },

@@ -10,6 +10,11 @@ const chatDebug = (...args) => {
   console.log('[CHAT_DEBUG]', ...args);
 };
 
+/**
+ * Canonical WhatsApp phone: 91XXXXXXXXXX (digits only, no +).
+ * - 10-digit Indian mobile → prefix 91
+ * - 12-digit starting with 91 → unchanged
+ */
 const normalizePhone = (value) => {
   if (!value) {
     return '';
@@ -18,13 +23,16 @@ const normalizePhone = (value) => {
   if (!digits) {
     return '';
   }
-  // Align with Gupshup destination format (91XXXXXXXXXX) so session lookup matches stored conversations.
   if (digits.length === 10) {
     return `91${digits}`;
+  }
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return digits;
   }
   return digits;
 };
 
+/** Legacy 10-digit keys still in DB until migration completes. */
 const buildPhoneLookupCandidates = (normalizedPhone) => {
   if (!normalizedPhone) {
     return [];
@@ -36,6 +44,52 @@ const buildPhoneLookupCandidates = (normalizedPhone) => {
     candidates.add(`91${normalizedPhone}`);
   }
   return Array.from(candidates);
+};
+
+const isPhoneLike = (value) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.length >= 10;
+};
+
+const maybeNormalizeEndpoint = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw || raw === 'business') {
+    return raw;
+  }
+  if (!isPhoneLike(raw)) {
+    return raw;
+  }
+  return normalizePhone(raw) || raw;
+};
+
+const resolveConversationByPhone = async (phone, { sortByRecent = true } = {}) => {
+  const canonicalPhone = normalizePhone(phone);
+  if (!canonicalPhone) {
+    return { canonicalPhone: '', conversation: null };
+  }
+
+  const phoneCandidates = buildPhoneLookupCandidates(canonicalPhone);
+  const query = Conversation.findOne({ phoneNumber: { $in: phoneCandidates } });
+  let conversation = sortByRecent
+    ? await query.sort({ updatedAt: -1 })
+    : await query;
+
+  if (conversation && conversation.phoneNumber !== canonicalPhone) {
+    const duplicate = await Conversation.findOne({ phoneNumber: canonicalPhone }).select('_id phoneNumber');
+    if (duplicate && String(duplicate._id) !== String(conversation._id)) {
+      await Message.updateMany(
+        { conversationId: conversation._id },
+        { $set: { conversationId: duplicate._id } },
+      );
+      await Conversation.deleteOne({ _id: conversation._id });
+      conversation = duplicate;
+    } else {
+      conversation.phoneNumber = canonicalPhone;
+      await conversation.save();
+    }
+  }
+
+  return { canonicalPhone, conversation };
 };
 
 const normalizeStatus = (value, fallback = 'sent') => {
@@ -73,33 +127,38 @@ const buildPreviewText = (message) => {
 };
 
 const findOrCreateConversation = async (phone, previewText = '', options = {}) => {
-  if (!phone) {
+  const { canonicalPhone, conversation: existing } = await resolveConversationByPhone(phone);
+  if (!canonicalPhone) {
     return null;
   }
 
   const incrementUnreadBy = Math.max(0, Number(options.incrementUnreadBy || 0));
-
-  const update = previewText ? { lastMessage: previewText } : {};
+  const update = {};
+  if (previewText) {
+    update.$set = { lastMessage: previewText };
+  }
   if (incrementUnreadBy > 0) {
     update.$inc = { unreadCount: incrementUnreadBy };
   }
 
-  const setPayload = { ...(previewText ? { lastMessage: previewText } : {}) };
-  if (Object.keys(setPayload).length) {
-    update.$set = setPayload;
+  if (existing?._id) {
+    if (Object.keys(update).length === 0) {
+      return existing;
+    }
+    return Conversation.findByIdAndUpdate(existing._id, update, { new: true });
   }
 
   return Conversation.findOneAndUpdate(
-    { phoneNumber: phone },
+    { phoneNumber: canonicalPhone },
     {
       ...update,
-      $setOnInsert: { phoneNumber: phone },
+      $setOnInsert: { phoneNumber: canonicalPhone },
     },
     {
       upsert: true,
       new: true,
       setDefaultsOnInsert: true,
-    }
+    },
   );
 };
 
@@ -109,8 +168,8 @@ const buildDirectionalEndpoints = (normalized) => {
 
   return {
     phone,
-    from: normalized.source || (isOutgoing ? 'business' : phone),
-    to: normalized.destination || (isOutgoing ? phone : 'business'),
+    from: maybeNormalizeEndpoint(normalized.source) || (isOutgoing ? 'business' : phone),
+    to: maybeNormalizeEndpoint(normalized.destination) || (isOutgoing ? phone : 'business'),
   };
 };
 
@@ -128,11 +187,7 @@ const toMessageView = (messageDoc, phoneNumber) => ({
 });
 
 const findBestOutgoingMatch = async ({ phone, timestamp }) => {
-  if (!phone) {
-    return null;
-  }
-
-  const conversation = await Conversation.findOne({ phoneNumber: phone }).select('_id');
+  const { conversation } = await resolveConversationByPhone(phone);
   if (!conversation?._id) {
     return null;
   }
@@ -186,7 +241,7 @@ const saveMessage = async (message) => {
 
   const previewText = buildPreviewText(normalized);
   const endpoints = buildDirectionalEndpoints(normalized);
-  const phone = normalized.phone || endpoints.phone;
+  const phone = normalizePhone(normalized.phone || endpoints.phone);
 
   if (normalized.messageId) {
     const existing = await Message.findOne({ messageId: normalized.messageId });
@@ -198,8 +253,8 @@ const saveMessage = async (message) => {
       }
 
       existing.conversationId = existingConversationId || existing.conversationId;
-      existing.from = existing.from || endpoints.from;
-      existing.to = existing.to || endpoints.to;
+      existing.from = maybeNormalizeEndpoint(existing.from) || endpoints.from;
+      existing.to = maybeNormalizeEndpoint(existing.to) || endpoints.to;
       existing.text = normalized.text || existing.text;
       existing.type = normalized.type || existing.type || 'text';
       existing.fileUrl = normalized.fileUrl || existing.fileUrl;
@@ -320,21 +375,13 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
 };
 
 const getMessagesByPhone = async (phone) => {
-  const normalizedPhone = normalizePhone(phone);
-  if (!normalizedPhone) {
-    return [];
-  }
-
-  const phoneCandidates = buildPhoneLookupCandidates(normalizedPhone);
-  const conversation = await Conversation.findOne({ phoneNumber: { $in: phoneCandidates } })
-    .select('_id phoneNumber')
-    .sort({ updatedAt: -1 });
-  if (!conversation?._id) {
+  const { canonicalPhone, conversation } = await resolveConversationByPhone(phone);
+  if (!canonicalPhone || !conversation?._id) {
     return [];
   }
 
   const messages = await Message.find({ conversationId: conversation._id }).sort({ timestamp: 1 });
-  return messages.map((item) => toMessageView(item, conversation.phoneNumber));
+  return messages.map((item) => toMessageView(item, conversation.phoneNumber || canonicalPhone));
 };
 
 const getConversationSummaries = async () => {
@@ -351,28 +398,31 @@ const getConversationSummaries = async () => {
 };
 
 const markConversationAsRead = async (phone) => {
-  const normalizedPhone = normalizePhone(phone);
-  if (!normalizedPhone) {
+  const { canonicalPhone, conversation } = await resolveConversationByPhone(phone);
+  if (!canonicalPhone || !conversation?._id) {
     return null;
   }
 
-  const phoneCandidates = buildPhoneLookupCandidates(normalizedPhone);
-  return Conversation.findOneAndUpdate(
-    { phoneNumber: { $in: phoneCandidates } },
+  return Conversation.findByIdAndUpdate(
+    conversation._id,
     {
       $set: {
         unreadCount: 0,
         lastReadAt: new Date(),
+        phoneNumber: canonicalPhone,
       },
     },
-    { new: true }
+    { new: true },
   ).lean();
 };
 
 module.exports = {
   normalizePhone,
   buildPhoneLookupCandidates,
+  resolveConversationByPhone,
+  maybeNormalizeEndpoint,
   normalizeStatus,
+  findOrCreateConversation,
   saveMessage,
   updateMessageStatus,
   getMessagesByPhone,

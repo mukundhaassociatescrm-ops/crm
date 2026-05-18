@@ -12,6 +12,8 @@ const {
   getConversationSummaries,
   normalizePhone,
   buildPhoneLookupCandidates,
+  resolveConversationByPhone,
+  findOrCreateConversation,
   normalizeStatus,
   markConversationAsRead,
 } = require('../services/chatMessageStore');
@@ -158,13 +160,7 @@ const ensureChatParticipant = async (phoneNumber, { ensureConversation = false }
   }
 
   try {
-    const existingConversation = await Conversation.findOne({ phoneNumber: normalizedPhone }).select('_id').lean();
-    if (!existingConversation?._id) {
-      await Conversation.create({
-        phoneNumber: normalizedPhone,
-        lastMessage: '',
-      });
-    }
+    await findOrCreateConversation(normalizedPhone, '', { incrementUnreadBy: 0 });
   } catch (error) {
     console.warn('[ensureChatParticipant] Could not ensure conversation for phone:', normalizedPhone, error?.message || error);
   }
@@ -174,8 +170,9 @@ const getSessionStateForPhone = async (phoneNumber) => {
   const normalizedPhone = normalizePhone(phoneNumber);
   const phoneCandidates = buildPhoneLookupCandidates(normalizedPhone);
   const now = new Date();
+  const { canonicalPhone, conversation } = await resolveConversationByPhone(phoneNumber);
 
-  if (!normalizedPhone) {
+  if (!canonicalPhone) {
     console.log('[SESSION CHECK DEBUG]', {
       phone: phoneNumber,
       normalizedPhone,
@@ -191,14 +188,10 @@ const getSessionStateForPhone = async (phoneNumber) => {
     };
   }
 
-  const conversation = await Conversation.findOne({
-    phoneNumber: { $in: phoneCandidates },
-  }).select('_id phoneNumber').sort({ updatedAt: -1 });
-
   if (!conversation?._id) {
     console.log('[SESSION CHECK DEBUG]', {
       phone: phoneNumber,
-      normalizedPhone,
+      normalizedPhone: canonicalPhone,
       phoneCandidates,
       conversationFound: false,
       lastIncoming: null,
@@ -228,7 +221,7 @@ const getSessionStateForPhone = async (phoneNumber) => {
 
   console.log('[SESSION CHECK DEBUG]', {
     phone: phoneNumber,
-    normalizedPhone,
+    normalizedPhone: canonicalPhone,
     phoneCandidates,
     conversationId: String(conversation._id),
     conversationPhone: conversation.phoneNumber,
