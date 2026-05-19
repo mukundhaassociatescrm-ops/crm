@@ -4,7 +4,7 @@
     <div class="panel-header">
       <div>
         <h2>SMS</h2>
-        <p>Pick a client and compose a message</p>
+        <p>{{ clients.length }} contact{{ clients.length === 1 ? '' : 's' }} visible</p>
       </div>
     </div>
 
@@ -14,6 +14,7 @@
         <input
           type="text"
           [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchQueryChange()"
           placeholder="Search by name or phone"
         >
       </label>
@@ -27,18 +28,18 @@
       <button
         type="button"
         class="client-card"
-        *ngFor="let client of filteredClients"
+        *ngFor="let client of clients; trackBy: trackByClientId"
         [class.active]="selectedClient?._id === client._id"
         (click)="selectClient(client)"
       >
-        <div class="avatar">{{ (client.name || client.mobile).slice(0, 2) }}</div>
+        <div class="avatar compact">{{ getClientInitials(client) }}</div>
         <div class="client-copy">
           <h3>{{ client.name || client.mobile }}</h3>
           <p>{{ client.mobile }}</p>
         </div>
       </button>
 
-      <div class="panel-state" *ngIf="!filteredClients.length">
+      <div class="panel-state" *ngIf="!clients.length">
         No clients found.
       </div>
     </div>
@@ -48,7 +49,7 @@
     <div class="composer-header">
       <ng-container *ngIf="selectedClient; else emptySelection">
         <div class="selected-client">
-          <div class="avatar large">{{ (selectedClient.name || selectedClient.mobile).slice(0, 2) }}</div>
+          <div class="avatar large">{{ getClientInitials(selectedClient) }}</div>
           <div>
             <h3>{{ selectedClient.name }}</h3>
             <p>{{ selectedClient.mobile }}</p>

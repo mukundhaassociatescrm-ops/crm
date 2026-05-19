@@ -67,6 +67,13 @@ exports.getClients = async (req, res, next) => {
       Client.countDocuments(query),
     ]);
 
+    if (search) {
+      console.log('[CLIENT SEARCH QUERY]', {
+        search,
+        matchedCount: total,
+      });
+    }
+
     res.json({
       success: true,
       data,

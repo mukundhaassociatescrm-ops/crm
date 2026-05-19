@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ToastrService } from 'ngx-toastr';
@@ -19,13 +19,15 @@ type SmsSendResponse =
   templateUrl: './sms.component.html',
   styleUrl: './sms.component.scss',
 })
-export class SmsComponent implements OnInit {
+export class SmsComponent implements OnInit, OnDestroy {
   clients: SmsClient[] = [];
   isLoadingClients = false;
   selectedClient: SmsClient | null = null;
   searchQuery = '';
   message = '';
   isSending = false;
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchRequestId = 0;
 
   constructor(
     private readonly clientService: ClientService,
@@ -37,17 +39,10 @@ export class SmsComponent implements OnInit {
     this.loadClients();
   }
 
-  get filteredClients(): SmsClient[] {
-    const query = this.searchQuery.trim().toLowerCase();
-    if (!query) {
-      return this.clients;
+  ngOnDestroy(): void {
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
     }
-
-    return this.clients.filter((client) => {
-      const name = String(client.name || '').toLowerCase();
-      const phone = String(client.mobile || '').toLowerCase();
-      return name.includes(query) || phone.includes(query);
-    });
   }
 
   get characterCount(): number {
@@ -75,6 +70,34 @@ export class SmsComponent implements OnInit {
 
   clearSelection(): void {
     this.selectedClient = null;
+  }
+
+  getClientInitials(client: SmsClient | null): string {
+    const source = String(client?.name || client?.mobile || '').trim();
+    if (!source) {
+      return '--';
+    }
+
+    const words = source.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+      return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    }
+
+    return source.slice(0, 2).toUpperCase();
+  }
+
+  trackByClientId(index: number, client: SmsClient): string {
+    return client._id || client.mobile || String(index);
+  }
+
+  onSearchQueryChange(): void {
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+    }
+
+    this.searchTimer = setTimeout(() => {
+      this.loadClients(this.searchQuery.trim());
+    }, 350);
   }
 
   sendSms(): void {
@@ -114,20 +137,35 @@ export class SmsComponent implements OnInit {
       });
   }
 
-  private loadClients(): void {
+  private loadClients(search = ''): void {
+    const requestId = ++this.searchRequestId;
+    const previousCount = this.clients.length;
+    const normalizedSearch = search.trim();
+
+    if (normalizedSearch) {
+      console.log('[SMS SEARCH REQUEST]', {
+        search: normalizedSearch,
+        previousCount,
+      });
+    }
+
     this.isLoadingClients = true;
     this.clientService
-      .getClients({ page: 1, limit: 200, sort: 'desc' })
+      .getClients({ search: normalizedSearch || undefined, page: 1, limit: 100, sort: 'desc' })
       .pipe(
         catchError(() =>
           of({
             success: true,
-            data: this.getMockClients(),
-            pagination: { total: 0, page: 1, limit: 200, totalPages: 1 },
+            data: normalizedSearch ? [] : this.getMockClients(),
+            pagination: { total: 0, page: 1, limit: 100, totalPages: 1 },
           })
         )
       )
       .subscribe((response) => {
+        if (requestId !== this.searchRequestId) {
+          return;
+        }
+
         this.isLoadingClients = false;
         const items = response?.success && Array.isArray(response.data) ? response.data : [];
         this.clients = items.map((client) => ({
@@ -135,6 +173,13 @@ export class SmsComponent implements OnInit {
           name: client.name,
           mobile: client.mobile,
         }));
+
+        if (normalizedSearch) {
+          console.log('[SMS SEARCH RESPONSE]', {
+            search: normalizedSearch,
+            resultCount: this.clients.length,
+          });
+        }
       });
   }
 
