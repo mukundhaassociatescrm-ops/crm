@@ -28,16 +28,22 @@
         <p>Add, update, and manage employee details</p>
       </div>
 
-      <div class="card" *ngIf="isAdmin" (click)="nav('manage-group')">
-        <div class="icon icon-group"><i class="fa-solid fa-user-group"></i></div>
-        <h3>Manage Group</h3>
-        <p>Create and Edit group</p>
+      <div class="card" *ngIf="isAdmin" (click)="nav('whatsapp-campaigns')">
+        <div class="icon icon-bulk"><i class="fa-solid fa-envelopes-bulk"></i></div>
+        <h3>WhatsApp Campaigns</h3>
+        <p>Send approved templates to customer groups</p>
       </div>
 
-      <div class="card" *ngIf="isAdmin" (click)="nav('manage-bulk-message')">
-        <div class="icon icon-bulk"><i class="fa-solid fa-envelopes-bulk"></i></div>
-        <h3>Manage Bulk Message</h3>
-        <p>Send announcements or bulk notifications</p>
+      <div class="card" *ngIf="isAdmin" (click)="nav('bulk-sms')">
+        <div class="icon icon-bulk-sms"><i class="fa-solid fa-comment-sms"></i></div>
+        <h3>Bulk SMS</h3>
+        <p>Send plain SMS broadcasts through Fast2SMS</p>
+      </div>
+
+      <div class="card" *ngIf="isAdmin" (click)="nav('manage-group')">
+        <div class="icon icon-group"><i class="fa-solid fa-user-group"></i></div>
+        <h3>Manage Groups</h3>
+        <p>Create and edit contact groups</p>
       </div>
 
       <div class="card" *ngIf="isAdmin" (click)="nav('manage-report')">
@@ -48,7 +54,7 @@
 
       <div class="card" *ngIf="isAdmin" (click)="nav('clients')">
         <div class="icon icon-client"><i class="fa-solid fa-address-book"></i></div>
-        <h3>Manage Client</h3>
+        <h3>Manage Clients</h3>
         <p>Add, edit, and manage client contacts</p>
       </div>
 

@@ -7,6 +7,7 @@ import { ManageTaskComponent } from './features/manage-task/manage-task/manage-t
 import { ManageChatComponent } from './features/manage-chat/manage-chat/manage-chat.component';
 import { ManageGroupComponent } from './features/manage-group/manage-group.component';
 import { ManageBulkMessageComponent } from './features/manage-bulk-message/manage-bulk-message.component';
+import { BulkSmsComponent } from './features/bulk-sms/bulk-sms.component';
 import { EmployeeDashboardComponent } from './features/employee-dashboard/employee-dashboard.component';
 import { TaskRemindersComponent } from './features/task-reminders/task-reminders.component';
 import { ProfileComponent } from './features/profile/profile.component';
@@ -41,9 +42,19 @@ export const routes: Routes = [
         data: { role: 'admin', breadcrumb: 'Manage Group', fullscreenPageKey: 'manage-group' }
       },
       {
-        path: 'manage-bulk-message',
+        path: 'whatsapp-campaigns',
         component: ManageBulkMessageComponent,
-        data: { role: 'admin', breadcrumb: 'Bulk Messaging', fullscreenPageKey: 'manage-bulk-message' }
+        data: { role: 'admin', breadcrumb: 'WhatsApp Campaigns', fullscreenPageKey: 'whatsapp-campaigns' }
+      },
+      {
+        path: 'bulk-sms',
+        component: BulkSmsComponent,
+        data: { role: 'admin', breadcrumb: 'Bulk SMS', fullscreenPageKey: 'bulk-sms' }
+      },
+      {
+        path: 'manage-bulk-message',
+        redirectTo: 'whatsapp-campaigns',
+        pathMatch: 'full'
       },
       {
         path: 'manage-report',

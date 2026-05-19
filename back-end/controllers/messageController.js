@@ -12,6 +12,9 @@ exports.sendBulkMessage = async (req, res, next) => {
   try {
     const { groupId, message, channel = 'sms' } = req.body;
     const normalizedChannel = String(channel).toLowerCase();
+    const attachmentUrl = String(req.body?.attachmentUrl || '').trim();
+    const attachmentFilename = String(req.body?.attachmentFilename || '').trim();
+    const attachmentMimeType = String(req.body?.attachmentMimeType || '').trim();
 
     if (!groupId) {
       return res.status(400).json({ success: false, message: 'groupId is required.' });
@@ -52,6 +55,24 @@ exports.sendBulkMessage = async (req, res, next) => {
       }
     }
 
+    if (normalizedChannel === 'sms') {
+      console.log('[BULK SMS SEND]', {
+        groupId,
+        messageLength: String(message || '').trim().length,
+      });
+    }
+
+    if (normalizedChannel === 'whatsapp') {
+      console.log('[WHATSAPP CAMPAIGN SEND]', {
+        groupId,
+        templateId: whatsappTemplateId,
+        paramCount: whatsappTemplateParams.length,
+        hasAttachment: Boolean(attachmentUrl),
+        attachmentFilename,
+        attachmentMimeType,
+      });
+    }
+
     const logMessage = normalizedChannel === 'sms'
       ? String(message || '').trim()
       : `WhatsApp template ${whatsappTemplateId}`;
@@ -75,6 +96,7 @@ exports.sendBulkMessage = async (req, res, next) => {
       groupId,
       message: logMessage,
       channel: normalizedChannel,
+      attachmentUrl: attachmentUrl || undefined,
       sentBy: req.user._id,
       totalRecipients,
       sentCount: 0,

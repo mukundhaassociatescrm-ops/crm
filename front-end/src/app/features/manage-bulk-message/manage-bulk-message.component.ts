@@ -1,45 +1,51 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Group, GroupService } from '../manage-group/group.service';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { Group } from '../manage-group/group.service';
 import { ToastrService } from 'ngx-toastr';
-import { BulkMessageService, MessageChannel, SendBulkMessagePayload } from './bulk-message.service';
+import { BulkMessageService, SendBulkMessagePayload } from './bulk-message.service';
 import { ChatService, WhatsAppTemplateOption } from '../manage-chat/manage-chat/chat.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
+import { GroupSelectorComponent } from '../../shared/components/group-selector/group-selector.component';
 
 @Component({
   selector: 'app-manage-bulk-message',
   standalone: true,
-  imports: [CommonModule, FormsModule, FullscreenToggleComponent],
+  imports: [CommonModule, FormsModule, FullscreenToggleComponent, GroupSelectorComponent],
   templateUrl: './manage-bulk-message.component.html',
   styleUrl: './manage-bulk-message.component.scss'
 })
-export class ManageBulkMessageComponent implements OnInit {
-  groups: Group[] = [];
+export class ManageBulkMessageComponent implements OnInit, OnDestroy {
   selectedGroup: Group | null = null;
-  messageText = '';
-  selectedChannel: MessageChannel = 'sms';
-  isLoadingGroups = false;
   isSending = false;
 
   bulkWhatsAppTemplates: WhatsAppTemplateOption[] = [];
   selectedBulkTemplateId = '';
   bulkTemplateVariables: Record<number, string> = {};
   isLoadingBulkTemplates = false;
+  campaignLabel = '';
+  selectedMediaFile: File | null = null;
+  selectedMediaPreviewUrl = '';
+  isUploadingMedia = false;
+  uploadProgress = 0;
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
-    private readonly groupService: GroupService,
     private readonly toastr: ToastrService,
     private readonly bulkMessageService: BulkMessageService,
     private readonly chatService: ChatService,
   ) {}
 
   ngOnInit(): void {
-    this.loadGroups();
+    this.loadBulkWhatsAppTemplates();
   }
 
-  get hasGroups(): boolean {
-    return this.groups.length > 0;
+  ngOnDestroy(): void {
+    this.revokeMediaPreview();
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   get selectedGroupMemberCount(): number {
@@ -48,6 +54,10 @@ export class ManageBulkMessageComponent implements OnInit {
     }
 
     return this.selectedGroup.numbers?.length || this.selectedGroup.contacts?.length || 0;
+  }
+
+  get hasSelectedMedia(): boolean {
+    return !!this.selectedMediaFile;
   }
 
   get selectedBulkTemplate(): WhatsAppTemplateOption | null {
@@ -71,15 +81,14 @@ export class ManageBulkMessageComponent implements OnInit {
   }
 
   get canSend(): boolean {
-    if (!this.selectedGroup || this.isSending) {
+    if (!this.selectedGroup || this.isSending || this.isUploadingMedia) {
       return false;
     }
-    if (this.selectedChannel === 'sms') {
-      return !!this.messageText.trim();
-    }
+
     if (!this.selectedBulkTemplateId || this.isLoadingBulkTemplates) {
       return false;
     }
+
     const indexes = this.bulkTemplateVariableIndexes;
     if (indexes.length === 0) {
       return true;
@@ -87,41 +96,40 @@ export class ManageBulkMessageComponent implements OnInit {
     return indexes.every((index) => String(this.bulkTemplateVariables[index] || '').trim().length > 0);
   }
 
-  loadGroups(): void {
-    this.isLoadingGroups = true;
-    this.groupService.getGroups().subscribe({
-      next: (response) => {
-        this.isLoadingGroups = false;
-        if (!response.success || !response.data) {
-          this.groups = [];
-          return;
-        }
+  get renderedTemplatePreview(): string {
+    const template = this.selectedBulkTemplate;
+    if (!template) {
+      return 'Select a WhatsApp template to preview the campaign message.';
+    }
 
-        const groups = Array.isArray(response.data) ? response.data : [response.data];
-        this.groups = groups.map((group) => ({
-          ...group,
-          numbers: group.numbers || group.contacts.map((contact) => contact.phone)
-        }));
-      },
-      error: () => {
-        this.isLoadingGroups = false;
-        this.groups = [];
-        this.toastr.error('Failed to load groups', 'Error');
-      }
+    const body = String(template.body || template.name || template.id || '').trim();
+    if (!body) {
+      return 'Template preview unavailable.';
+    }
+
+    return body.replace(/\{\{\s*(\d+)\s*\}\}/g, (_match, index) => {
+      const key = Number(index);
+      const value = String(this.bulkTemplateVariables[key] || '').trim();
+      return value || `{{${key}}}`;
     });
   }
 
-  onGroupChange(): void {
-    // No-op, retained for template select change binding.
+  get mediaTypeLabel(): string {
+    const mimeType = String(this.selectedMediaFile?.type || '').toLowerCase();
+    if (mimeType.startsWith('image/')) {
+      return 'Image header';
+    }
+    if (mimeType.startsWith('video/')) {
+      return 'Video header';
+    }
+    if (mimeType.startsWith('audio/')) {
+      return 'Audio attachment';
+    }
+    return this.selectedMediaFile ? 'Document attachment' : 'No media selected';
   }
 
-  onMessageChannelChange(): void {
-    if (this.selectedChannel === 'whatsapp') {
-      this.loadBulkWhatsAppTemplates();
-    } else {
-      this.selectedBulkTemplateId = '';
-      this.bulkTemplateVariables = {};
-    }
+  onGroupSelected(group: Group | null): void {
+    this.selectedGroup = group;
   }
 
   onBulkTemplateIdChanged(): void {
@@ -144,7 +152,7 @@ export class ManageBulkMessageComponent implements OnInit {
     this.isLoadingBulkTemplates = true;
     this.selectedBulkTemplateId = '';
     this.bulkTemplateVariables = {};
-    this.chatService.getTemplates().subscribe({
+    this.chatService.getTemplates().pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
         this.isLoadingBulkTemplates = false;
         const templates = Array.isArray(response?.data) ? response.data : [];
@@ -161,6 +169,26 @@ export class ManageBulkMessageComponent implements OnInit {
     });
   }
 
+  onMediaSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] || null;
+    if (!file) {
+      return;
+    }
+
+    this.revokeMediaPreview();
+    this.selectedMediaFile = file;
+    if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+      this.selectedMediaPreviewUrl = URL.createObjectURL(file);
+    }
+  }
+
+  removeSelectedMedia(): void {
+    this.revokeMediaPreview();
+    this.selectedMediaFile = null;
+    this.uploadProgress = 0;
+  }
+
   sendBulkMessage(): void {
     if (!this.canSend || this.isSending) {
       return;
@@ -171,25 +199,68 @@ export class ManageBulkMessageComponent implements OnInit {
       return;
     }
 
-    const base: SendBulkMessagePayload = {
-      groupId: this.selectedGroup._id,
-      message: this.messageText.trim(),
-      channel: this.selectedChannel,
-    };
-
-    if (this.selectedChannel === 'whatsapp') {
-      const indexes = this.bulkTemplateVariableIndexes;
-      const params = indexes.map((index) => String(this.bulkTemplateVariables[index] || '').trim());
-      base.templateId = this.selectedBulkTemplateId;
-      base.params = params;
-      base.expectedParamCount = indexes.length;
-      if (!base.message) {
-        base.message = `Template ${this.selectedBulkTemplate?.name || this.selectedBulkTemplateId}`;
-      }
+    if (this.selectedMediaFile) {
+      this.uploadAndSendCampaign(this.selectedMediaFile);
+      return;
     }
 
+    this.sendCampaign();
+  }
+
+  private uploadAndSendCampaign(file: File): void {
     this.isSending = true;
-    this.bulkMessageService.sendBulkMessage(base).subscribe({
+    this.isUploadingMedia = true;
+    this.uploadProgress = 0;
+
+    this.chatService.uploadFile(file).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (uploadEvent) => {
+        if (!uploadEvent.done) {
+          this.uploadProgress = uploadEvent.progress;
+          return;
+        }
+
+        this.isUploadingMedia = false;
+        this.sendCampaign({
+          attachmentUrl: uploadEvent.data?.url || '',
+          attachmentFilename: uploadEvent.data?.filename || file.name,
+          attachmentMimeType: uploadEvent.data?.mimeType || file.type,
+        });
+      },
+      error: (error) => {
+        this.isSending = false;
+        this.isUploadingMedia = false;
+        this.toastr.error(error?.error?.message || 'Failed to upload campaign media', 'Error');
+      },
+    });
+  }
+
+  private sendCampaign(mediaPatch: Partial<SendBulkMessagePayload> = {}): void {
+    if (!this.selectedGroup?._id) {
+      return;
+    }
+
+    const indexes = this.bulkTemplateVariableIndexes;
+    const params = indexes.map((index) => String(this.bulkTemplateVariables[index] || '').trim());
+    const payload: SendBulkMessagePayload = {
+      groupId: this.selectedGroup._id,
+      message: this.campaignLabel.trim() || `WhatsApp campaign: ${this.selectedBulkTemplate?.name || this.selectedBulkTemplateId}`,
+      channel: 'whatsapp',
+      templateId: this.selectedBulkTemplateId,
+      params,
+      expectedParamCount: indexes.length,
+      ...mediaPatch,
+    };
+
+    console.log('[WHATSAPP CAMPAIGN SEND]', {
+      groupId: payload.groupId,
+      templateId: payload.templateId,
+      recipientCount: this.selectedGroupMemberCount,
+      variableCount: params.length,
+      hasMedia: Boolean(payload.attachmentUrl || this.selectedMediaFile),
+    });
+
+    this.isSending = true;
+    this.bulkMessageService.sendBulkMessage(payload).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
         this.isSending = false;
         if (!response.success) {
@@ -198,14 +269,23 @@ export class ManageBulkMessageComponent implements OnInit {
         }
 
         this.toastr.success(
-          `${response.sentCount} recipient(s) queued via ${this.selectedChannel.toUpperCase()}`,
-          'Bulk Message Sent'
+          `${response.sentCount} recipient(s) queued via WhatsApp template`,
+          'WhatsApp Campaign Sent'
         );
+        this.campaignLabel = '';
+        this.removeSelectedMedia();
       },
       error: (error) => {
         this.isSending = false;
-        this.toastr.error(error?.error?.message || 'Failed to send bulk message', 'Error');
+        this.toastr.error(error?.error?.message || 'Failed to send WhatsApp campaign', 'Error');
       }
     });
+  }
+
+  private revokeMediaPreview(): void {
+    if (this.selectedMediaPreviewUrl) {
+      URL.revokeObjectURL(this.selectedMediaPreviewUrl);
+      this.selectedMediaPreviewUrl = '';
+    }
   }
 }

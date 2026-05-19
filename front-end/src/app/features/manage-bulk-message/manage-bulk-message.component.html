@@ -1,56 +1,27 @@
 <div class="bulk-wrapper page-workspace">
-  <app-fullscreen-toggle pageKey="manage-bulk-message"></app-fullscreen-toggle>
+  <app-fullscreen-toggle pageKey="whatsapp-campaigns"></app-fullscreen-toggle>
 
-  <!-- HEADER -->
   <div class="header">
-    <h2>Manage Bulk Messaging</h2>
-    <p>Send announcements to selected customer groups</p>
+    <div>
+      <h2>WhatsApp Campaigns</h2>
+      <p>Send approved WhatsApp templates to selected customer groups</p>
+    </div>
+    <span class="module-badge">Template based</span>
   </div>
 
   <div class="bulk-layout">
-
-    <!-- ================= LEFT PANEL ================= -->
     <div class="bulk-form-panel">
-
-      <!-- Select Group -->
       <div class="form-group">
-        <label>Select Group</label>
-        <select [(ngModel)]="selectedGroup" (change)="onGroupChange()">
-          <option [ngValue]="null">
-            {{ isLoadingGroups ? 'Loading groups...' : (hasGroups ? '-- Select Group --' : 'No groups available') }}
-          </option>
-          <option *ngFor="let group of groups" [ngValue]="group">
-            {{ group.name }} ({{ group.numbers?.length || group.contacts.length || 0 }})
-          </option>
-        </select>
-
-        <div class="member-badge"
-             *ngIf="selectedGroup">
-          {{ selectedGroupMemberCount }} Members
-        </div>
-
-        <div class="field-note empty-state"
-             *ngIf="!isLoadingGroups && !hasGroups">
-          No groups found. Create a group first to send a bulk message.
-        </div>
+        <app-group-selector
+          label="Audience group"
+          helperText="Only contacts in this group will receive the campaign."
+          [disabled]="isSending || isUploadingMedia"
+          (groupChange)="onGroupSelected($event)"
+        ></app-group-selector>
       </div>
 
       <div class="form-group">
-        <label>Message Channel</label>
-        <div class="channel-toggle">
-          <label>
-            <input type="radio" name="channel" [(ngModel)]="selectedChannel" value="sms" (ngModelChange)="onMessageChannelChange()">
-            SMS
-          </label>
-          <label>
-            <input type="radio" name="channel" [(ngModel)]="selectedChannel" value="whatsapp" (ngModelChange)="onMessageChannelChange()">
-            WhatsApp
-          </label>
-        </div>
-      </div>
-
-      <div class="form-group" *ngIf="selectedChannel === 'whatsapp'">
-        <label>WhatsApp template</label>
+        <label>Approved WhatsApp template</label>
         <select
           [(ngModel)]="selectedBulkTemplateId"
           (ngModelChange)="onBulkTemplateIdChanged()"
@@ -61,12 +32,12 @@
             {{ t.name || t.id }} · {{ getTemplateVariableCount(t) }} variable(s)
           </option>
         </select>
-        <div class="field-note" *ngIf="!isLoadingBulkTemplates && selectedChannel === 'whatsapp' && !bulkWhatsAppTemplates.length">
-          No templates loaded. Check API configuration or try again after switching channel.
+        <div class="field-note" *ngIf="!isLoadingBulkTemplates && !bulkWhatsAppTemplates.length">
+          No templates loaded. Check API configuration or refresh template approval status.
         </div>
       </div>
 
-      <div class="form-group" *ngIf="selectedChannel === 'whatsapp' && bulkTemplateVariableIndexes.length > 0">
+      <div class="form-group" *ngIf="bulkTemplateVariableIndexes.length > 0">
         <label>Template variables</label>
         <div *ngFor="let index of bulkTemplateVariableIndexes" class="template-var-row">
           <span class="var-label">Variable {{ index }}</span>
@@ -80,54 +51,97 @@
         </div>
       </div>
 
-      <!-- Message -->
       <div class="form-group">
-        <label>{{ selectedChannel === 'whatsapp' ? 'Log label (optional)' : 'Message' }}</label>
-        <textarea rows="6"
-                  [placeholder]="selectedChannel === 'whatsapp' ? 'Optional note for message log…' : 'Enter your message...'"
-                  [(ngModel)]="messageText">
-        </textarea>
+        <label>Media attachment</label>
+        <div class="media-uploader" [class.has-media]="hasSelectedMedia">
+          <ng-container *ngIf="!selectedMediaFile; else selectedMediaTpl">
+            <input
+              #campaignMediaInput
+              type="file"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+              class="hidden-file-input"
+              (change)="onMediaSelected($event)"
+            >
+            <button type="button" class="btn-secondary" (click)="campaignMediaInput.click()" [disabled]="isSending || isUploadingMedia">
+              <i class="fa-solid fa-paperclip"></i>
+              <span>Attach media</span>
+            </button>
+            <span class="field-note">Optional. Use this for media-header templates or campaign history context.</span>
+          </ng-container>
+          <ng-template #selectedMediaTpl>
+            <div class="media-chip">
+              <div class="media-thumb">
+                <img *ngIf="selectedMediaPreviewUrl && selectedMediaFile?.type?.startsWith('image/')" [src]="selectedMediaPreviewUrl" alt="Media preview">
+                <video *ngIf="selectedMediaPreviewUrl && selectedMediaFile?.type?.startsWith('video/')" [src]="selectedMediaPreviewUrl" muted playsinline></video>
+                <i *ngIf="!selectedMediaPreviewUrl" class="fa-solid fa-file"></i>
+              </div>
+              <div class="media-copy">
+                <strong>{{ selectedMediaFile?.name }}</strong>
+                <span>{{ mediaTypeLabel }}</span>
+              </div>
+              <button type="button" class="icon-btn" (click)="removeSelectedMedia()" [disabled]="isSending || isUploadingMedia" aria-label="Remove media">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </ng-template>
+        </div>
+        <div class="upload-progress" *ngIf="isUploadingMedia">
+          Uploading media... {{ uploadProgress }}%
+        </div>
       </div>
 
-      <!-- Send Button -->
+      <div class="form-group">
+        <label>Campaign label</label>
+        <input
+          type="text"
+          [(ngModel)]="campaignLabel"
+          placeholder="Optional internal label for tracking/history"
+          [disabled]="isSending || isUploadingMedia"
+        >
+      </div>
+
       <div class="action-section">
         <button class="btn-send"
                 [disabled]="!canSend || isSending"
                 (click)="sendBulkMessage()">
-          {{ isSending ? 'Sending...' : 'Send Message' }}
+          {{ isSending ? (isUploadingMedia ? 'Uploading...' : 'Sending...') : 'Send WhatsApp Campaign' }}
         </button>
       </div>
-
     </div>
 
-    <!-- ================= RIGHT PANEL ================= -->
     <div class="preview-panel">
-
-      <h3>Live Preview</h3>
+      <div class="preview-title-row">
+        <h3>Live WhatsApp Preview</h3>
+        <span>{{ selectedGroupMemberCount }} recipient{{ selectedGroupMemberCount === 1 ? '' : 's' }}</span>
+      </div>
 
       <div class="preview-box">
-
         <div class="preview-header">
-          {{ selectedGroup?.name || 'Group Name' }}
+          <i class="fa-brands fa-whatsapp"></i>
+          <div>
+            <strong>{{ selectedGroup?.name || 'Audience group' }}</strong>
+            <span>Business template message</span>
+          </div>
         </div>
 
-        <div class="preview-meta" *ngIf="selectedGroup">
-          {{ selectedGroupMemberCount }} members selected
-        </div>
-
-        <div class="preview-meta">
-          Channel: {{ selectedChannel === 'sms' ? 'SMS' : 'WhatsApp' }}
+        <div class="media-preview" *ngIf="selectedMediaFile">
+          <img *ngIf="selectedMediaPreviewUrl && selectedMediaFile.type.startsWith('image/')" [src]="selectedMediaPreviewUrl" alt="Campaign media">
+          <video *ngIf="selectedMediaPreviewUrl && selectedMediaFile.type.startsWith('video/')" [src]="selectedMediaPreviewUrl" muted playsinline controls></video>
+          <div class="media-file-preview" *ngIf="!selectedMediaPreviewUrl">
+            <i class="fa-solid fa-file-lines"></i>
+            <span>{{ selectedMediaFile.name }}</span>
+          </div>
         </div>
 
         <div class="preview-message">
-          {{ messageText || 'Your message preview will appear here...' }}
+          {{ renderedTemplatePreview }}
         </div>
 
+        <div class="preview-meta">
+          <span>Template: {{ selectedBulkTemplate?.name || selectedBulkTemplateId || 'Not selected' }}</span>
+          <span *ngIf="selectedMediaFile">{{ mediaTypeLabel }}</span>
+        </div>
       </div>
-
     </div>
-
   </div>
-
-
 </div>

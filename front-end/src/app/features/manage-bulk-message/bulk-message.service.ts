@@ -12,6 +12,9 @@ export interface SendBulkMessagePayload {
   templateId?: string;
   params?: string[];
   expectedParamCount?: number;
+  attachmentUrl?: string;
+  attachmentFilename?: string;
+  attachmentMimeType?: string;
 }
 
 export interface SendBulkMessageResponse {

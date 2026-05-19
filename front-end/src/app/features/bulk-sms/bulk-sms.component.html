@@ -1,0 +1,68 @@
+<div class="bulk-sms-wrapper page-workspace">
+  <app-fullscreen-toggle pageKey="bulk-sms"></app-fullscreen-toggle>
+
+  <div class="header">
+    <div>
+      <h2>Bulk SMS</h2>
+      <p>Send plain SMS announcements to a selected customer group through Fast2SMS</p>
+    </div>
+    <span class="module-badge">SMS only</span>
+  </div>
+
+  <div class="bulk-layout">
+    <section class="form-panel">
+      <div class="form-group">
+        <app-group-selector
+          label="Audience group"
+          helperText="All valid mobile numbers in this group will receive this SMS."
+          [disabled]="isSending"
+          (groupChange)="onGroupSelected($event)"
+        ></app-group-selector>
+      </div>
+
+      <div class="form-group">
+        <label>SMS message</label>
+        <textarea
+          rows="8"
+          [(ngModel)]="message"
+          placeholder="Type your SMS message..."
+          [disabled]="isSending"
+        ></textarea>
+        <div class="counter-row">
+          <span>{{ characterCount }} chars</span>
+          <span>{{ smsSegments }} segment{{ smsSegments === 1 ? '' : 's' }}</span>
+        </div>
+        <div class="field-note" *ngIf="characterCount > 320">
+          Long SMS messages may be split into multiple billable segments.
+        </div>
+      </div>
+
+      <div class="action-section">
+        <button type="button" class="btn-send" [disabled]="!canSend" (click)="sendBulkSms()">
+          <i class="fa-solid fa-message"></i>
+          <span>{{ isSending ? 'Sending...' : 'Send Bulk SMS' }}</span>
+        </button>
+      </div>
+    </section>
+
+    <aside class="preview-panel">
+      <div class="preview-title-row">
+        <h3>SMS Preview</h3>
+        <span>{{ selectedGroupMemberCount }} recipient{{ selectedGroupMemberCount === 1 ? '' : 's' }}</span>
+      </div>
+
+      <div class="phone-preview">
+        <div class="phone-header">
+          <strong>{{ selectedGroup?.name || 'Audience group' }}</strong>
+          <span>Fast2SMS broadcast</span>
+        </div>
+        <div class="sms-bubble">
+          {{ message || 'Your SMS preview will appear here.' }}
+        </div>
+        <div class="sms-meta">
+          {{ characterCount }} characters · {{ smsSegments }} segment{{ smsSegments === 1 ? '' : 's' }}
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>

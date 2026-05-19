@@ -1,0 +1,23 @@
+<div class="group-selector">
+  <label>{{ label }}</label>
+  <select [(ngModel)]="selectedGroup" (ngModelChange)="onGroupChange()" [disabled]="disabled || isLoadingGroups">
+    <option [ngValue]="null">
+      {{ isLoadingGroups ? 'Loading groups...' : (hasGroups ? '-- Select Group --' : 'No groups available') }}
+    </option>
+    <option *ngFor="let group of groups" [ngValue]="group">
+      {{ group.name }} ({{ getGroupMemberCount(group) }})
+    </option>
+  </select>
+
+  <div class="member-badge" *ngIf="selectedGroup">
+    {{ selectedGroupMemberCount }} Members
+  </div>
+
+  <div class="field-note" *ngIf="helperText && !selectedGroup && hasGroups">
+    {{ helperText }}
+  </div>
+
+  <div class="field-note empty-state" *ngIf="!isLoadingGroups && !hasGroups">
+    No groups found. Create a group first to continue.
+  </div>
+</div>
