@@ -16,9 +16,9 @@ const groupSchema = new mongoose.Schema(
       default: [],
       validate: {
         validator: function (v) {
-          return v.length <= 1000;
+          return v.length <= 10000;
         },
-        message: 'Group contacts cannot exceed 1000',
+        message: 'Group contacts cannot exceed 10000',
       },
     },
     clients: {
@@ -27,9 +27,9 @@ const groupSchema = new mongoose.Schema(
       default: [],
       validate: {
         validator: function (v) {
-          return v.length <= 1000;
+          return v.length <= 10000;
         },
-        message: 'Group clients cannot exceed 1000',
+        message: 'Group clients cannot exceed 10000',
       },
     },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

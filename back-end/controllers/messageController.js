@@ -1,4 +1,5 @@
 const Group = require('../models/Group');
+const Client = require('../models/Client');
 const MessageLog = require('../models/MessageLog');
 const Message = require('../models/Message');
 const { sendWhatsAppMessage, sendMessage: sendWhatsAppChatMessage } = require('../services/whatsappService');
@@ -82,10 +83,18 @@ exports.sendBulkMessage = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Group not found' });
     }
 
-    const contacts = (group.contacts || []).map((contact) => ({
+    const manualContacts = (group.contacts || []).map((contact) => ({
       name: contact.name || '',
       mobile: contact.phone || contact.mobile || '',
     }));
+    const clientContacts = await Client.find({ groups: group._id }).select('name mobile');
+    const contacts = [...manualContacts, ...clientContacts.map((client) => ({
+      name: client.name || '',
+      mobile: client.mobile || '',
+    }))].filter((contact, index, list) => {
+      const mobile = String(contact.mobile || '').trim();
+      return mobile && list.findIndex((item) => String(item.mobile || '').trim() === mobile) === index;
+    });
 
     const totalRecipients = contacts.length;
     if (!totalRecipients) {

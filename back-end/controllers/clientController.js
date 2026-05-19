@@ -37,12 +37,20 @@ exports.csvUpload = upload.single('file');
 
 exports.getClients = async (req, res, next) => {
   try {
-    const { search, page = '1', limit = '20', sort = 'desc' } = req.query;
+    const { search, page = '1', limit = '20', sort = 'desc', groupId, excludeGroup } = req.query;
     const query = {};
 
     if (search) {
       const regex = new RegExp(search, 'i');
       query.$or = [{ name: regex }, { mobile: regex }, { alternateMobile: regex }];
+    }
+
+    if (groupId) {
+      query.groups = groupId;
+    }
+
+    if (excludeGroup) {
+      query.groups = { $ne: excludeGroup };
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);

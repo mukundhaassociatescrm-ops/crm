@@ -53,7 +53,7 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
       return 0;
     }
 
-    return this.selectedGroup.numbers?.length || this.selectedGroup.contacts?.length || 0;
+    return this.selectedGroup.memberCount ?? this.selectedGroup.actualClientCount ?? this.selectedGroup.numbers?.length ?? this.selectedGroup.contacts?.length ?? 0;
   }
 
   get hasSelectedMedia(): boolean {

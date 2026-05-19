@@ -63,12 +63,14 @@ export interface BulkUploadResponse {
 export class ClientService {
   constructor(private http: HttpClient) {}
 
-  getClients(params: { search?: string; page?: number; limit?: number; sort?: string } = {}): Observable<ClientListResponse> {
+  getClients(params: { search?: string; page?: number; limit?: number; sort?: string; groupId?: string; excludeGroup?: string } = {}): Observable<ClientListResponse> {
     let httpParams = new HttpParams();
     if (params.search) httpParams = httpParams.set('search', params.search);
     if (params.page) httpParams = httpParams.set('page', String(params.page));
     if (params.limit) httpParams = httpParams.set('limit', String(params.limit));
     if (params.sort) httpParams = httpParams.set('sort', params.sort);
+    if (params.groupId) httpParams = httpParams.set('groupId', params.groupId);
+    if (params.excludeGroup) httpParams = httpParams.set('excludeGroup', params.excludeGroup);
     return this.http.get<ClientListResponse>('/api/clients', { params: httpParams });
   }
 

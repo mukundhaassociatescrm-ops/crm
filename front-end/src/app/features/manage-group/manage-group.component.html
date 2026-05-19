@@ -1,173 +1,264 @@
 <div class="group-wrapper page-workspace">
   <app-fullscreen-toggle pageKey="manage-group"></app-fullscreen-toggle>
 
-  <!-- HEADER -->
   <div class="header">
-    <h2>Manage Groups</h2>
-    <p>Create, edit and organize customer groups</p>
+    <div>
+      <h2>Manage Groups</h2>
+      <p>Build scalable CRM segments for campaigns, SMS, and client operations</p>
+    </div>
+    <button class="btn-new header-action" (click)="startCreateGroup()">+ Create Group</button>
   </div>
 
   <div class="group-layout">
-
-    <!-- ================= LEFT PANEL ================= -->
     <div class="group-list-panel">
-
       <div class="list-header">
-        <h3>Groups</h3>
-        <button class="btn-new" (click)="resetForm()">+ New</button>
+        <div>
+          <h3>Groups</h3>
+          <span>{{ groups.length }} segment(s)</span>
+        </div>
       </div>
 
-      <!-- SEARCH -->
       <div class="search-box">
-        <input type="text"
-               placeholder="Search group..."
-               [(ngModel)]="searchText">
+        <input
+          type="text"
+          placeholder="Search groups..."
+          [(ngModel)]="searchText"
+          (input)="onGroupSearch()">
       </div>
 
-      <!-- GROUP LIST -->
-      <div class="group-item"
-         *ngFor="let group of filteredGroups()"
-         [class.active]="isSelectedGroup(group)"
-         (click)="editGroup(group)">
-
-        <div class="group-info">
-          <h4>{{ group.name }}</h4>
-          <span class="member-badge">
-            {{ group.numbers?.length || group.contacts.length || 0 }}
-          </span>
+      <div class="group-list-scroll" *ngIf="!isLoading; else groupsLoading">
+        <div
+          class="group-item"
+          *ngFor="let group of filteredGroups"
+          [class.active]="isSelectedGroup(group)"
+          (click)="selectGroup(group)">
+          <div class="group-info">
+            <h4>{{ group.name }}</h4>
+            <p>{{ formatDate(group.updatedAt || group.createdAt) }}</p>
+          </div>
+          <span class="member-badge">{{ getGroupCount(group) }}</span>
+          <button
+            class="delete-btn"
+            (click)="openDeleteModal(group); $event.stopPropagation()"
+            aria-label="Delete group">
+            x
+          </button>
         </div>
 
-        <button class="delete-btn"
-          (click)="openDeleteModal(group); $event.stopPropagation()"
-          aria-label="Delete group">
-          ✕
-        </button>
-
+        <div *ngIf="filteredGroups.length === 0" class="empty-text">
+          No groups found
+        </div>
       </div>
 
-      <div *ngIf="filteredGroups().length === 0" class="empty-text">
-        No groups found
-      </div>
-
+      <ng-template #groupsLoading>
+        <div class="loading-state">Loading groups...</div>
+      </ng-template>
     </div>
 
-    <!-- ================= RIGHT PANEL ================= -->
-    <div class="group-form-panel">
-
-      <div class="form-header">
-        <h3>
-          {{ editingIndex !== null ? 'Edit Group' : 'Create Group' }}
-        </h3>
-
-        <span *ngIf="editingIndex !== null" class="edit-badge">
-          Editing
-        </span>
-      </div>
-
-      <!-- Group Name -->
-      <div class="form-group">
-        <label>Group Name</label>
-        <input type="text"
-               placeholder="Enter group name"
-               [(ngModel)]="groupName">
-      </div>
-
-      <!-- Contact Numbers Input -->
-      <div class="form-group">
-        <label>Contact Numbers</label>
-        
-        <!-- Chip Input Field -->
-        <div class="chip-input-wrapper">
-          <input 
-            type="text"
-            placeholder="Enter number and press Enter or comma"
-            [(ngModel)]="contactInput"
-            (keydown)="handleContactInput($event)"
-            class="chip-input">
-          
-          <!-- Error Message -->
-          <span class="error-message" *ngIf="contactInputError">
-            {{ contactInputError }}
-          </span>
+    <div class="group-detail-panel">
+      <div class="detail-topbar">
+        <div>
+          <span class="eyebrow">{{ editingGroupId ? 'Selected Segment' : 'New Segment' }}</span>
+          <h3>{{ editingGroupId ? groupName : 'Create Group' }}</h3>
         </div>
+        <div class="detail-actions">
+          <button class="btn-secondary" (click)="startCreateGroup()">New</button>
+          <button class="btn-primary" [disabled]="!selectedGroupId" (click)="openAddClientsModal()">Add Clients</button>
+        </div>
+      </div>
 
-        <!-- Number Chips -->
-        <div class="number-chip-container" *ngIf="numbers.length > 0">
-          <div class="number-chip" *ngFor="let num of numbers; let i = index">
-            <span class="chip-text">{{ num }}</span>
-            <button 
-              type="button"
-              class="chip-remove"
-              (click)="removeNumber(i)"
-              title="Remove number">
-              ✕
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span>Total Members</span>
+          <strong>{{ selectedGroupMemberCount }}</strong>
+        </div>
+        <div class="stat-card">
+          <span>CRM Clients</span>
+          <strong>{{ selectedGroupClientCount }}</strong>
+        </div>
+        <div class="stat-card">
+          <span>Manual Contacts</span>
+          <strong>{{ selectedGroupContactCount }}</strong>
+        </div>
+        <div class="stat-card">
+          <span>Created By</span>
+          <strong>{{ selectedGroup?.createdBy?.name || selectedGroup?.createdBy?.email || '-' }}</strong>
+        </div>
+      </div>
+
+      <div class="detail-content">
+        <section class="edit-card">
+          <div class="section-title">
+            <h4>Group Details</h4>
+            <p>Keep manual numbers for one-off contacts; clients are managed through Add Clients.</p>
+          </div>
+
+          <div class="form-group">
+            <label>Group Name</label>
+            <input type="text" placeholder="Enter group name" [(ngModel)]="groupName">
+          </div>
+
+          <div class="form-group compact">
+            <label>Manual Contact Numbers</label>
+            <div class="chip-input-wrapper">
+              <input
+                type="text"
+                placeholder="Enter number and press Enter or comma"
+                [(ngModel)]="contactInput"
+                (keydown)="handleContactInput($event)"
+                class="chip-input">
+              <span class="error-message" *ngIf="contactInputError">{{ contactInputError }}</span>
+            </div>
+
+            <div class="number-chip-container" *ngIf="numbers.length > 0">
+              <div class="number-chip" *ngFor="let num of numbers; let i = index">
+                <span class="chip-text">{{ num }}</span>
+                <button type="button" class="chip-remove" (click)="removeNumber(i)" title="Remove number">x</button>
+              </div>
+            </div>
+
+            <div class="no-contacts-message" *ngIf="numbers.length === 0">
+              No manual numbers added. Use Add Clients for CRM contacts.
+            </div>
+          </div>
+
+          <div class="action-section">
+            <button class="btn-save" [disabled]="!isFormValid || isSaving" (click)="saveGroup()">
+              {{ isSaving ? 'Saving...' : (editingGroupId ? 'Update Group' : 'Save Group') }}
             </button>
           </div>
-        </div>
+        </section>
 
-        <!-- Empty State -->
-        <div class="no-contacts-message" *ngIf="numbers.length === 0">
-          No numbers added yet
-        </div>
-      </div>
+        <section class="members-card">
+          <div class="members-header">
+            <div>
+              <h4>Members</h4>
+              <p>Search and manage members without rendering the full database.</p>
+            </div>
+            <button class="btn-primary" [disabled]="!selectedGroupId" (click)="openAddClientsModal()">+ Add Clients</button>
+          </div>
 
-      <!-- Assign Clients -->
-      <div class="form-group">
-        <label>Assign Clients (Optional)</label>
-        <div class="clients-selection">
-          <div class="clients-list" *ngIf="clients.length > 0">
-            <label *ngFor="let client of clients" class="checkbox-label">
-              <input
-                type="checkbox"
-                [checked]="isClientSelected(client._id)"
-                (change)="toggleClientSelection(client._id || '')"
-              />
-              <span class="checkbox-text">{{ client.name }}</span>
-              <span class="client-mobile">{{ client.mobile }}</span>
-            </label>
+          <div class="member-toolbar">
+            <input
+              type="text"
+              placeholder="Search member name or phone..."
+              [(ngModel)]="memberSearchText"
+              [disabled]="!selectedGroupId"
+              (input)="onMemberSearch()">
+            <span>{{ memberTotal }} result(s)</span>
           </div>
-          <div *ngIf="clients.length === 0" class="no-clients-message">
-            <p>No clients available. Create clients first.</p>
-          </div>
-          <div class="selected-clients" *ngIf="getSelectedClientNames() !== 'No clients selected'">
-            <span class="selected-label">Selected:</span>
-            <span class="selected-list">{{ getSelectedClientNames() }}</span>
-          </div>
-        </div>
-      </div>
-      <div class="action-section">
-        <button class="btn-save"
-                [disabled]="!isFormValid || isSaving"
-                (click)="saveGroup()">
-          {{ isSaving ? 'Saving...' : (editingGroupId ? 'Update Group' : 'Save Group') }}
-        </button>
-      </div>
 
+          <div class="member-table" *ngIf="selectedGroupId; else selectGroupState">
+            <div class="table-row table-head">
+              <span>Name</span>
+              <span>Phone</span>
+              <span>Source</span>
+              <span>Action</span>
+            </div>
+
+            <div class="loading-state" *ngIf="isLoadingMembers">Loading members...</div>
+
+            <div class="table-row" *ngFor="let member of members">
+              <div>
+                <strong>{{ member.name }}</strong>
+                <small *ngIf="member.notes">{{ member.notes }}</small>
+              </div>
+              <span>{{ member.phone }}</span>
+              <span class="source-pill" [class.manual]="member.type === 'contact'">
+                {{ member.type === 'client' ? 'Client' : 'Manual' }}
+              </span>
+              <button class="btn-link-danger" [disabled]="isRemovingMember" (click)="removeMember(member)">Remove</button>
+            </div>
+
+            <div class="empty-text" *ngIf="!isLoadingMembers && members.length === 0">
+              No members found for this search.
+            </div>
+
+            <div class="pagination" *ngIf="memberTotalPages > 1">
+              <button (click)="goToMemberPage(memberPage - 1)" [disabled]="memberPage === 1">Prev</button>
+              <span>Page {{ memberPage }} of {{ memberTotalPages }}</span>
+              <button (click)="goToMemberPage(memberPage + 1)" [disabled]="memberPage === memberTotalPages">Next</button>
+            </div>
+          </div>
+
+          <ng-template #selectGroupState>
+            <div class="empty-workspace">
+              Select a group to view members, or create a new group.
+            </div>
+          </ng-template>
+        </section>
+      </div>
     </div>
-
   </div>
-
 </div>
 
-<!-- ================= DELETE CONFIRM MODAL ================= -->
+<div class="modal-overlay" *ngIf="showAddClientsModal">
+  <div class="client-modal">
+    <div class="modal-header">
+      <div>
+        <h3>Add Clients</h3>
+        <p>Search by name or phone and add clients in bulk.</p>
+      </div>
+      <button class="icon-btn" (click)="closeAddClientsModal()">x</button>
+    </div>
+
+    <div class="modal-search">
+      <input
+        type="text"
+        placeholder="Search clients..."
+        [(ngModel)]="addClientSearchText"
+        (input)="onAddClientSearch()">
+      <span>{{ addClientTotal }} available</span>
+    </div>
+
+    <div class="client-pick-list">
+      <div class="table-row table-head">
+        <span>Select</span>
+        <span>Client</span>
+        <span>Phone</span>
+      </div>
+
+      <div class="loading-state" *ngIf="isLoadingAvailableClients">Loading clients...</div>
+
+      <label class="table-row selectable" *ngFor="let client of availableClients">
+        <input
+          type="checkbox"
+          [checked]="isClientSelected(client._id)"
+          (change)="toggleClientSelection(client._id)">
+        <strong>{{ client.name }}</strong>
+        <span>{{ client.mobile }}</span>
+      </label>
+
+      <div class="empty-text" *ngIf="!isLoadingAvailableClients && availableClients.length === 0">
+        No clients found.
+      </div>
+    </div>
+
+    <div class="pagination" *ngIf="addClientTotalPages > 1">
+      <button (click)="goToAddClientPage(addClientPage - 1)" [disabled]="addClientPage === 1">Prev</button>
+      <span>Page {{ addClientPage }} of {{ addClientTotalPages }}</span>
+      <button (click)="goToAddClientPage(addClientPage + 1)" [disabled]="addClientPage === addClientTotalPages">Next</button>
+    </div>
+
+    <div class="modal-actions">
+      <span>{{ selectedClientIds.size }} selected</span>
+      <div>
+        <button class="btn-cancel" (click)="closeAddClientsModal()">Cancel</button>
+        <button class="btn-primary" [disabled]="selectedClientIds.size === 0 || isAddingClients" (click)="addSelectedClients()">
+          {{ isAddingClients ? 'Adding...' : 'Add Selected' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="modal-overlay" *ngIf="showDeleteModal">
   <div class="confirm-modal">
-
     <h3>Delete Group</h3>
     <p>Are you sure you want to delete this group?</p>
-
     <div class="modal-actions">
-      <button class="btn-cancel"
-              (click)="closeDeleteModal()">
-        Cancel
-      </button>
-
-      <button class="btn-delete"
-              (click)="confirmDelete()">
-        Delete
-      </button>
+      <button class="btn-cancel" (click)="closeDeleteModal()">Cancel</button>
+      <button class="btn-delete" (click)="confirmDelete()">Delete</button>
     </div>
-
   </div>
 </div>

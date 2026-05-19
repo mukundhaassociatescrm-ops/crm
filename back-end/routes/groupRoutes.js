@@ -7,6 +7,9 @@ const {
   updateGroup,
   deleteGroup,
   assignClientsToGroup,
+  getGroupMembers,
+  addClientsToGroup,
+  removeClientFromGroup,
 } = require('../controllers/groupController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRole } = require('../middleware/roleMiddleware');
@@ -80,6 +83,10 @@ router.post('/', protect, authorizeRole('admin'), createGroup);
  *         description: Group list
  */
 router.get('/', protect, getGroups);
+
+router.get('/:id/members', protect, getGroupMembers);
+router.post('/:id/clients', protect, authorizeRole('admin'), addClientsToGroup);
+router.delete('/:id/clients/:clientId', protect, authorizeRole('admin'), removeClientFromGroup);
 
 /**
  * @openapi

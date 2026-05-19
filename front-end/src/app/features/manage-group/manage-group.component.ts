@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { GroupService, Group, GroupContact } from './group.service';
+import { GroupService, Group, GroupContact, GroupMember } from './group.service';
 import { ClientService, Client } from '../manage-client/client.service';
 import { ToastrService } from 'ngx-toastr';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
@@ -18,20 +18,36 @@ export class ManageGroupComponent implements OnInit {
   contactInput = '';
   contactInputError = '';
   numbers: string[] = [];
-  selectedClients: string[] = [];
   groups: Group[] = [];
-  clients: Client[] = [];
-  editingIndex: number | null = null;
   editingGroupId: string | null = null;
   selectedGroupId: string | null = null;
   searchText = '';
   showDeleteModal = false;
-  deleteIndex: number | null = null;
   deleteGroupId: string | null = null;
   isLoading = false;
   isSaving = false;
-  isLoadingClients = false;
-  private pendingCreatedGroup: { name: string; numbers: string[]; clients: string[] } | null = null;
+  isLoadingMembers = false;
+  isRemovingMember = false;
+  memberSearchText = '';
+  members: GroupMember[] = [];
+  memberPage = 1;
+  memberLimit = 25;
+  memberTotal = 0;
+  memberTotalPages = 1;
+  showAddClientsModal = false;
+  addClientSearchText = '';
+  availableClients: Client[] = [];
+  selectedClientIds = new Set<string>();
+  addClientPage = 1;
+  addClientLimit = 25;
+  addClientTotal = 0;
+  addClientTotalPages = 1;
+  isLoadingAvailableClients = false;
+  isAddingClients = false;
+  private pendingCreatedGroupName: string | null = null;
+  private groupSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private memberSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private addClientSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private groupService: GroupService,
@@ -40,56 +56,70 @@ export class ManageGroupComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadClients();
     this.loadGroups();
   }
 
-  /**
-   * Load all clients from API
-   */
-  loadClients(): void {
-    this.isLoadingClients = true;
-    this.clientService.getClients({ limit: 1000 }).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.clients = response.data;
-        }
-        this.isLoadingClients = false;
-      },
-      error: () => {
-        this.toastr.error('Failed to load clients');
-        this.isLoadingClients = false;
-      }
-    });
+  get selectedGroup(): Group | null {
+    return this.groups.find((group) => group._id === this.selectedGroupId) || null;
   }
 
-  /**
-   * Load all groups from API
-   */
+  get filteredGroups(): Group[] {
+    return this.groups;
+  }
+
+  get selectedGroupMemberCount(): number {
+    return this.selectedGroup?.memberCount ?? 0;
+  }
+
+  get selectedGroupClientCount(): number {
+    return this.selectedGroup?.clientCount ?? this.selectedGroup?.actualClientCount ?? 0;
+  }
+
+  get selectedGroupContactCount(): number {
+    return this.selectedGroup?.contactCount ?? this.selectedGroup?.contacts?.length ?? 0;
+  }
+
+  get isFormValid(): boolean {
+    return !!this.groupName.trim();
+  }
+
   loadGroups(): void {
     this.isLoading = true;
-    this.groupService.getGroups().subscribe({
+    this.groupService.getGroups(this.searchText.trim()).subscribe({
       next: (response) => {
         let loadedGroups: Group[] = [];
         if (response.success && response.data) {
           loadedGroups = Array.isArray(response.data) ? response.data : [response.data];
-          // Map contacts to numbers for UI compatibility
           this.groups = loadedGroups.map(group => ({
             ...group,
-            numbers: group.contacts.map(c => c.phone)
+            contacts: group.contacts || [],
+            numbers: group.numbers || (group.contacts || []).map(c => c.phone)
           }));
         } else {
           this.groups = [];
         }
 
-        if (this.pendingCreatedGroup) {
-          const matched = this.findMatchingGroup(this.pendingCreatedGroup.name, this.pendingCreatedGroup.numbers);
+        if (this.pendingCreatedGroupName) {
+          const matched = this.groups.find((group) => group.name.trim().toLowerCase() === this.pendingCreatedGroupName);
           this.selectedGroupId = matched?._id || null;
-          this.pendingCreatedGroup = null;
+          this.pendingCreatedGroupName = null;
+          if (matched) {
+            this.patchFormFromGroup(matched);
+            this.loadMembers();
+          }
+        } else if (!this.selectedGroupId && this.groups.length > 0) {
+          this.selectGroup(this.groups[0]);
+        } else if (this.selectedGroupId) {
+          const current = this.selectedGroup;
+          if (current) {
+            this.patchFormFromGroup(current);
+          }
         }
 
         if (this.selectedGroupId && !this.groups.some(group => group._id === this.selectedGroupId)) {
           this.selectedGroupId = null;
+          this.resetForm();
+          this.members = [];
         }
 
         this.isLoading = false;
@@ -103,29 +133,45 @@ export class ManageGroupComponent implements OnInit {
     });
   }
 
-  /**
-   * Validate phone number format
-   */
+  onGroupSearch(): void {
+    if (this.groupSearchTimer) {
+      clearTimeout(this.groupSearchTimer);
+    }
+    this.groupSearchTimer = setTimeout(() => this.loadGroups(), 250);
+  }
+
+  selectGroup(group: Group): void {
+    if (!group._id) {
+      return;
+    }
+    this.selectedGroupId = group._id;
+    this.patchFormFromGroup(group);
+    this.memberPage = 1;
+    this.loadMembers();
+  }
+
+  startCreateGroup(): void {
+    this.selectedGroupId = null;
+    this.members = [];
+    this.memberTotal = 0;
+    this.memberTotalPages = 1;
+    this.resetForm();
+  }
+
   private isValidPhoneNumber(phone: string): boolean {
-    // Only digits, minimum 10 characters
     const phoneRegex = /^\d{10,}$/;
     return phoneRegex.test(phone);
   }
 
-  /**
-   * Handle contact input on Enter or comma press
-   */
   handleContactInput(event: KeyboardEvent): void {
     const input = (event.target as HTMLInputElement).value.trim();
-    
-    // Handle Enter key
+
     if (event.key === 'Enter') {
       event.preventDefault();
       this.addContactNumber(input);
       return;
     }
 
-    // Handle comma key
     if (event.key === ',') {
       event.preventDefault();
       this.addContactNumber(input);
@@ -138,9 +184,6 @@ export class ManageGroupComponent implements OnInit {
     }
   }
 
-  /**
-   * Add a single contact number with validation
-   */
   private addContactNumber(rawInput: string): void {
     const candidates = rawInput
       .split(',')
@@ -169,16 +212,10 @@ export class ManageGroupComponent implements OnInit {
     this.contactInputError = '';
   }
 
-  /**
-   * Remove a number from the list
-   */
   removeNumber(index: number): void {
     this.numbers.splice(index, 1);
   }
 
-  /**
-   * Save or update a group
-   */
   saveGroup(): void {
     if (this.isSaving) {
       return;
@@ -189,13 +226,6 @@ export class ManageGroupComponent implements OnInit {
       return;
     }
 
-    // Allow either contacts OR clients
-    if (this.numbers.length === 0 && this.selectedClients.length === 0) {
-      this.toastr.error('At least one contact or client is required');
-      return;
-    }
-
-    // Create contacts array from phone numbers
     const contacts: GroupContact[] = this.numbers.map(phone => ({
       name: '',
       phone
@@ -204,21 +234,19 @@ export class ManageGroupComponent implements OnInit {
     const groupData = {
       name: this.groupName,
       contacts,
-      clients: this.selectedClients
     };
 
     this.isSaving = true;
 
     if (this.editingGroupId !== null) {
-      // Update existing group
       this.groupService.updateGroup(this.editingGroupId, groupData).subscribe({
         next: (response) => {
           this.isSaving = false;
           if (response.success) {
             this.toastr.success('Group updated successfully');
             this.selectedGroupId = this.editingGroupId;
-            this.resetForm();
             this.loadGroups();
+            this.loadMembers();
           }
         },
         error: (error) => {
@@ -228,18 +256,12 @@ export class ManageGroupComponent implements OnInit {
         }
       });
     } else {
-      // Create new group
       this.groupService.createGroup(groupData).subscribe({
         next: (response) => {
           this.isSaving = false;
           if (response.success) {
             this.toastr.success('Group created successfully');
-            this.pendingCreatedGroup = {
-              name: groupData.name,
-              numbers: [...this.numbers],
-              clients: [...this.selectedClients]
-            };
-            this.resetForm();
+            this.pendingCreatedGroupName = groupData.name.trim().toLowerCase();
             this.loadGroups();
           }
         },
@@ -252,99 +274,89 @@ export class ManageGroupComponent implements OnInit {
     }
   }
 
-  /**
-   * Edit a group by index
-   */
-  editGroup(group: Group): void {
+  private patchFormFromGroup(group: Group): void {
     this.groupName = group.name;
-    this.numbers = group.contacts.map(c => c.phone);
-    const clientIds = group.clients?.map(c => (typeof c === 'string' ? c : c._id || '')) || [];
-    this.selectedClients = clientIds;
-    this.editingIndex = this.groups.findIndex((item) => item._id === group._id);
+    this.numbers = (group.contacts || []).map(c => c.phone);
     this.editingGroupId = group._id || null;
-    this.selectedGroupId = group._id || null;
+    this.contactInput = '';
+    this.contactInputError = '';
   }
 
-  /**
-   * Reset form to initial state
-   */
   resetForm(): void {
     this.groupName = '';
     this.numbers = [];
-    this.selectedClients = [];
     this.contactInput = '';
     this.contactInputError = '';
-    this.editingIndex = null;
     this.editingGroupId = null;
   }
 
-  /**
-   * Toggle client selection
-   */
-  toggleClientSelection(clientId: string): void {
-    if (this.selectedClients.includes(clientId)) {
-      this.selectedClients = this.selectedClients.filter(id => id !== clientId);
-    } else {
-      this.selectedClients.push(clientId);
+  loadMembers(): void {
+    if (!this.selectedGroupId) {
+      return;
     }
+
+    this.isLoadingMembers = true;
+    this.groupService.getGroupMembers(this.selectedGroupId, {
+      search: this.memberSearchText.trim() || undefined,
+      page: this.memberPage,
+      limit: this.memberLimit,
+    }).subscribe({
+      next: (response) => {
+        this.isLoadingMembers = false;
+        if (!response.success) {
+          this.members = [];
+          this.toastr.error(response.message || 'Failed to load group members');
+          return;
+        }
+
+        this.members = response.data || [];
+        this.memberTotal = response.pagination.total;
+        this.memberTotalPages = response.pagination.totalPages || 1;
+      },
+      error: () => {
+        this.isLoadingMembers = false;
+        this.members = [];
+        this.toastr.error('Failed to load group members');
+      }
+    });
   }
 
-  /**
-   * Check if a client is selected
-   */
-  isClientSelected(clientId: string | undefined): boolean {
-    return clientId ? this.selectedClients.includes(clientId) : false;
+  onMemberSearch(): void {
+    if (this.memberSearchTimer) {
+      clearTimeout(this.memberSearchTimer);
+    }
+    this.memberSearchTimer = setTimeout(() => {
+      this.memberPage = 1;
+      this.loadMembers();
+    }, 300);
   }
 
-  /**
-   * Get selected clients names
-   */
-  getSelectedClientNames(): string {
-    if (this.selectedClients.length === 0) return 'No clients selected';
-    return this.clients
-      .filter(c => c._id && this.selectedClients.includes(c._id))
-      .map(c => c.name)
-      .join(', ');
-  }
-
-  get isFormValid(): boolean {
-    return !!this.groupName.trim() && this.numbers.length > 0;
+  goToMemberPage(page: number): void {
+    if (page < 1 || page > this.memberTotalPages || page === this.memberPage) {
+      return;
+    }
+    this.memberPage = page;
+    this.loadMembers();
   }
 
   isSelectedGroup(group: Group): boolean {
     return !!group._id && this.selectedGroupId === group._id;
   }
 
-  /**
-   * Get filtered groups based on search text
-   */
-  filteredGroups(): Group[] {
-    return this.groups.filter(g =>
-      g.name.toLowerCase().includes(this.searchText.toLowerCase())
-    );
+  getGroupCount(group: Group): number {
+    return group.memberCount ?? group.actualClientCount ?? group.numbers?.length ?? group.contacts?.length ?? 0;
   }
 
-  /**
-   * Open delete confirmation modal
-   */
   openDeleteModal(group: Group): void {
-    this.deleteIndex = this.groups.findIndex((item) => item._id === group._id);
     this.deleteGroupId = group._id || null;
     this.showDeleteModal = true;
   }
 
-  /**
-   * Close delete confirmation modal
-   */
   closeDeleteModal(): void {
     this.showDeleteModal = false;
-    this.deleteIndex = null;
     this.deleteGroupId = null;
   }
 
-  /**
-   * Confirm and execute group deletion
-   */
   confirmDelete(): void {
     if (this.deleteGroupId === null) {
       return;
@@ -357,6 +369,7 @@ export class ManageGroupComponent implements OnInit {
           if (this.selectedGroupId === this.deleteGroupId) {
             this.selectedGroupId = null;
             this.resetForm();
+            this.members = [];
           }
           this.closeDeleteModal();
           this.loadGroups();
@@ -369,13 +382,156 @@ export class ManageGroupComponent implements OnInit {
     });
   }
 
-  private findMatchingGroup(groupName: string, numberList: string[]): Group | undefined {
-    const normalizedName = groupName.trim().toLowerCase();
-    const normalizedNumbers = [...numberList].sort().join('|');
+  openAddClientsModal(): void {
+    if (!this.selectedGroupId) {
+      this.toastr.error('Select a group first');
+      return;
+    }
 
-    return this.groups.find((group) => {
-      const groupNumbers = group.contacts.map((contact) => contact.phone).sort().join('|');
-      return group.name.trim().toLowerCase() === normalizedName && groupNumbers === normalizedNumbers;
+    this.showAddClientsModal = true;
+    this.addClientSearchText = '';
+    this.selectedClientIds.clear();
+    this.addClientPage = 1;
+    this.loadAvailableClients();
+  }
+
+  closeAddClientsModal(): void {
+    this.showAddClientsModal = false;
+    this.availableClients = [];
+    this.selectedClientIds.clear();
+  }
+
+  loadAvailableClients(): void {
+    if (!this.selectedGroupId) {
+      return;
+    }
+
+    this.isLoadingAvailableClients = true;
+    this.clientService.getClients({
+      search: this.addClientSearchText.trim() || undefined,
+      page: this.addClientPage,
+      limit: this.addClientLimit,
+      sort: 'desc',
+      excludeGroup: this.selectedGroupId,
+    }).subscribe({
+      next: (response) => {
+        this.isLoadingAvailableClients = false;
+        if (!response.success) {
+          this.availableClients = [];
+          this.toastr.error(response.message || 'Failed to load clients');
+          return;
+        }
+        this.availableClients = response.data;
+        this.addClientTotal = response.pagination.total;
+        this.addClientTotalPages = response.pagination.totalPages || 1;
+      },
+      error: () => {
+        this.isLoadingAvailableClients = false;
+        this.availableClients = [];
+        this.toastr.error('Failed to load clients');
+      }
+    });
+  }
+
+  onAddClientSearch(): void {
+    if (this.addClientSearchTimer) {
+      clearTimeout(this.addClientSearchTimer);
+    }
+    this.addClientSearchTimer = setTimeout(() => {
+      this.addClientPage = 1;
+      this.loadAvailableClients();
+    }, 300);
+  }
+
+  goToAddClientPage(page: number): void {
+    if (page < 1 || page > this.addClientTotalPages || page === this.addClientPage) {
+      return;
+    }
+    this.addClientPage = page;
+    this.loadAvailableClients();
+  }
+
+  toggleClientSelection(clientId: string | undefined): void {
+    if (!clientId) {
+      return;
+    }
+
+    if (this.selectedClientIds.has(clientId)) {
+      this.selectedClientIds.delete(clientId);
+      return;
+    }
+
+    this.selectedClientIds.add(clientId);
+  }
+
+  isClientSelected(clientId: string | undefined): boolean {
+    return !!clientId && this.selectedClientIds.has(clientId);
+  }
+
+  addSelectedClients(): void {
+    if (!this.selectedGroupId || this.selectedClientIds.size === 0) {
+      return;
+    }
+
+    this.isAddingClients = true;
+    this.groupService.addClientsToGroup(this.selectedGroupId, Array.from(this.selectedClientIds)).subscribe({
+      next: (response) => {
+        this.isAddingClients = false;
+        if (!response.success) {
+          this.toastr.error(response.message || 'Failed to add clients');
+          return;
+        }
+
+        this.toastr.success(`${this.selectedClientIds.size} client(s) added to group`);
+        this.closeAddClientsModal();
+        this.loadGroups();
+        this.loadMembers();
+      },
+      error: (error) => {
+        this.isAddingClients = false;
+        this.toastr.error(error.error?.message || 'Failed to add clients');
+      }
+    });
+  }
+
+  removeMember(member: GroupMember): void {
+    if (!this.selectedGroupId) {
+      return;
+    }
+
+    if (member.type === 'contact') {
+      this.numbers = this.numbers.filter((number) => number !== member.phone);
+      this.saveGroup();
+      return;
+    }
+
+    this.isRemovingMember = true;
+    this.groupService.removeClientFromGroup(this.selectedGroupId, member.id).subscribe({
+      next: (response) => {
+        this.isRemovingMember = false;
+        if (!response.success) {
+          this.toastr.error(response.message || 'Failed to remove client');
+          return;
+        }
+        this.toastr.success('Client removed from group');
+        this.loadGroups();
+        this.loadMembers();
+      },
+      error: (error) => {
+        this.isRemovingMember = false;
+        this.toastr.error(error.error?.message || 'Failed to remove client');
+      }
+    });
+  }
+
+  formatDate(value?: string): string {
+    if (!value) {
+      return '-';
+    }
+    return new Date(value).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
     });
   }
 }

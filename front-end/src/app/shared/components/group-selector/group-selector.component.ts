@@ -43,7 +43,7 @@ export class GroupSelectorComponent implements OnInit {
       return 0;
     }
 
-    return group.numbers?.length || group.contacts?.length || 0;
+    return group.memberCount ?? group.actualClientCount ?? group.numbers?.length ?? group.contacts?.length ?? 0;
   }
 
   onGroupChange(): void {
