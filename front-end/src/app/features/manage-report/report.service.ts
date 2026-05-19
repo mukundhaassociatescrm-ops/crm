@@ -13,7 +13,7 @@ export interface ReportClient {
 export interface ReportItem {
   description: string;
   subDescription?: string;
-  hsn: string;
+  hsn?: string;
   quantity?: number;
   rate?: number;
   amount: number;
@@ -39,6 +39,8 @@ export interface Report extends ReportPayload {
   _id: string;
   invoiceNumber: string;
   subtotal: number;
+  taxableSubtotal?: number;
+  nonTaxableSubtotal?: number;
   cgst: number;
   sgst: number;
   total: number;

@@ -66,21 +66,27 @@ export class ReportFormComponent implements OnChanges {
   }
 
   get subtotal(): number {
-    return this.itemsArray.controls.reduce((sum, control) => {
-      return sum + (Number(control.get('amount')?.value) || 0);
-    }, 0);
+    return this.round2(this.taxableSubtotal + this.nonTaxableSubtotal);
+  }
+
+  get taxableSubtotal(): number {
+    return this.sumItemsByTaxability(true);
+  }
+
+  get nonTaxableSubtotal(): number {
+    return this.sumItemsByTaxability(false);
   }
 
   get cgst(): number {
-    return this.round2(this.subtotal * this.taxRate);
+    return this.round2(this.taxableSubtotal * this.taxRate);
   }
 
   get sgst(): number {
-    return this.round2(this.subtotal * this.taxRate);
+    return this.round2(this.taxableSubtotal * this.taxRate);
   }
 
   get total(): number {
-    return this.round2(this.subtotal + this.cgst + this.sgst);
+    return this.round2(this.taxableSubtotal + this.cgst + this.sgst + this.nonTaxableSubtotal);
   }
 
   get previewData(): Partial<Report> {
@@ -97,6 +103,8 @@ export class ReportFormComponent implements OnChanges {
       },
       items: this.normalizedItems,
       subtotal: this.subtotal,
+      taxableSubtotal: this.taxableSubtotal,
+      nonTaxableSubtotal: this.nonTaxableSubtotal,
       cgst: this.cgst,
       sgst: this.sgst,
       total: this.total,
@@ -240,11 +248,21 @@ export class ReportFormComponent implements OnChanges {
     return this.fb.group({
       description: [item?.description || '', Validators.required],
       subDescription: [item?.subDescription || ''],
-      hsn: [item?.hsn || '', Validators.required],
+      hsn: [item?.hsn || ''],
       quantity: [item?.quantity ?? ''],
       rate: [item?.rate ?? ''],
       amount: [item?.amount ?? 0, [Validators.required, Validators.min(0)]],
     });
+  }
+
+  private sumItemsByTaxability(taxable: boolean): number {
+    const sum = this.itemsArray.controls.reduce((total, control) => {
+      const hsn = String(control.get('hsn')?.value || '').trim();
+      const amount = Number(control.get('amount')?.value) || 0;
+      return Boolean(hsn) === taxable ? total + amount : total;
+    }, 0);
+
+    return this.round2(sum);
   }
 
   private round2(value: number): number {

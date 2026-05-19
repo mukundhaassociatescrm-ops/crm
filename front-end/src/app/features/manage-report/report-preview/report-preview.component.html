@@ -45,7 +45,7 @@
           <span>{{ item.description }}</span>
           <em *ngIf="item.subDescription" class="sub-desc">{{ item.subDescription }}</em>
         </td>
-        <td>{{ item.hsn }}</td>
+        <td>{{ itemHsnLabel(item) }}</td>
         <td class="amount">{{ item.amount | number:'1.2-2' }}</td>
       </tr>
       <tr *ngIf="!(data.items || []).length">
@@ -56,6 +56,8 @@
 
   <div class="totals-card">
     <div><span>Subtotal</span><strong>{{ subtotal | number:'1.2-2' }}</strong></div>
+    <div><span>Taxable Subtotal</span><strong>{{ taxableSubtotal | number:'1.2-2' }}</strong></div>
+    <div><span>Non-Taxable Subtotal</span><strong>{{ nonTaxableSubtotal | number:'1.2-2' }}</strong></div>
     <div><span>CGST (9%)</span><strong>{{ cgst | number:'1.2-2' }}</strong></div>
     <div><span>SGST (9%)</span><strong>{{ sgst | number:'1.2-2' }}</strong></div>
     <div class="grand-total"><span>Total</span><strong>{{ total | number:'1.2-2' }}</strong></div>

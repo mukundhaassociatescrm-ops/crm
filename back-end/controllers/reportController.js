@@ -46,10 +46,13 @@ const normalizeItems = (items = []) => {
     const rawAmount = Number(item.amount);
     const fromQtyRate = Number.isFinite(quantity) && Number.isFinite(rate) ? quantity * rate : NaN;
     const amount = Number.isFinite(rawAmount) ? rawAmount : fromQtyRate;
+    const hsn = String(item.hsn ?? item.hsnSac ?? '').trim();
+    const subDescription = String(item.subDescription || '').trim();
 
     return {
-      description: item.description,
-      hsn: item.hsn,
+      description: String(item.description || '').trim(),
+      subDescription: subDescription || undefined,
+      hsn,
       quantity: Number.isFinite(quantity) ? quantity : undefined,
       rate: Number.isFinite(rate) ? rate : undefined,
       amount: round2(Number.isFinite(amount) ? amount : 0),
@@ -60,13 +63,34 @@ const normalizeItems = (items = []) => {
 const calculateTotals = (items = []) => {
   const normalizedItems = normalizeItems(items);
   const subtotal = round2(normalizedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
-  const cgst = round2(subtotal * TAX_RATE);
-  const sgst = round2(subtotal * TAX_RATE);
-  const total = round2(subtotal + cgst + sgst);
+  const taxableSubtotal = round2(normalizedItems.reduce((sum, item) => {
+    const taxable = Boolean(String(item.hsn || '').trim());
+    console.log('[GST ROW CLASSIFICATION]', {
+      description: item.description,
+      hsnSac: item.hsn,
+      amount: item.amount,
+      taxable,
+    });
+    return taxable ? sum + (Number(item.amount) || 0) : sum;
+  }, 0));
+  const nonTaxableSubtotal = round2(subtotal - taxableSubtotal);
+  const cgst = round2(taxableSubtotal * TAX_RATE);
+  const sgst = round2(taxableSubtotal * TAX_RATE);
+  const total = round2(taxableSubtotal + cgst + sgst + nonTaxableSubtotal);
+
+  console.log('[GST TOTALS]', {
+    taxableSubtotal,
+    nonTaxableSubtotal,
+    cgst,
+    sgst,
+    total,
+  });
 
   return {
     items: normalizedItems,
     subtotal,
+    taxableSubtotal,
+    nonTaxableSubtotal,
     cgst,
     sgst,
     total,
@@ -103,6 +127,8 @@ exports.createReport = async (req, res, next) => {
       client: req.body.client,
       items: totals.items,
       subtotal: totals.subtotal,
+      taxableSubtotal: totals.taxableSubtotal,
+      nonTaxableSubtotal: totals.nonTaxableSubtotal,
       cgst: totals.cgst,
       sgst: totals.sgst,
       total: totals.total,
@@ -148,13 +174,15 @@ exports.updateReport = async (req, res, next) => {
     }
 
     const totals = calculateTotals(req.body.items);
-  const bankDetails = normalizeBankDetails(req.body.bankDetails);
+    const bankDetails = normalizeBankDetails(req.body.bankDetails);
 
     existing.date = req.body.date || existing.date;
     existing.placeOfSupply = req.body.placeOfSupply;
     existing.client = req.body.client;
     existing.items = totals.items;
     existing.subtotal = totals.subtotal;
+    existing.taxableSubtotal = totals.taxableSubtotal;
+    existing.nonTaxableSubtotal = totals.nonTaxableSubtotal;
     existing.cgst = totals.cgst;
     existing.sgst = totals.sgst;
     existing.total = totals.total;

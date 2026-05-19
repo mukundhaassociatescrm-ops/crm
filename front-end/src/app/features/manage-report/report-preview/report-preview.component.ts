@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
-import { Report } from '../report.service';
+import { Report, ReportItem } from '../report.service';
 
 @Component({
   selector: 'app-report-preview',
@@ -27,29 +27,49 @@ export class ReportPreviewComponent {
     return (this.report?.items || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   }
 
-  get cgst(): number {
-    if (typeof this.report?.cgst === 'number') {
-      return this.report.cgst;
+  get taxableSubtotal(): number {
+    if (typeof this.report?.taxableSubtotal === 'number') {
+      return this.report.taxableSubtotal;
     }
-    return this.round2(this.subtotal * 0.09);
+    return this.sumItemsByTaxability(true);
+  }
+
+  get nonTaxableSubtotal(): number {
+    if (typeof this.report?.nonTaxableSubtotal === 'number') {
+      return this.report.nonTaxableSubtotal;
+    }
+    return this.sumItemsByTaxability(false);
+  }
+
+  get cgst(): number {
+    return this.round2(this.taxableSubtotal * 0.09);
   }
 
   get sgst(): number {
-    if (typeof this.report?.sgst === 'number') {
-      return this.report.sgst;
-    }
-    return this.round2(this.subtotal * 0.09);
+    return this.round2(this.taxableSubtotal * 0.09);
   }
 
   get total(): number {
-    if (typeof this.report?.total === 'number') {
-      return this.report.total;
-    }
-    return this.round2(this.subtotal + this.cgst + this.sgst);
+    return this.round2(this.taxableSubtotal + this.cgst + this.sgst + this.nonTaxableSubtotal);
   }
 
   get amountInWords(): string {
     return this.numberToWords(this.total);
+  }
+
+  itemHsnLabel(item: ReportItem): string {
+    const hsn = String(item.hsn || '').trim();
+    return hsn || 'Non-Taxable';
+  }
+
+  private sumItemsByTaxability(taxable: boolean): number {
+    const sum = (this.report?.items || []).reduce((total, item) => {
+      const hsn = String(item.hsn || '').trim();
+      const amount = Number(item.amount) || 0;
+      return Boolean(hsn) === taxable ? total + amount : total;
+    }, 0);
+
+    return this.round2(sum);
   }
 
   private round2(value: number): number {

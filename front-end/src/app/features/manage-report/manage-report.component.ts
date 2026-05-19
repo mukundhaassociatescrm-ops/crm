@@ -171,6 +171,13 @@ export class ManageReportComponent implements OnInit {
   }
 
   private buildPdfDefinition(report: Report): any {
+    const taxableSubtotal = this.resolveTaxableSubtotal(report);
+    const nonTaxableSubtotal = this.resolveNonTaxableSubtotal(report);
+    const subtotal = this.round2(taxableSubtotal + nonTaxableSubtotal);
+    const cgst = this.round2(taxableSubtotal * 0.09);
+    const sgst = this.round2(taxableSubtotal * 0.09);
+    const total = this.round2(taxableSubtotal + cgst + sgst + nonTaxableSubtotal);
+    const taxableHsnSummary = this.getTaxableHsnSummary(report);
     const logoContent = this.logoDataUrl
       ? {
           image: this.logoDataUrl,
@@ -192,6 +199,7 @@ export class ManageReportComponent implements OnInit {
     const itemRows = report.items.map((item, index) => {
       const qty = Number(item.quantity || 0);
       const rate = Number(item.rate || 0);
+      const hsn = String(item.hsn || '').trim();
       const descCell = item.subDescription
         ? {
             stack: [
@@ -204,7 +212,7 @@ export class ManageReportComponent implements OnInit {
       return [
         { text: String(index + 1), alignment: 'center' },
         descCell,
-        { text: item.hsn || '-', alignment: 'center' },
+        { text: hsn || 'Non-Taxable', alignment: 'center' },
         { text: qty ? qty.toFixed(2) : '-', alignment: 'right' },
         { text: rate ? rate.toFixed(2) : '-', alignment: 'right' },
         { text: Number(item.amount || 0).toFixed(2), alignment: 'right' },
@@ -225,7 +233,7 @@ export class ManageReportComponent implements OnInit {
     }
 
     const dateText = new Date(report.date).toLocaleDateString('en-IN');
-    const amountWords = this.numberToWords(report.total);
+    const amountWords = this.numberToWords(total);
 
     return {
       pageSize: 'A4',
@@ -336,7 +344,7 @@ export class ManageReportComponent implements OnInit {
               ...itemRows,
               [
                 { text: '', colSpan: 5 }, {}, {}, {}, {},
-                { text: report.subtotal.toFixed(2), alignment: 'right', bold: true }
+                { text: subtotal.toFixed(2), alignment: 'right', bold: true }
               ]
             ]
           },
@@ -361,10 +369,11 @@ export class ManageReportComponent implements OnInit {
                   table: {
                     widths: [104, '*'],
                     body: [
-                      [{ text: 'Taxable Value', bold: true }, { text: report.subtotal.toFixed(2), alignment: 'right' }],
-                      [{ text: 'CGST @ 9.00%', bold: true }, { text: report.cgst.toFixed(2), alignment: 'right' }],
-                      [{ text: 'SGST @ 9.00%', bold: true }, { text: report.sgst.toFixed(2), alignment: 'right' }],
-                      [{ text: 'Total', bold: true, fillColor: '#f7f7f7' }, { text: report.total.toFixed(2), alignment: 'right', bold: true, fillColor: '#f7f7f7' }],
+                      [{ text: 'Taxable Value', bold: true }, { text: taxableSubtotal.toFixed(2), alignment: 'right' }],
+                      [{ text: 'Non-Taxable Value', bold: true }, { text: nonTaxableSubtotal.toFixed(2), alignment: 'right' }],
+                      [{ text: 'CGST @ 9.00%', bold: true }, { text: cgst.toFixed(2), alignment: 'right' }],
+                      [{ text: 'SGST @ 9.00%', bold: true }, { text: sgst.toFixed(2), alignment: 'right' }],
+                      [{ text: 'Total', bold: true, fillColor: '#f7f7f7' }, { text: total.toFixed(2), alignment: 'right', bold: true, fillColor: '#f7f7f7' }],
                     ]
                   },
                   layout: {
@@ -414,18 +423,18 @@ export class ManageReportComponent implements OnInit {
                 { text: 'Total Tax Amount', bold: true, fillColor: '#f7f7f7', alignment: 'right' },
               ],
               [
-                report.items[0]?.hsn || '-',
-                { text: report.subtotal.toFixed(2), alignment: 'right' },
-                { text: report.cgst.toFixed(2), alignment: 'right' },
-                { text: report.sgst.toFixed(2), alignment: 'right' },
-                { text: (report.cgst + report.sgst).toFixed(2), alignment: 'right' },
+                taxableHsnSummary,
+                { text: taxableSubtotal.toFixed(2), alignment: 'right' },
+                { text: cgst.toFixed(2), alignment: 'right' },
+                { text: sgst.toFixed(2), alignment: 'right' },
+                { text: (cgst + sgst).toFixed(2), alignment: 'right' },
               ],
               [
                 { text: 'Total', bold: true },
-                { text: report.subtotal.toFixed(2), alignment: 'right', bold: true },
-                { text: report.cgst.toFixed(2), alignment: 'right', bold: true },
-                { text: report.sgst.toFixed(2), alignment: 'right', bold: true },
-                { text: (report.cgst + report.sgst).toFixed(2), alignment: 'right', bold: true },
+                { text: taxableSubtotal.toFixed(2), alignment: 'right', bold: true },
+                { text: cgst.toFixed(2), alignment: 'right', bold: true },
+                { text: sgst.toFixed(2), alignment: 'right', bold: true },
+                { text: (cgst + sgst).toFixed(2), alignment: 'right', bold: true },
               ]
             ]
           },
@@ -443,7 +452,7 @@ export class ManageReportComponent implements OnInit {
         {
           table: {
             widths: ['*'],
-            body: [[{ text: `Tax Amount (in words): ${this.numberToWords(report.cgst + report.sgst)}`, bold: true }]],
+            body: [[{ text: `Tax Amount (in words): ${this.numberToWords(cgst + sgst)}`, bold: true }]],
           },
           layout: {
             hLineWidth: () => 1,
@@ -543,6 +552,43 @@ export class ManageReportComponent implements OnInit {
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(blob);
     });
+  }
+
+  private resolveTaxableSubtotal(report: Report): number {
+    if (typeof report.taxableSubtotal === 'number') {
+      return this.round2(report.taxableSubtotal);
+    }
+
+    return this.sumReportItemsByTaxability(report, true);
+  }
+
+  private resolveNonTaxableSubtotal(report: Report): number {
+    if (typeof report.nonTaxableSubtotal === 'number') {
+      return this.round2(report.nonTaxableSubtotal);
+    }
+
+    return this.sumReportItemsByTaxability(report, false);
+  }
+
+  private sumReportItemsByTaxability(report: Report, taxable: boolean): number {
+    const sum = report.items.reduce((total, item) => {
+      const hsn = String(item.hsn || '').trim();
+      const amount = Number(item.amount) || 0;
+      return Boolean(hsn) === taxable ? total + amount : total;
+    }, 0);
+
+    return this.round2(sum);
+  }
+
+  private getTaxableHsnSummary(report: Report): string {
+    const values = report.items
+      .map((item) => String(item.hsn || '').trim())
+      .filter(Boolean);
+    return Array.from(new Set(values)).join(', ') || '-';
+  }
+
+  private round2(value: number): number {
+    return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
   }
 
   private numberToWords(amount: number): string {

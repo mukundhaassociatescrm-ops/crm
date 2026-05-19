@@ -16,9 +16,9 @@ const reportItemSchema = new mongoose.Schema(
     },
     hsn: {
       type: String,
-      required: [true, 'HSN/SAC is required'],
       trim: true,
       maxlength: 50,
+      default: '',
     },
     quantity: {
       type: Number,
@@ -91,6 +91,16 @@ const reportSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: [0, 'Subtotal cannot be negative'],
+    },
+    taxableSubtotal: {
+      type: Number,
+      min: [0, 'Taxable subtotal cannot be negative'],
+      default: 0,
+    },
+    nonTaxableSubtotal: {
+      type: Number,
+      min: [0, 'Non-taxable subtotal cannot be negative'],
+      default: 0,
     },
     cgst: {
       type: Number,
