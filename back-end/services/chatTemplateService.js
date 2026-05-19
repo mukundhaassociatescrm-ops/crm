@@ -1,14 +1,22 @@
 const axios = require('axios');
 
-/** Single source: template list URL from environment only (no hardcoded fallback). */
-const GUPSHUP_TEMPLATES_URL = process.env.GUPSHUP_TEMPLATES_URL;
-
-console.log('[SERVICE TEMPLATE URL]', GUPSHUP_TEMPLATES_URL);
+const GUPSHUP_WA_API_BASE = 'https://api.gupshup.io/wa/app';
+const TEMPLATE_REQUEST_TIMEOUT_MS = 20000;
 
 const CACHE_TTL_MS = Math.max(30000, Number(process.env.WHATSAPP_TEMPLATE_CACHE_TTL_MS || 5 * 60 * 1000));
 const cacheByLanguage = new Map();
 
-const APPROVED_STATUSES = new Set(['approved', 'active', 'enabled', 'live', 'published', 'not rated', 'not_rated', 'sandbox', 'unrated']);
+const APPROVED_STATUSES = new Set([
+  'approved',
+  'active',
+  'enabled',
+  'live',
+  'published',
+  'not rated',
+  'not_rated',
+  'sandbox',
+  'unrated',
+]);
 const REJECTED_OR_INACTIVE = new Set(['rejected', 'draft', 'disabled', 'inactive', 'paused', 'archived', 'failed', 'deactivated']);
 
 const normalizeText = (value) => String(value || '').trim();
@@ -76,13 +84,72 @@ const extractVariables = (body) => {
   return indexes.sort((a, b) => a - b);
 };
 
+const resolveGupshupAppId = () => normalizeText(process.env.GUPSHUP_APP_ID);
+
+const resolveGupshupApiKey = () => normalizeText(process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY);
+
+const buildWhatsappTemplatesUrl = (appId) => (
+  `${GUPSHUP_WA_API_BASE}/${encodeURIComponent(appId)}/template`
+);
+
+const parseTemplateDataBody = (data) => {
+  if (!data) {
+    return '';
+  }
+
+  if (typeof data === 'string') {
+    const trimmed = data.trim();
+    if (!trimmed) {
+      return '';
+    }
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return extractTemplateBody(parsed) || trimmed;
+      } catch (_error) {
+        return trimmed;
+      }
+    }
+    return trimmed;
+  }
+
+  return extractTemplateBody(data) || normalizeText(data);
+};
+
+const mapGupshupWaTemplate = (rawTemplate) => {
+  const body = parseTemplateDataBody(rawTemplate?.data);
+  const id = normalizeText(rawTemplate?.id);
+  if (!id) {
+    return null;
+  }
+
+  const name = normalizeText(rawTemplate?.elementName || rawTemplate?.name || id);
+  const language = normalizeLanguage(rawTemplate?.languageCode || rawTemplate?.language) || 'en';
+
+  return {
+    id,
+    name,
+    body,
+    status: normalizeText(rawTemplate?.status).toLowerCase() || 'approved',
+    category: toCategoryLabel(rawTemplate?.category),
+    language,
+    variables: extractVariables(body),
+  };
+};
+
 const normalizeTemplate = (rawTemplate) => {
   const id = normalizeText(rawTemplate?.id || rawTemplate?.templateId || rawTemplate?.template_id || rawTemplate?.name);
   if (!id) {
     return null;
   }
 
-  const name = normalizeText(rawTemplate?.name || rawTemplate?.templateName || rawTemplate?.displayName || id);
+  const name = normalizeText(
+    rawTemplate?.elementName
+    || rawTemplate?.name
+    || rawTemplate?.templateName
+    || rawTemplate?.displayName
+    || id,
+  );
   const status = normalizeText(rawTemplate?.status || rawTemplate?.state || rawTemplate?.templateStatus).toLowerCase();
   const category = toCategoryLabel(rawTemplate?.category || rawTemplate?.type || rawTemplate?.templateCategory);
   const language = normalizeLanguage(rawTemplate?.language || rawTemplate?.languageCode || rawTemplate?.locale);
@@ -190,203 +257,262 @@ const readFallbackTemplatesFromEnv = () => {
   }
 };
 
-const resolveTemplatesPathType = (url) => {
-  const normalized = String(url || '').toLowerCase();
-  if (normalized.includes('/sm/')) {
-    return 'sm';
-  }
-  if (normalized.includes('/wa/')) {
-    return 'wa';
-  }
-  return 'other';
+const logEnvCheck = () => {
+  const appId = resolveGupshupAppId();
+  const apiKey = resolveGupshupApiKey();
+
+  console.log('[ENV CHECK]', {
+    hasAppId: Boolean(appId),
+    hasApiKey: Boolean(apiKey),
+    appId: appId || '(missing)',
+    apiKeyLength: apiKey ? apiKey.length : 0,
+  });
+
+  return { appId, apiKey };
+};
+
+const logParsedTemplateSummary = (rawTemplates, parsedTemplates) => {
+  const rawList = Array.isArray(rawTemplates) ? rawTemplates : [];
+  const parsedList = Array.isArray(parsedTemplates) ? parsedTemplates : [];
+
+  console.log('[PARSED TEMPLATE SUMMARY]', {
+    templateCount: parsedList.length,
+    rawTemplateCount: rawList.length,
+    templateNames: parsedList.map((template) => template.name || template.id),
+    approvedCount: parsedList.filter((template) => (
+      APPROVED_STATUSES.has(String(template.status || '').toLowerCase())
+    )).length,
+    rawStatuses: rawList.map((template) => template?.status || template?.templateStatus || 'unknown'),
+    rawElementNames: rawList.map((template) => template?.elementName || template?.name || ''),
+  });
 };
 
 const fetchTemplatesFromProvider = async () => {
-  const templatesUrl = normalizeText(GUPSHUP_TEMPLATES_URL);
+  console.log('[TEMPLATE FETCH START]');
 
-  console.log('[TEMPLATE API CONFIG]', {
-    envUrl: process.env.GUPSHUP_TEMPLATES_URL,
-    moduleConstant: GUPSHUP_TEMPLATES_URL,
-    usingFallback: false,
-    apiKeyPresent: Boolean(process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY),
-  });
+  const { appId, apiKey } = logEnvCheck();
 
-  if (!templatesUrl) {
-    throw new Error('GUPSHUP_TEMPLATES_URL is not configured.');
+  if (!appId) {
+    throw new Error('GUPSHUP_APP_ID is missing');
+  }
+  if (!apiKey) {
+    throw new Error('GUPSHUP_API_KEY is missing');
   }
 
-  console.log('[FINAL URL USED]', templatesUrl);
-  console.log('[CALLING PROVIDER API]', {
-    finalUrl: templatesUrl,
+  const finalTemplateUrl = buildWhatsappTemplatesUrl(appId);
+  const requestUrl = `${finalTemplateUrl}?templateStatus=APPROVED`;
+
+  console.log('[FINAL TEMPLATE URL]', requestUrl);
+
+  const requestConfig = {
     method: 'GET',
-    pathType: resolveTemplatesPathType(templatesUrl),
-  });
-
-  const apiKey = normalizeText(process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY);
-  const authToken = normalizeText(process.env.WHATSAPP_PROVIDER_AUTH_TOKEN);
-  const sourceName = normalizeText(process.env.GUPSHUP_SRC_NAME || process.env.GUPSHUP_APP_NAME);
-
-  const headers = {
-    Accept: 'application/json',
+    headers: {
+      apikey: apiKey,
+      Accept: 'application/json',
+    },
+    params: {
+      templateStatus: 'APPROVED',
+    },
+    timeout: TEMPLATE_REQUEST_TIMEOUT_MS,
   };
 
-  if (apiKey) {
-    headers.apikey = apiKey;
-  }
-  if (authToken) {
-    headers.Authorization = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
-  }
-
-  const requestParams = sourceName ? { appName: sourceName } : undefined;
-
-  console.log('[AXIOS REQUEST]', {
-    url: templatesUrl,
+  console.log('[TEMPLATE REQUEST CONFIG]', {
+    method: requestConfig.method,
     headers: {
       apikey: apiKey ? 'present' : 'missing',
-      authorization: authToken ? 'present' : 'missing',
+      Accept: requestConfig.headers.Accept,
     },
-    params: requestParams,
+    timeout: requestConfig.timeout,
+    params: requestConfig.params,
   });
 
   try {
-    const response = await axios.get(templatesUrl, {
-      headers,
-      params: requestParams,
-      timeout: 20000,
+    const response = await axios.get(finalTemplateUrl, {
+      headers: requestConfig.headers,
+      params: requestConfig.params,
+      timeout: requestConfig.timeout,
     });
 
-    console.log('[PROVIDER SUCCESS]', {
+    console.log('[RAW GUPSHUP TEMPLATE RESPONSE]', {
       status: response.status,
-      keys: Object.keys(response.data || {}),
-      pathType: resolveTemplatesPathType(templatesUrl),
+      statusText: response.statusText,
+      data: response.data,
     });
 
-    return extractTemplateList(response.data);
+    const responseStatus = String(response.data?.status || '').toLowerCase();
+    if (responseStatus !== 'success') {
+      console.log('[API FAILURE] Gupshup returned non-success status field', {
+        responseStatus: response.data?.status,
+      });
+      throw new Error(`Gupshup templates API returned status: ${response.data?.status || 'unknown'}`);
+    }
+
+    if (!Array.isArray(response.data?.templates)) {
+      console.log('[API FAILURE] Gupshup response missing templates array', {
+        dataKeys: Object.keys(response.data || {}),
+      });
+      throw new Error('Gupshup templates API response missing templates array');
+    }
+
+    const rawTemplates = response.data.templates;
+    const templates = rawTemplates
+      .map((item) => mapGupshupWaTemplate(item))
+      .filter(Boolean);
+
+    logParsedTemplateSummary(rawTemplates, templates);
+
+    if (!rawTemplates.length) {
+      console.log('[NO TEMPLATES RETURNED FROM GUPSHUP]', {
+        reason: 'templates_array_empty',
+        appId,
+        requestUrl,
+      });
+    } else if (!templates.length) {
+      console.log('[NO TEMPLATES RETURNED FROM GUPSHUP]', {
+        reason: 'all_templates_failed_mapping_or_filter',
+        rawCount: rawTemplates.length,
+        appId,
+        requestUrl,
+      });
+    } else {
+      console.log('[API SUCCESS] Gupshup returned mapped templates', {
+        count: templates.length,
+        source: 'API',
+      });
+    }
+
+    return {
+      success: true,
+      templates,
+      source: 'API',
+    };
   } catch (error) {
-    console.log('[PROVIDER FAILURE]', {
-      status: error.response?.status,
-      data: error.response?.data,
+    console.log('[TEMPLATE FETCH ERROR]', {
       message: error.message,
-      url: templatesUrl,
-      pathType: resolveTemplatesPathType(templatesUrl),
+      status: error.response?.status,
+      responseData: error.response?.data,
+      url: requestUrl,
     });
     throw error;
   }
+};
+
+const loadFallbackTemplates = (language = '') => {
+  const normalizedLanguage = normalizeLanguage(language);
+  const fallbackTemplates = readFallbackTemplatesFromEnv();
+  if (!normalizedLanguage) {
+    return fallbackTemplates;
+  }
+  return fallbackTemplates.filter((template) => template.language === normalizedLanguage);
 };
 
 const getApprovedTemplates = async ({ language, forceRefresh = false } = {}) => {
   const normalizedLanguage = normalizeLanguage(language);
 
+  console.log('[getApprovedTemplates] start', {
+    language: normalizedLanguage || 'all',
+    forceRefresh,
+  });
+
   if (!forceRefresh) {
     const cached = readCache(normalizedLanguage);
     if (cached) {
-      console.log('[TEMPLATE SOURCE]', { source: 'CACHE', count: cached.length });
-      console.log('[TEMPLATE FINAL SOURCE]', {
+      console.log('[TEMPLATE CACHE HIT]', {
         source: 'CACHE',
-        templatesFromApi: false,
-        count: cached.length,
+        templateCount: cached.length,
+        templateNames: cached.map((template) => template.name || template.id),
       });
-      return { templates: cached, source: 'CACHE' };
+      return { success: true, templates: cached, source: 'CACHE' };
     }
   }
 
   try {
-    console.log('[TEMPLATE SERVICE START]', { layer: 'chatTemplateService' });
-    const rawTemplates = await fetchTemplatesFromProvider();
-    const normalizedTemplates = rawTemplates
-      .map(normalizeTemplate)
-      .filter(Boolean)
-      .filter((template) => {
-        // Only include templates that are explicitly in the approved set.
-        // Templates with missing/unknown status are treated as not approved.
-        if (!template.status || !APPROVED_STATUSES.has(template.status)) {
-          return false;
-        }
+    const providerResult = await fetchTemplatesFromProvider();
+    const beforeFilterCount = (providerResult.templates || []).length;
+    let normalizedTemplates = (providerResult.templates || [])
+      .filter((template) => !template.status || APPROVED_STATUSES.has(template.status));
 
-        return true;
-      })
-      .filter((template) => {
-        if (!normalizedLanguage) {
-          return true;
-        }
+    const afterStatusFilterCount = normalizedTemplates.length;
 
-        return template.language === normalizedLanguage;
-      })
-      .map((template) => ({
-        id: template.id,
-        name: template.name,
-        category: template.category,
-        language: template.language,
-        body: template.body,
-        variables: template.variables,
-      }));
+    if (normalizedLanguage) {
+      normalizedTemplates = normalizedTemplates.filter(
+        (template) => template.language === normalizedLanguage,
+      );
+    }
+
+    if (beforeFilterCount > 0 && normalizedTemplates.length === 0) {
+      console.log('[NO TEMPLATES AFTER FILTER]', {
+        beforeFilterCount,
+        afterStatusFilterCount,
+        languageFilter: normalizedLanguage || 'none',
+        hint: 'Templates returned from Gupshup but removed by status/language filters',
+      });
+    }
 
     writeCache(normalizedLanguage, normalizedTemplates);
-    console.log('[TEMPLATE SOURCE]', { source: 'API', count: normalizedTemplates.length });
-    console.log('[TEMPLATE FINAL SOURCE]', {
-      source: 'API',
-      templatesFromApi: true,
-      count: normalizedTemplates.length,
-    });
-    return { templates: normalizedTemplates, source: 'API' };
+
+    if (!normalizedTemplates.length) {
+      console.log('[API EMPTY] Gupshup call succeeded but no templates available for UI', {
+        source: 'API',
+        language: normalizedLanguage || 'all',
+      });
+    } else {
+      console.log('[API SUCCESS] Returning templates from Gupshup', {
+        success: true,
+        source: 'API',
+        templateCount: normalizedTemplates.length,
+      });
+    }
+
+    return { success: true, templates: normalizedTemplates, source: 'API' };
   } catch (error) {
-    console.log('[PROVIDER FAILURE]', {
-      status: error.response?.status,
-      data: error.response?.data,
+    console.log('[TEMPLATE FETCH ERROR]', {
       message: error.message,
-      url: GUPSHUP_TEMPLATES_URL || '',
+      status: error.response?.status,
+      responseData: error.response?.data,
+      url: error.config?.url || buildWhatsappTemplatesUrl(resolveGupshupAppId()),
     });
 
-    if (String(error?.message || '').includes('GUPSHUP_TEMPLATES_URL is not configured.')) {
-      const fallbackTemplates = readFallbackTemplatesFromEnv();
-      const filteredFallback = normalizedLanguage
-        ? fallbackTemplates.filter((template) => template.language === normalizedLanguage)
-        : fallbackTemplates;
-
-      if (filteredFallback.length) {
-        console.warn('[chatTemplateService] Provider URL missing. Using fallback templates from env.');
-      } else {
-        console.warn('[chatTemplateService] Template provider URL is not configured. Returning empty template list.');
-      }
-
-      writeCache(normalizedLanguage, filteredFallback);
-      console.log('[TEMPLATE SOURCE]', { source: 'HARDCODED', count: filteredFallback.length });
-      console.log('[TEMPLATE FINAL SOURCE]', {
-        source: 'FALLBACK',
-        templatesFromApi: false,
-        count: filteredFallback.length,
-      });
-      return { templates: filteredFallback, source: 'HARDCODED' };
-    }
-
-    const fallback = cacheByLanguage.get(toCacheKey(normalizedLanguage));
-    if (fallback?.templates?.length) {
-      console.warn('[chatTemplateService] Using cached template fallback due to provider fetch error:', error?.message || error);
-      console.log('[TEMPLATE SOURCE]', { source: 'CACHE', count: fallback.templates.length });
-      console.log('[TEMPLATE FINAL SOURCE]', {
+    const staleCache = cacheByLanguage.get(toCacheKey(normalizedLanguage));
+    if (staleCache?.templates?.length) {
+      console.log('[FALLBACK TEMPLATE USED]', {
+        mode: 'stale_cache',
         source: 'CACHE',
-        templatesFromApi: false,
-        count: fallback.templates.length,
+        templateCount: staleCache.templates.length,
       });
-      return { templates: fallback.templates, source: 'CACHE' };
+      return { success: true, templates: staleCache.templates, source: 'CACHE' };
     }
 
-    console.log('[TEMPLATE FINAL SOURCE]', {
+    const filteredFallback = loadFallbackTemplates(normalizedLanguage);
+    console.log('[FALLBACK TEMPLATE USED]', {
+      mode: 'WHATSAPP_FALLBACK_TEMPLATES_JSON',
       source: 'FALLBACK',
-      templatesFromApi: false,
-      count: 0,
+      templateCount: filteredFallback.length,
+      templateNames: filteredFallback.map((template) => template.name || template.id),
     });
-    throw error;
+
+    if (!filteredFallback.length) {
+      console.log('[API FAILURE] No fallback templates configured — returning empty list', {
+        success: true,
+        source: 'FALLBACK',
+      });
+    }
+
+    writeCache(normalizedLanguage, filteredFallback);
+    return { success: true, templates: filteredFallback, source: 'FALLBACK' };
   }
 };
 
 const unwrapTemplateResult = (result) => {
   if (Array.isArray(result)) {
-    return { templates: result, source: 'API' };
+    return { success: true, templates: result, source: 'API' };
   }
+
+  const source = result?.source === 'HARDCODED' ? 'FALLBACK' : (result?.source || 'API');
   return {
+    success: result?.success !== false,
     templates: Array.isArray(result?.templates) ? result.templates : [],
-    source: result?.source || 'API',
+    source,
   };
 };
 

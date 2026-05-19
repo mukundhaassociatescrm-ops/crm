@@ -17,7 +17,10 @@ const router = express.Router();
 router.post('/start', startChatSession);
 router.get('/session-status', getChatSessionStatus);
 router.get('/templates', (req, res, next) => {
-  console.log('--- /api/chat/templates HIT ---');
+  console.log('[CHAT TEMPLATE API HIT]', {
+    path: '/api/chat/templates',
+    query: req.query,
+  });
   next();
 }, getChatTemplates);
 router.post('/templates/refresh', refreshChatTemplates);

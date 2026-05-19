@@ -10,7 +10,7 @@ const { ensureUploadsDir, resolveUploadsDir } = require('./config/uploads');
 
 dotenv.config();
 
-console.log('[ENV TEMPLATE URL]', process.env.GUPSHUP_TEMPLATES_URL);
+console.log('[ENV GUPSHUP APP ID]', process.env.GUPSHUP_APP_ID ? 'present' : 'missing');
 
 try {
   const { resolveGupshupSource } = require('./services/gupshupApiService');

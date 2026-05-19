@@ -374,56 +374,59 @@ exports.getChatSessionStatus = async (req, res, next) => {
 // Fetches approved WhatsApp templates from provider with cache support.
 exports.getChatTemplates = async (req, res, next) => {
   try {
-    console.log('[TEMPLATE SERVICE START]');
-    console.log('[BACKEND TEMPLATE FETCH CALLED]', {
-      path: '/api/chat/templates',
-      language: req.query?.language || '',
-      refresh: req.query?.refresh || false,
-    });
-    console.log('[TEMPLATE API CONFIG]', {
-      envUrl: process.env.GUPSHUP_TEMPLATES_URL,
-      usingFallback: false,
-      apiKeyPresent: Boolean(process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY),
-    });
-
     const language = String(req.query?.language || '').trim();
     const forceRefresh = String(req.query?.refresh || '').toLowerCase() === 'true';
-    let templateResult = { templates: [], source: 'API' };
 
-    if (forceRefresh) {
-      try {
-        templateResult = unwrapTemplateResult(await getApprovedTemplates({ language, forceRefresh: true }));
-      } catch (error) {
-        console.warn('[getChatTemplates] Provider refresh failed, returning safe fallback list:', error?.message || error);
-        templateResult = {
-          templates: await safeLoadTemplates(language),
-          source: 'HARDCODED',
-        };
-      }
-    } else {
-      templateResult = unwrapTemplateResult(await getApprovedTemplates({ language }));
-    }
-
-    console.log('[TEMPLATE SOURCE]', {
-      source: templateResult.source === 'HARDCODED' ? 'HARDCODED' : 'API',
-      count: templateResult.templates.length,
-      rawSource: templateResult.source,
-    });
-    console.log('[TEMPLATE FINAL SOURCE]', {
-      source: templateResult.source === 'HARDCODED' ? 'FALLBACK' : templateResult.source,
-      templatesFromApi: templateResult.source === 'API',
-      count: templateResult.templates.length,
+    console.log('[CHAT TEMPLATE API HIT] controller', {
+      language: language || 'all',
+      forceRefresh,
     });
 
-    return res.status(200).json({
+    const templateResult = unwrapTemplateResult(
+      await getApprovedTemplates({ language, forceRefresh }),
+    );
+
+    const responsePayload = {
       success: true,
       data: templateResult.templates,
       meta: {
         source: templateResult.source,
       },
+    };
+
+    console.log('[FINAL TEMPLATE RESPONSE TO UI]', {
+      success: responsePayload.success,
+      source: responsePayload.meta.source,
+      templateCount: responsePayload.data.length,
+      templateNames: responsePayload.data.map((item) => item.name || item.id),
     });
+
+    return res.status(200).json(responsePayload);
   } catch (error) {
-    next(error);
+    console.log('[TEMPLATE FETCH ERROR]', {
+      message: error?.message,
+      status: error?.response?.status,
+      responseData: error?.response?.data,
+    });
+    console.log('[FALLBACK TEMPLATE USED]', {
+      mode: 'controller_catch',
+      source: 'FALLBACK',
+      templateCount: 0,
+    });
+
+    const fallbackPayload = {
+      success: true,
+      data: [],
+      meta: { source: 'FALLBACK' },
+    };
+
+    console.log('[FINAL TEMPLATE RESPONSE TO UI]', {
+      success: fallbackPayload.success,
+      source: fallbackPayload.meta.source,
+      templateCount: 0,
+    });
+
+    return res.status(200).json(fallbackPayload);
   }
 };
 
