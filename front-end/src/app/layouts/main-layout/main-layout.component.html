@@ -1,6 +1,6 @@
-<div class="main-layout">
+<div class="main-layout" [class.fullscreen-mode]="fullscreenActive">
 
-  <header class="top-header">
+  <header class="top-header" *ngIf="!fullscreenActive">
 
     <div class="left">
       <div class="brand">MUKUNDHA ASSOCIATES</div>
@@ -43,12 +43,12 @@
 
   </header>
 
-  <div class="layout-container">
-    <app-breadcrumb class="layout-breadcrumb"></app-breadcrumb>
+  <div class="layout-container" [class.layout-container--fullscreen]="fullscreenActive">
+    <app-breadcrumb class="layout-breadcrumb" *ngIf="!fullscreenActive"></app-breadcrumb>
 
     <div
       class="page-content"
-      [ngClass]="{ 'no-padding': isChatRoute }">
+      [ngClass]="{ 'no-padding': isChatRoute || fullscreenActive }">
       <router-outlet></router-outlet>
     </div>
   </div>

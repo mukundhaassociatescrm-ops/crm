@@ -18,24 +18,7 @@ body {
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
-/* ===== Chat fullscreen mode ===== */
-body.chat-fullscreen .top-header {
-  display: none !important;
-}
-
-body.chat-fullscreen .main-layout {
-  padding-top: 0 !important;
-}
-
-body.chat-fullscreen .layout-container {
-  height: 100vh !important;
-  padding: 0 !important;
-  gap: 0 !important;
-}
-
-body.chat-fullscreen .layout-breadcrumb {
-  display: none !important;
-}
+@import './app/shared/styles/fullscreen';
 
 app-root {
   display: block;

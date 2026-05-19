@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnInit } from '@angular/core';
-import { Router, RouterModule } from '@angular/router';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import { ActivatedRoute, NavigationEnd, Router, RouterModule } from '@angular/router';
+import { filter, Subscription } from 'rxjs';
+import { FullscreenModeService } from '../../core/services/fullscreen-mode.service';
 import { AuthService } from '../../features/auth/auth.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 
@@ -11,15 +13,51 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   templateUrl: './main-layout.component.html',
   styleUrls: ['./main-layout.component.scss']
 })
-export class MainLayoutComponent implements OnInit {
+export class MainLayoutComponent implements OnInit, OnDestroy {
 
   showDropdown = false;
   currentUser: any = null;
+  fullscreenActive = false;
 
-  constructor(private router: Router, private authService: AuthService) {}
+  private fullscreenSubscription?: Subscription;
+  private routerSubscription?: Subscription;
+
+  constructor(
+    private router: Router,
+    private route: ActivatedRoute,
+    private authService: AuthService,
+    private fullscreenMode: FullscreenModeService,
+  ) {}
 
   ngOnInit(): void {
     this.currentUser = this.authService.getUser();
+
+    this.fullscreenSubscription = this.fullscreenMode.activeKey$.subscribe((activeKey) => {
+      this.fullscreenActive = Boolean(activeKey);
+    });
+
+    this.routerSubscription = this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe(() => {
+        this.fullscreenMode.syncRoute(this.resolveFullscreenPageKey());
+      });
+
+    this.fullscreenMode.syncRoute(this.resolveFullscreenPageKey());
+  }
+
+  ngOnDestroy(): void {
+    this.fullscreenSubscription?.unsubscribe();
+    this.routerSubscription?.unsubscribe();
+  }
+
+  private resolveFullscreenPageKey(): string | null {
+    let child = this.route.firstChild;
+    while (child?.firstChild) {
+      child = child.firstChild;
+    }
+
+    const pageKey = child?.snapshot.data?.['fullscreenPageKey'];
+    return typeof pageKey === 'string' && pageKey.trim() ? pageKey.trim() : null;
   }
 
   get userInitials(): string {
@@ -87,4 +125,5 @@ get isReminderRoute(): boolean {
       this.showDropdown = false;
     }
   }
+
 }

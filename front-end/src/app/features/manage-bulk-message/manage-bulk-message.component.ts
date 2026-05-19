@@ -5,11 +5,12 @@ import { Group, GroupService } from '../manage-group/group.service';
 import { ToastrService } from 'ngx-toastr';
 import { BulkMessageService, MessageChannel, SendBulkMessagePayload } from './bulk-message.service';
 import { ChatService, WhatsAppTemplateOption } from '../manage-chat/manage-chat/chat.service';
+import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 
 @Component({
   selector: 'app-manage-bulk-message',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FullscreenToggleComponent],
   templateUrl: './manage-bulk-message.component.html',
   styleUrl: './manage-bulk-message.component.scss'
 })

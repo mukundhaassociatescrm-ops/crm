@@ -94,6 +94,10 @@
   font-weight: 700;
 }
 
+app-fullscreen-toggle.fullscreen-toggle--inline {
+  flex-shrink: 0;
+}
+
 .fullscreen-btn {
   display: inline-flex;
   align-items: center;

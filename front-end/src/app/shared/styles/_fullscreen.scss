@@ -1,0 +1,91 @@
+@import './variables';
+
+body.fullscreen-mode,
+body.chat-fullscreen {
+  .top-header {
+    display: none !important;
+  }
+
+  .main-layout {
+    padding-top: 0 !important;
+    transition: padding-top 0.25s ease;
+  }
+
+  .layout-container {
+    height: 100vh !important;
+    min-height: 100vh !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    transition:
+      height 0.25s ease,
+      padding 0.25s ease,
+      gap 0.25s ease;
+  }
+
+  .layout-breadcrumb {
+    display: none !important;
+  }
+
+  .page-content {
+    max-width: none !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .page-content > *:not(router-outlet) {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+}
+
+body.fullscreen-mode {
+  .employee-container,
+  .history-page,
+  .manage-report-shell,
+  .reminder-screen,
+  .client-container,
+  .group-wrapper,
+  .bulk-wrapper,
+  .sms-shell {
+    padding: 10px 12px !important;
+    max-width: none !important;
+    border-radius: 0;
+  }
+
+  .chat-shell {
+    height: 100vh;
+    min-height: 100vh;
+    border-radius: 0;
+  }
+
+  .table-card,
+  .table-wrap,
+  .task-card-list {
+    border-radius: $radius-md;
+  }
+}
+
+.page-workspace {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+
+  > .page-header,
+  .page-header {
+    padding-right: 52px;
+  }
+
+  > .history-header,
+  > .toolbar,
+  .report-list-shell .toolbar {
+    padding-right: 52px;
+  }
+}
+
+.main-layout.fullscreen-mode {
+  .layout-container {
+    height: 100vh;
+    padding: 0;
+    gap: 0;
+  }
+}

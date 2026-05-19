@@ -31,24 +31,24 @@ export const routes: Routes = [
     canActivateChild: [AuthGuard],
     children: [
       { path: 'dashboard', component: DashboardComponent, data: { breadcrumb: 'Dashboard' } },
-      { path: 'manage-employee', component: ManageEmployeeComponent, data: { role: 'admin', breadcrumb: 'Manage Employee' } },
-      { path: 'manage-task', component: ManageTaskComponent, canActivate: [AuthGuard], data: { breadcrumb: 'Manage Task' } },
-      { path: 'task-reminders', component: TaskRemindersComponent, canActivate: [AuthGuard], data: { breadcrumb: 'Task Reminders' } },
-      { path: 'manage-chat', component: ManageChatComponent, canActivate: [AuthGuard], data: { role: 'admin', breadcrumb: 'Manage Chat' } },
+      { path: 'manage-employee', component: ManageEmployeeComponent, data: { role: 'admin', breadcrumb: 'Manage Employee', fullscreenPageKey: 'manage-employee' } },
+      { path: 'manage-task', component: ManageTaskComponent, canActivate: [AuthGuard], data: { breadcrumb: 'Manage Task', fullscreenPageKey: 'manage-task' } },
+      { path: 'task-reminders', component: TaskRemindersComponent, canActivate: [AuthGuard], data: { breadcrumb: 'Task Reminders', fullscreenPageKey: 'task-reminders' } },
+      { path: 'manage-chat', component: ManageChatComponent, canActivate: [AuthGuard], data: { role: 'admin', breadcrumb: 'Manage Chat', fullscreenPageKey: 'manage-chat' } },
       {
         path: 'manage-group',
         component: ManageGroupComponent,
-        data: { role: 'admin', breadcrumb: 'Manage Group' }
+        data: { role: 'admin', breadcrumb: 'Manage Group', fullscreenPageKey: 'manage-group' }
       },
       {
         path: 'manage-bulk-message',
         component: ManageBulkMessageComponent,
-        data: { role: 'admin', breadcrumb: 'Bulk Messaging' }
+        data: { role: 'admin', breadcrumb: 'Bulk Messaging', fullscreenPageKey: 'manage-bulk-message' }
       },
       {
         path: 'manage-report',
         component: ManageReportComponent,
-        data: { role: 'admin', breadcrumb: 'Manage Report' }
+        data: { role: 'admin', breadcrumb: 'Manage Report', fullscreenPageKey: 'manage-report' }
       },
         {
         path: 'employee-dashboard',
@@ -65,19 +65,19 @@ export const routes: Routes = [
         path: 'clients',
         component: ManageClientComponent,
         canActivate: [AuthGuard],
-        data: { role: 'admin', breadcrumb: 'Manage Clients' }
+        data: { role: 'admin', breadcrumb: 'Manage Clients', fullscreenPageKey: 'manage-client' }
       },
       {
         path: 'work-history',
         component: WorkHistoryComponent,
         canActivate: [AuthGuard],
-        data: { role: 'admin', breadcrumb: 'Work History' }
+        data: { role: 'admin', breadcrumb: 'Work History', fullscreenPageKey: 'work-history' }
       },
       {
         path: 'sms',
         component: SmsComponent,
         canActivate: [AuthGuard],
-        data: { role: 'admin', breadcrumb: 'SMS' }
+        data: { role: 'admin', breadcrumb: 'SMS', fullscreenPageKey: 'sms' }
       }
     ]
   }

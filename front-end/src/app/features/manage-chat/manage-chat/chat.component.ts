@@ -21,6 +21,7 @@ import {
   WhatsAppTemplateOption,
 } from './chat.service';
 import { Customer } from '../../../shared/models/customer.model';
+import { FullscreenToggleComponent } from '../../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 
 interface PendingMessage extends ChatMessage {
   isPending?: boolean;
@@ -47,7 +48,7 @@ interface ActiveFileViewer {
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FullscreenToggleComponent],
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.scss'
 })
@@ -283,8 +284,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   private hasHydratedConversationNotifications = false;
   private audioContext: AudioContext | null = null;
   private hasUserUnlockedAudio = false;
-  isFullscreen = false;
-
   constructor(
     private readonly chatService: ChatService,
     private readonly sanitizer: DomSanitizer,
@@ -382,13 +381,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.scrollToBottom();
   }
 
-  toggleFullscreen(): void {
-    this.isFullscreen = !this.isFullscreen;
-    document.body.classList.toggle('chat-fullscreen', this.isFullscreen);
-  }
-
   ngOnDestroy(): void {
-    document.body.classList.remove('chat-fullscreen');
     this.resetAttachmentDraftState();
     this.activeFileViewer = null;
     this.activeFileViewerResourceUrl = null;

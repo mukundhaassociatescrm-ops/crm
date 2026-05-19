@@ -7,6 +7,7 @@ import { Report, ReportPayload, ReportService } from './report.service';
 import { ReportListComponent } from './report-list/report-list.component';
 import { ReportFormComponent } from './report-form/report-form.component';
 import { AuthService } from '../auth/auth.service';
+import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 
 const fontVfs = (pdfFonts as any).pdfMake?.vfs || (pdfFonts as any).vfs;
 if (fontVfs) {
@@ -30,7 +31,7 @@ const DEFAULT_COMPANY_BANK_DETAILS: CompanyBankDetails = {
 @Component({
   selector: 'app-manage-report',
   standalone: true,
-  imports: [CommonModule, ReportListComponent, ReportFormComponent],
+  imports: [CommonModule, ReportListComponent, ReportFormComponent, FullscreenToggleComponent],
   templateUrl: './manage-report.component.html',
   styleUrls: ['./manage-report.component.scss']
 })

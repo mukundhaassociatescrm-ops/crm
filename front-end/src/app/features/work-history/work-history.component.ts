@@ -5,6 +5,7 @@ import { ClientService, Client } from '../manage-client/client.service';
 import { TaskService, Task } from '../manage-task/task.service';
 import { WorkHistoryItem, WorkHistoryService } from './work-history.service';
 import { TimelineItemComponent } from './components/timeline-item/timeline-item.component';
+import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 
 interface HistoryGroup {
   key: string;
@@ -29,7 +30,7 @@ interface EventTypeGroup {
 @Component({
   selector: 'app-work-history',
   standalone: true,
-  imports: [CommonModule, FormsModule, TimelineItemComponent],
+  imports: [CommonModule, FormsModule, TimelineItemComponent, FullscreenToggleComponent],
   templateUrl: './work-history.component.html',
   styleUrl: './work-history.component.scss',
 })

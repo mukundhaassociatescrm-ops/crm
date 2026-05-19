@@ -7,12 +7,13 @@ import { TaskService, Task } from '../task.service';
 import { EmployeeService, Employee } from '../../manage-employee/employee.service';
 import { AuthService } from '../../auth/auth.service';
 import { DateTimePickerComponent } from '../../../shared/components/date-time-picker/date-time-picker.component';
+import { FullscreenToggleComponent } from '../../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 import { catchError, forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 
 @Component({
   selector: 'app-manage-task',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, DateTimePickerComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, DateTimePickerComponent, FullscreenToggleComponent],
   templateUrl: './manage-task.component.html',
   styleUrls: ['./manage-task.component.scss']
 })
@@ -59,6 +60,7 @@ export class ManageTaskComponent {
   readonly taskForm: FormGroup;
 
   editingTaskId: string | null = null;
+  openActionMenuTaskId: string | null = null;
 
   constructor(
     private taskService: TaskService,
@@ -97,6 +99,12 @@ export class ManageTaskComponent {
     if (this.isTaskModalOpen) {
       this.closeTaskModal();
     }
+    this.closeActionMenu();
+  }
+
+  @HostListener('document:click')
+  onDocumentClick() {
+    this.closeActionMenu();
   }
 
   ngOnInit() {
@@ -539,6 +547,59 @@ export class ManageTaskComponent {
     return typeof task.assignedTo === 'string'
       ? task.assignedTo
       : task.assignedTo?.fullName || task.assignedTo?.name || task.assignedTo?.email || '';
+  }
+
+  trackByTaskId(_index: number, task: Task): string {
+    return task._id || `${task.title}-${task.dueDate}`;
+  }
+
+  getTaskDisplayId(index: number): string {
+    return `#TSK${index + 1}`;
+  }
+
+  getPriorityClass(priority: string | undefined): string {
+    const normalized = String(priority || '').toLowerCase();
+    if (normalized === 'high') {
+      return 'high';
+    }
+    if (normalized === 'medium') {
+      return 'medium';
+    }
+    if (normalized === 'low') {
+      return 'low';
+    }
+    return '';
+  }
+
+  getStatusClass(status: string | undefined): string {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized === 'pending') {
+      return 'pending';
+    }
+    if (normalized === 'in progress') {
+      return 'inprogress';
+    }
+    if (normalized === 'report sent') {
+      return 'reportsent';
+    }
+    if (normalized === 'completed') {
+      return 'completed';
+    }
+    return '';
+  }
+
+  toggleActionMenu(task: Task, event: Event): void {
+    event.stopPropagation();
+    const taskId = task._id || '';
+    this.openActionMenuTaskId = this.openActionMenuTaskId === taskId ? null : taskId;
+  }
+
+  isActionMenuOpen(task: Task): boolean {
+    return Boolean(task._id) && this.openActionMenuTaskId === task._id;
+  }
+
+  closeActionMenu(): void {
+    this.openActionMenuTaskId = null;
   }
 
   getCustomerLabel(task: Task): string {

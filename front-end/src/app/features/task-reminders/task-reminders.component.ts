@@ -5,13 +5,14 @@ import { Subject, interval } from 'rxjs';
 import { startWith, switchMap, takeUntil } from 'rxjs/operators';
 import { ToastrService } from 'ngx-toastr';
 import { TaskService, UpcomingReminder } from '../manage-task/task.service';
+import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 
 type ReminderFilter = 'all' | 'upcoming' | 'overdue' | 'sent';
 
 @Component({
   selector: 'app-task-reminders',
   standalone: true,
-  imports: [CommonModule, DatePipe],
+  imports: [CommonModule, DatePipe, FullscreenToggleComponent],
   templateUrl: './task-reminders.component.html',
   styleUrl: './task-reminders.component.scss'
 })

@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { ToastrService } from 'ngx-toastr';
 import { catchError, finalize, of } from 'rxjs';
 import { Client, ClientService } from '../manage-client/client.service';
+import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 
 type SmsClient = Pick<Client, '_id' | 'name' | 'mobile'>;
 type SmsSendResponse =
@@ -14,7 +15,7 @@ type SmsSendResponse =
 @Component({
   selector: 'app-sms',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FullscreenToggleComponent],
   templateUrl: './sms.component.html',
   styleUrl: './sms.component.scss',
 })

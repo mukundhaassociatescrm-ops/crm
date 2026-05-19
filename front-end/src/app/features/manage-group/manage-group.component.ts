@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { GroupService, Group, GroupContact } from './group.service';
 import { ClientService, Client } from '../manage-client/client.service';
 import { ToastrService } from 'ngx-toastr';
+import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 
 @Component({
   selector: 'app-manage-group',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FullscreenToggleComponent],
   templateUrl: './manage-group.component.html',
   styleUrl: './manage-group.component.scss'
 })

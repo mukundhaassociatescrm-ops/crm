@@ -5,11 +5,12 @@ import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { ClientService, Client } from '../client.service';
 import { GroupService, Group } from '../../manage-group/group.service';
+import { FullscreenToggleComponent } from '../../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 
 @Component({
   selector: 'app-manage-client',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, FullscreenToggleComponent],
   templateUrl: './manage-client.component.html',
   styleUrl: './manage-client.component.scss',
 })

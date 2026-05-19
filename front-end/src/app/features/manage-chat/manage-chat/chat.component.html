@@ -1,4 +1,4 @@
-<div class="chat-shell" [class.mobile-chat-open]="selectedConversation">
+<div class="chat-shell page-workspace" [class.mobile-chat-open]="selectedConversation">
   <aside class="conversation-panel">
     <div class="panel-header">
       <label class="search-box" aria-label="Search conversations">
@@ -23,9 +23,7 @@
       >
         <i [class]="notificationSoundEnabled ? 'fa-solid fa-bell' : 'fa-solid fa-bell-slash'"></i>
       </button>
-      <button class="fullscreen-btn" type="button" (click)="toggleFullscreen()" [title]="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'">
-        <i [class]="isFullscreen ? 'fa-solid fa-compress' : 'fa-solid fa-expand'"></i>
-      </button>
+      <app-fullscreen-toggle class="fullscreen-toggle--inline" pageKey="manage-chat"></app-fullscreen-toggle>
     </div>
 
     <div class="conversation-filters">

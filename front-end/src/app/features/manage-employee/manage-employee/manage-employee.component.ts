@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { EmployeeService, Employee } from '../employee.service';
+import { FullscreenToggleComponent } from '../../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 
 @Component({
   selector: 'app-manage-employee',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, FullscreenToggleComponent],
   templateUrl: './manage-employee.component.html',
   styleUrl: './manage-employee.component.scss'
 })
