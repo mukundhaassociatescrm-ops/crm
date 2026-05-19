@@ -16,6 +16,7 @@ import {
   ChatMessageMetadata,
   ChatService,
   RealtimeChatEvent,
+  resolveTemplateDisplayText,
   SendFileRequest,
   WhatsAppTemplateOption,
 } from './chat.service';
@@ -273,6 +274,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   private draftByConversationId: Record<string, string> = {};
   private lastConversationFetchAt = 0;
   private readonly optimisticImagePreviewUrls = new Set<string>();
+  private readonly templateDisplayLoggedMessageIds = new Set<string>();
   private readonly brokenInlineImageMessageIds = new Set<string>();
   private readonly loadedInlineImageMessageIds = new Set<string>();
   private readonly notifiedIncomingKeys = new Set<string>();
@@ -513,17 +515,99 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return 'Select a template from the list to see the message preview.';
     }
 
-    const selectedTemplate = this.selectedTemplate;
-    const templateBody = String(selectedTemplate?.body || '').trim();
+    return this.renderTemplateBody(this.selectedTemplate, this.templateVariables);
+  }
+
+  getMessageDisplayText(message: PendingMessage): string {
+    let displayText = resolveTemplateDisplayText(message);
+
+    if (this.isLegacyTemplateUuidText(displayText) || this.isLegacyTemplateUuidText(message.text)) {
+      const legacyId = String(message.templateId || message.text.replace(/^Template:\s*/i, '')).trim();
+      const resolvedTemplate = this.findTemplateById(legacyId);
+      if (resolvedTemplate) {
+        displayText = this.buildTemplateDisplayPayload(resolvedTemplate, resolvedTemplate.id, {}).displayText;
+      }
+    }
+
+    const isTemplateMessage = Boolean(
+      message.templateId
+      || message.templateBody
+      || message.templateName
+      || /^Template:/i.test(message.text || ''),
+    );
+    if (isTemplateMessage && !this.templateDisplayLoggedMessageIds.has(message.messageId)) {
+      this.templateDisplayLoggedMessageIds.add(message.messageId);
+      console.log('[UI TEMPLATE DISPLAY]', {
+        templateId: message.templateId || '',
+        templateName: message.templateName || '',
+        templateBody: message.templateBody || '',
+      });
+    }
+
+    return displayText;
+  }
+
+  private findTemplateById(templateId: string): WhatsAppTemplateOption | null {
+    const normalizedId = String(templateId || '').trim();
+    if (!normalizedId) {
+      return null;
+    }
+
+    return this.availableTemplates.find((item) => item.id === normalizedId)
+      || this.newChatAvailableTemplates.find((item) => item.id === normalizedId)
+      || null;
+  }
+
+  private renderTemplateBody(
+    template: WhatsAppTemplateOption | null | undefined,
+    variableValues: Record<number, string>,
+  ): string {
+    const templateBody = String(template?.body || '').trim();
     if (!templateBody) {
       return 'No preview text available for this template.';
     }
 
     return templateBody.replace(/\{\{\s*(\d+)\s*\}\}/g, (_match, index) => {
       const key = Number(index);
-      const value = String(this.templateVariables[key] || '').trim();
+      const value = String(variableValues[key] || '').trim();
       return value || `{{${key}}}`;
     });
+  }
+
+  private buildTemplateDisplayPayload(
+    template: WhatsAppTemplateOption | null | undefined,
+    templateId: string,
+    variableValues: Record<number, string>,
+  ): {
+    displayText: string;
+    templateId: string;
+    templateName: string;
+    templateBody: string;
+  } {
+    const resolvedTemplate = template || this.findTemplateById(templateId);
+    const resolvedId = String(resolvedTemplate?.id || templateId || '').trim();
+    const templateName = String(resolvedTemplate?.name || '').trim();
+    const templateBody = String(resolvedTemplate?.body || '').trim();
+    const displayText = templateBody
+      ? this.renderTemplateBody(resolvedTemplate, variableValues)
+      : (templateName || resolvedId || 'Template message');
+
+    return {
+      displayText,
+      templateId: resolvedId,
+      templateName,
+      templateBody,
+    };
+  }
+
+  private isLegacyTemplateUuidText(text: string): boolean {
+    const normalized = String(text || '').trim();
+    const match = normalized.match(/^Template:\s*(.+)$/i);
+    if (!match) {
+      return false;
+    }
+
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(match[1].trim());
   }
 
   get selectedTemplate(): WhatsAppTemplateOption | null {
@@ -844,11 +928,25 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     });
 
     const selectedName = String(this.selectedCustomer?.name || '').trim();
+    const newChatTemplate = this.selectedNewChatTemplate;
+    const templateDisplay = this.buildTemplateDisplayPayload(
+      newChatTemplate,
+      payload.templateId,
+      this.newChatTemplateVariables,
+    );
+
+    console.log('[UI TEMPLATE DISPLAY]', {
+      templateId: templateDisplay.templateId,
+      templateName: templateDisplay.templateName,
+      templateBody: templateDisplay.templateBody,
+    });
 
     this.chatService.sendTemplate({
       to: payload.to,
       phone: payload.to,
       templateId: payload.templateId,
+      templateName: templateDisplay.templateName,
+      templateBody: templateDisplay.templateBody,
       params: payload.params,
       expectedParamCount: payload.expectedParamCount,
     })
@@ -876,7 +974,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
             ...baseConversation,
             clientName: selectedName || baseConversation.clientName,
             phoneNumber: baseConversation.phoneNumber.startsWith('+') ? baseConversation.phoneNumber : `+${normalizedPhone}`,
-            lastMessage: `Template: ${this.selectedNewChatTemplateId}`,
+            lastMessage: templateDisplay.displayText,
             updatedAt: new Date().toISOString(),
           };
 
@@ -1751,18 +1849,34 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const template = this.selectedTemplate;
     const localPendingId = this.buildLocalPendingMessageId();
-    const templateDisplayText = template?.name
-      ? `Template message: ${template.name}`
-      : `Template message: ${this.selectedTemplateId}`;
+    const templateDisplay = this.buildTemplateDisplayPayload(
+      template,
+      payload.templateId,
+      this.templateVariables,
+    );
 
     console.log('--- UI TEMPLATE SEND START ---');
     console.log('[UI TEMPLATE PAYLOAD]', payload);
+    console.log('[UI TEMPLATE DISPLAY]', {
+      templateId: templateDisplay.templateId,
+      templateName: templateDisplay.templateName,
+      templateBody: templateDisplay.templateBody,
+    });
 
     this.isSendingTemplate = true;
     this.templateModalError = '';
 
     if (!this.isMockConversation(selectedConversation._id)) {
-      this.addOptimisticOutgoingMessage(templateDisplayText, selectedConversation, localPendingId);
+      this.addOptimisticOutgoingMessage(
+        templateDisplay.displayText,
+        selectedConversation,
+        localPendingId,
+        {
+          templateId: templateDisplay.templateId,
+          templateName: templateDisplay.templateName,
+          templateBody: templateDisplay.templateBody,
+        },
+      );
       this.queueScrollToBottom(true);
     }
 
@@ -1770,6 +1884,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       to: payload.to,
       phone: payload.to,
       templateId: payload.templateId,
+      templateName: templateDisplay.templateName,
+      templateBody: templateDisplay.templateBody,
       params: payload.params,
       expectedParamCount: payload.expectedParamCount,
     }).pipe(takeUntil(this.destroy$)).subscribe({
@@ -1786,14 +1902,19 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         if (!this.isMockConversation(selectedConversation._id)) {
-          this.resolvePendingMessage(localPendingId, response.data?.messageId);
+          this.resolvePendingMessage(localPendingId, response.data?.messageId, {
+            text: templateDisplay.displayText,
+            templateId: templateDisplay.templateId,
+            templateName: templateDisplay.templateName,
+            templateBody: templateDisplay.templateBody,
+          });
         }
 
         this.clearTemplateModalSelection();
         this.showTemplateModal = false;
         this.templateSentAwaitingReply = true;
         console.log('[MESSAGE SEND TYPE]', 'template');
-        this.syncSelectedConversationPreview(templateDisplayText, selectedConversation._id);
+        this.syncSelectedConversationPreview(templateDisplay.displayText, selectedConversation._id);
         this.selectedConversation$.next(selectedConversation._id);
         this.refreshSessionStatusFromBackend(selectedConversation.phoneNumber);
         this.refreshConversationsFromApi(true);
@@ -2377,9 +2498,13 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       status: event?.status,
     });
     if (event?.eventType === 'status') {
+      const statusMessage = this.messages.find((message) => message.messageId === event.messageId);
       console.log('[UI TEMPLATE STATUS UPDATE]', {
         messageId: event.messageId,
         status: event.status,
+        displayText: statusMessage ? this.getMessageDisplayText(statusMessage) : '',
+        templateId: statusMessage?.templateId || '',
+        templateName: statusMessage?.templateName || '',
       });
       console.log('[UI STATUS UPDATE]', {
         phone: event.phone,
@@ -2727,7 +2852,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   private addOptimisticOutgoingMessage(
     text: string,
     conversation: ChatConversation,
-    localPendingId: string
+    localPendingId: string,
+    templateMeta?: Pick<ChatMessage, 'templateId' | 'templateName' | 'templateBody'>,
   ): void {
     const now = new Date().toISOString();
     const pendingMessage: PendingMessage = {
@@ -2741,6 +2867,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       direction: 'outgoing',
       status: 'sent',
       timestamp: now,
+      templateId: templateMeta?.templateId,
+      templateName: templateMeta?.templateName,
+      templateBody: templateMeta?.templateBody,
       metadata: this.buildMockMetadata(
         {
           messageId: localPendingId,
@@ -3047,8 +3176,32 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private mergePendingMessages(serverMessages: ChatMessage[]): PendingMessage[] {
+    const pendingByMessageId = new Map(
+      this.pendingMessages.map((message) => [message.messageId, message]),
+    );
+
     const decoratedServerMessages = serverMessages.map((message) => {
+      const pendingMatch = pendingByMessageId.get(message.messageId);
+      if (pendingMatch && (pendingMatch.templateBody || pendingMatch.templateName || pendingMatch.templateId)) {
+        const serverLooksLikeLegacyTemplateId = this.isLegacyTemplateUuidText(message.text);
+        if (serverLooksLikeLegacyTemplateId || !String(message.templateBody || '').trim()) {
+          return {
+            ...message,
+            text: pendingMatch.text || message.text,
+            templateId: pendingMatch.templateId || message.templateId,
+            templateName: pendingMatch.templateName || message.templateName,
+            templateBody: pendingMatch.templateBody || message.templateBody,
+          };
+        }
+      }
+
       if (message.type !== 'file' || message.direction !== 'outgoing') {
+        if (message.templateId || message.templateBody || message.templateName) {
+          return {
+            ...message,
+            text: resolveTemplateDisplayText(message),
+          };
+        }
         return message;
       }
 

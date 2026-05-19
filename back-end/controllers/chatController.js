@@ -13,6 +13,7 @@ const Message = require('../models/Message');
 const Client = require('../models/Client');
 const {
   saveMessage,
+  buildTemplateDisplayText,
   updateMessageStatus,
   getMessagesByPhone,
   getConversationSummaries,
@@ -592,6 +593,8 @@ exports.sendChatTemplate = async (req, res, next) => {
   try {
     const to = String(req.body?.to || req.body?.phone || '').trim();
     const templateId = String(req.body?.templateId || '').trim();
+    const templateName = String(req.body?.templateName || '').trim();
+    const templateBody = String(req.body?.templateBody || '').trim();
     const normalizedTo = normalizeDestination(to);
 
     if (!to) {
@@ -637,6 +640,8 @@ exports.sendChatTemplate = async (req, res, next) => {
 
     console.log('[TEMPLATE REQUEST]', {
       templateId,
+      templateName,
+      templateBody: templateBody ? `${templateBody.slice(0, 80)}...` : '',
       params: templateParams,
     });
 
@@ -661,19 +666,34 @@ exports.sendChatTemplate = async (req, res, next) => {
     });
 
     const messageId = result.messageId || `local-template-${Date.now()}`;
-    console.log(`[sendChatTemplate] Template "${templateId}" sent to ${normalizedTo}, messageId=${messageId}.`);
+    const displayText = buildTemplateDisplayText({
+      templateBody,
+      templateName,
+      templateId,
+      params: templateParams,
+    });
 
-    const summaryText = `Template: ${templateId}`;
+    console.log(`[sendChatTemplate] Template "${templateName || templateId}" sent to ${normalizedTo}, messageId=${messageId}.`);
+    console.log('[TEMPLATE MESSAGE STORED]', {
+      templateId,
+      templateName,
+      displayText: displayText ? `${displayText.slice(0, 120)}...` : '',
+    });
+
     await saveMessage({
       messageId,
       phone: normalizedTo,
-      text: summaryText,
+      text: displayText,
       type: 'text',
       direction: 'out',
       status: 'sent',
       timestamp: new Date(),
       destination: normalizedTo,
       source: resolveGupshupSource(),
+      templateId,
+      templateName,
+      templateBody,
+      templateParams,
     });
 
     emitChatUpdate({
@@ -1084,6 +1104,9 @@ exports.getChatByPhone = async (req, res, next) => {
       status: item.status,
       timestamp: item.timestamp,
       messageId: item.messageId,
+      templateId: item.templateId || '',
+      templateName: item.templateName || '',
+      templateBody: item.templateBody || '',
     }));
 
     return res.status(200).json({

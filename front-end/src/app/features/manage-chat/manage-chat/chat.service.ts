@@ -31,10 +31,89 @@ export interface ChatMessage {
   status: 'sent' | 'delivered' | 'read' | 'failed';
   timestamp: string;
   replyTo?: string;
+  templateId?: string;
+  templateName?: string;
+  templateBody?: string;
   metadata?: ChatMessageMetadata;
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface TemplateDisplayFields {
+  text?: string;
+  templateId?: string;
+  templateName?: string;
+  templateBody?: string;
+}
+
+const isTemplateUuidText = (value: string): boolean => {
+  const normalized = String(value || '').trim();
+  const match = normalized.match(/^Template:\s*(.+)$/i);
+  const candidate = match ? match[1].trim() : normalized;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidate);
+};
+
+export const resolveTemplateDisplayText = (
+  message: TemplateDisplayFields,
+  options?: { variableValues?: Record<number, string> },
+): string => {
+  const storedText = String(message.text || '').trim();
+  const rawBody = String(message.templateBody || '').trim();
+  const variableValues = options?.variableValues || {};
+  const hasVariableValues = Object.values(variableValues).some((value) => String(value || '').trim());
+
+  if (storedText && !isTemplateUuidText(storedText) && storedText !== rawBody) {
+    return storedText;
+  }
+
+  if (rawBody) {
+    const renderedBody = rawBody.replace(/\{\{\s*(\d+)\s*\}\}/g, (_match, index) => {
+      const key = Number(index);
+      const value = String(variableValues[key] || '').trim();
+      return value || `{{${key}}}`;
+    });
+
+    if (renderedBody && (hasVariableValues || !/\{\{\s*\d+\s*\}\}/.test(renderedBody))) {
+      return renderedBody;
+    }
+
+    if (storedText && !isTemplateUuidText(storedText)) {
+      return storedText;
+    }
+
+    if (renderedBody) {
+      return renderedBody;
+    }
+  }
+  const templateName = String(message.templateName || '').trim();
+  const templateId = String(message.templateId || '').trim();
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (storedText && !/^Template:\s*/i.test(storedText)) {
+    return storedText;
+  }
+
+  if (storedText && /^Template:\s*/i.test(storedText)) {
+    const suffix = storedText.replace(/^Template:\s*/i, '').trim();
+    if (!uuidPattern.test(suffix)) {
+      return suffix;
+    }
+  }
+
+  if (storedText && !uuidPattern.test(storedText.replace(/^Template:\s*/i, '').trim())) {
+    return storedText.replace(/^Template:\s*/i, '').trim() || storedText;
+  }
+
+  if (templateName) {
+    return templateName;
+  }
+
+  if (templateId && !uuidPattern.test(templateId)) {
+    return templateId;
+  }
+
+  return storedText || templateId || 'Template message';
+};
 
 export interface ChatMessageMetadata {
   sourceChannel: 'meta-cloud-api' | 'meta-webhook-sandbox';
@@ -98,6 +177,8 @@ export interface SendTemplateRequest {
   to: string;
   phone?: string;
   templateId: string;
+  templateName?: string;
+  templateBody?: string;
   params: string[];
   /** When set and > 0, server validates param count and non-empty values. */
   expectedParamCount?: number;
@@ -236,7 +317,10 @@ export class ChatService {
           const normalizedStatus = String(item.status || 'sent').toLowerCase();
           const phone = String(item.phone || conversationId);
 
-          acc.push({
+          const templateId = String(item.templateId || '').trim();
+          const templateName = String(item.templateName || '').trim();
+          const templateBody = String(item.templateBody || '').trim();
+          const mappedMessage: ChatMessage = {
             _id: item.messageId,
             messageId: item.messageId,
             conversationId,
@@ -250,7 +334,16 @@ export class ChatService {
             direction: isIncoming ? 'incoming' : 'outgoing',
             status: (['sent', 'delivered', 'read', 'failed'].includes(normalizedStatus) ? normalizedStatus : 'sent') as ChatMessage['status'],
             timestamp: item.timestamp,
-          });
+            templateId: templateId || undefined,
+            templateName: templateName || undefined,
+            templateBody: templateBody || undefined,
+          };
+
+          if (!isFileMessage && (templateId || templateName || templateBody)) {
+            mappedMessage.text = resolveTemplateDisplayText(mappedMessage);
+          }
+
+          acc.push(mappedMessage);
 
           return acc;
         }, []),
@@ -317,6 +410,8 @@ export class ChatService {
       to: data.to,
       phone: data.phone || data.to,
       templateId: data.templateId,
+      templateName: data.templateName || '',
+      templateBody: data.templateBody || '',
       params: Array.isArray(data.params) ? data.params : [],
       ...(data.expectedParamCount !== undefined ? { expectedParamCount: data.expectedParamCount } : {}),
     };

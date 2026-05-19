@@ -67,6 +67,20 @@ const messageSchema = new mongoose.Schema(
       trim: true,
       default: undefined,
     },
+    templateId: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    templateName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    templateBody: {
+      type: String,
+      default: '',
+    },
   },
   { timestamps: true }
 );

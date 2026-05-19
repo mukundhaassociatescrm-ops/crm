@@ -245,7 +245,7 @@
                   </button>
                 </ng-container>
                 <p class="image-caption" *ngIf="shouldRenderImagePreview(message) && message.text && message.text !== message.filename && message.text !== 'image' && message.text !== 'Attachment'">
-                  {{ message.text }}
+                  {{ getMessageDisplayText(message) }}
                 </p>
                 <button type="button" class="file-message-header file-preview-link" *ngIf="!shouldRenderImagePreview(message)" (click)="openFileViewer(message)">
                   <div class="doc-icon-wrap" [class.pdf-icon]="isPdfFileMessage(message)">
@@ -259,7 +259,7 @@
               </div>
             </ng-container>
             <ng-template #textMessageTpl>
-              <p>{{ message.text }}</p>
+              <p>{{ getMessageDisplayText(message) }}</p>
             </ng-template>
             <div class="meta-row">
               <time>{{ message.timestamp | date:'shortTime' }}</time>

@@ -308,7 +308,52 @@ const toDate = (value) => {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
+const applyTemplateParamsToBody = (body, params = []) => {
+  const paramList = Array.isArray(params) ? params : [];
+  return String(body || '').trim().replace(/\{\{\s*(\d+)\s*\}\}/g, (_match, index) => {
+    const position = Number(index);
+    const value = paramList[position - 1] ?? paramList[position] ?? '';
+    const trimmed = String(value).trim();
+    return trimmed || `{{${index}}}`;
+  });
+};
+
+const buildTemplateDisplayText = ({
+  templateBody = '',
+  templateName = '',
+  templateId = '',
+  params = [],
+} = {}) => {
+  const resolvedBody = applyTemplateParamsToBody(templateBody, params);
+  if (resolvedBody) {
+    return resolvedBody;
+  }
+
+  const name = String(templateName || '').trim();
+  if (name) {
+    return name;
+  }
+
+  const id = String(templateId || '').trim();
+  if (id) {
+    return id;
+  }
+
+  return 'Template message';
+};
+
 const buildPreviewText = (message) => {
+  const templateDisplay = buildTemplateDisplayText({
+    templateBody: message.templateBody,
+    templateName: message.templateName,
+    templateId: message.templateId,
+    params: message.templateParams,
+  });
+
+  if (String(message.templateBody || message.templateName || message.templateId || '').trim()) {
+    return templateDisplay;
+  }
+
   return String(message.filename || message.text || '').trim();
 };
 
@@ -370,6 +415,9 @@ const toMessageView = (messageDoc, phoneNumber) => ({
   direction: messageDoc.direction || 'out',
   status: messageDoc.status || 'sent',
   timestamp: messageDoc.timestamp || messageDoc.createdAt,
+  templateId: messageDoc.templateId || '',
+  templateName: messageDoc.templateName || '',
+  templateBody: messageDoc.templateBody || '',
 });
 
 const findBestOutgoingMatch = async ({ phone, timestamp }) => {
@@ -423,6 +471,10 @@ const saveMessage = async (message) => {
     source: normalizePhone(message.source),
     destination: normalizePhone(message.destination),
     reason: message.reason ? String(message.reason) : undefined,
+    templateId: message.templateId ? String(message.templateId) : '',
+    templateName: message.templateName ? String(message.templateName) : '',
+    templateBody: message.templateBody ? String(message.templateBody) : '',
+    templateParams: Array.isArray(message.templateParams) ? message.templateParams : [],
   };
 
   const previewText = buildPreviewText(normalized);
@@ -446,6 +498,9 @@ const saveMessage = async (message) => {
       existing.fileUrl = normalized.fileUrl || existing.fileUrl;
       existing.filename = normalized.filename || existing.filename;
       existing.mimeType = normalized.mimeType || existing.mimeType;
+      existing.templateId = normalized.templateId || existing.templateId;
+      existing.templateName = normalized.templateName || existing.templateName;
+      existing.templateBody = normalized.templateBody || existing.templateBody;
       applyMessageDirection(existing, normalized.direction);
       existing.status = normalized.status || existing.status;
       existing.timestamp = normalized.timestamp || existing.timestamp;
@@ -472,6 +527,9 @@ const saveMessage = async (message) => {
     status: normalized.status,
     timestamp: normalized.timestamp,
     replyTo: undefined,
+    templateId: normalized.templateId,
+    templateName: normalized.templateName,
+    templateBody: normalized.templateBody,
   });
 
   return toMessageView(created, phone);
@@ -639,6 +697,8 @@ module.exports = {
   normalizeStatus,
   findOrCreateConversation,
   saveMessage,
+  buildTemplateDisplayText,
+  applyTemplateParamsToBody,
   updateMessageStatus,
   getMessagesByPhone,
   getConversationSummaries,
