@@ -412,6 +412,8 @@ const toMessageView = (messageDoc, phoneNumber) => ({
   fileUrl: messageDoc.fileUrl || '',
   filename: messageDoc.filename || '',
   mimeType: messageDoc.mimeType || '',
+  mediaType: messageDoc.mediaType || '',
+  mediaUrl: messageDoc.mediaUrl || messageDoc.fileUrl || '',
   direction: messageDoc.direction || 'out',
   status: messageDoc.status || 'sent',
   timestamp: messageDoc.timestamp || messageDoc.createdAt,
@@ -465,6 +467,8 @@ const saveMessage = async (message) => {
     fileUrl: message.fileUrl ? String(message.fileUrl) : '',
     filename: message.filename ? String(message.filename) : '',
     mimeType: message.mimeType ? String(message.mimeType) : '',
+    mediaType: message.mediaType ? String(message.mediaType) : '',
+    mediaUrl: message.mediaUrl ? String(message.mediaUrl) : '',
     direction: normalizeDirection(message.direction),
     status: normalizeStatus(message.status),
     timestamp: toDate(message.timestamp),
@@ -498,6 +502,8 @@ const saveMessage = async (message) => {
       existing.fileUrl = normalized.fileUrl || existing.fileUrl;
       existing.filename = normalized.filename || existing.filename;
       existing.mimeType = normalized.mimeType || existing.mimeType;
+      existing.mediaType = normalized.mediaType || existing.mediaType;
+      existing.mediaUrl = normalized.mediaUrl || normalized.fileUrl || existing.mediaUrl;
       existing.templateId = normalized.templateId || existing.templateId;
       existing.templateName = normalized.templateName || existing.templateName;
       existing.templateBody = normalized.templateBody || existing.templateBody;
@@ -523,6 +529,8 @@ const saveMessage = async (message) => {
     fileUrl: normalized.fileUrl,
     filename: normalized.filename,
     mimeType: normalized.mimeType,
+    mediaType: normalized.mediaType,
+    mediaUrl: normalized.mediaUrl || normalized.fileUrl,
     direction: normalized.direction,
     status: normalized.status,
     timestamp: normalized.timestamp,

@@ -77,10 +77,50 @@ const getPublicBaseUrl = () => {
 
 const safeFileName = (name) => String(name || '').replace(/[^a-zA-Z0-9._-]/g, '_');
 
+const mimeIncludes = (mimeType, value) => String(mimeType || '').toLowerCase().includes(value);
+
+const resolveExtensionFromMimeType = (mimeType) => {
+  const mime = String(mimeType || '').toLowerCase();
+  if (mimeIncludes(mime, 'pdf')) return '.pdf';
+  if (mimeIncludes(mime, 'jpeg') || mimeIncludes(mime, 'jpg')) return '.jpg';
+  if (mimeIncludes(mime, 'png')) return '.png';
+  if (mimeIncludes(mime, 'audio/ogg') || mimeIncludes(mime, 'ogg') || mimeIncludes(mime, 'opus')) return '.ogg';
+  if (mimeIncludes(mime, 'audio/mpeg') || mimeIncludes(mime, 'mp3')) return '.mp3';
+  if (mimeIncludes(mime, 'audio/wav') || mimeIncludes(mime, 'wav')) return '.wav';
+  if (mimeIncludes(mime, 'msword') || mimeIncludes(mime, 'wordprocessingml')) return '.docx';
+  if (mimeIncludes(mime, 'spreadsheetml') || mimeIncludes(mime, 'ms-excel')) return '.xlsx';
+  return '.bin';
+};
+
+const resolveMediaType = (messageType, mimeType, filename = '', fileUrl = '') => {
+  const normalizedType = String(messageType || '').toLowerCase();
+  const normalizedMimeType = String(mimeType || '').toLowerCase();
+  const normalizedName = String(filename || '').toLowerCase();
+  const normalizedUrl = String(fileUrl || '').toLowerCase();
+
+  if (normalizedType === 'audio' || normalizedMimeType.startsWith('audio/') || /\.(ogg|mp3|wav|m4a|aac)(\?|$)/i.test(normalizedName) || /\.(ogg|mp3|wav|m4a|aac)(\?|$)/i.test(normalizedUrl)) {
+    return 'audio';
+  }
+  if (normalizedType === 'image' || normalizedMimeType.startsWith('image/')) {
+    return 'image';
+  }
+  if (normalizedType === 'video' || normalizedMimeType.startsWith('video/')) {
+    return 'video';
+  }
+  if (normalizedType === 'document' || normalizedType === 'file') {
+    return 'document';
+  }
+  return normalizedType || '';
+};
+
 const resolveAttachmentFilename = (attachmentUrl, attachmentFilename, attachmentMimeType) => {
   const candidateName = String(attachmentFilename || '').trim();
   if (candidateName) {
-    return candidateName;
+    const candidateExtension = path.extname(candidateName);
+    if (candidateExtension) {
+      return candidateName;
+    }
+    return `${candidateName}${resolveExtensionFromMimeType(attachmentMimeType)}`;
   }
 
   const fromQuery = (() => {
@@ -96,18 +136,7 @@ const resolveAttachmentFilename = (attachmentUrl, attachmentFilename, attachment
     return fromQuery;
   }
 
-  const mime = String(attachmentMimeType || '').toLowerCase();
-  const extension = mime.includes('pdf')
-    ? '.pdf'
-    : mime.includes('jpeg') || mime.includes('jpg')
-      ? '.jpg'
-      : mime.includes('png')
-        ? '.png'
-        : mime.includes('msword') || mime.includes('wordprocessingml')
-          ? '.docx'
-          : mime.includes('spreadsheetml') || mime.includes('ms-excel')
-            ? '.xlsx'
-            : '.bin';
+  const extension = resolveExtensionFromMimeType(attachmentMimeType);
 
   return `attachment-${Date.now()}${extension}`;
 };
@@ -115,13 +144,14 @@ const resolveAttachmentFilename = (attachmentUrl, attachmentFilename, attachment
 const mirrorIncomingAttachmentUrl = async (attachmentUrl, attachmentFilename, attachmentMimeType) => {
   const normalizedUrl = String(attachmentUrl || '').trim();
   if (!normalizedUrl) {
-    return { fileUrl: '', filename: attachmentFilename || '' };
+    return { fileUrl: '', filename: attachmentFilename || '', mimeType: attachmentMimeType || '' };
   }
 
   if (/\/uploads\//i.test(normalizedUrl)) {
     return {
       fileUrl: normalizedUrl,
       filename: String(attachmentFilename || '').trim(),
+      mimeType: attachmentMimeType || '',
     };
   }
 
@@ -154,11 +184,13 @@ const mirrorIncomingAttachmentUrl = async (attachmentUrl, attachmentFilename, at
     return {
       fileUrl: `${baseUrl}/uploads/${encodeURIComponent(storedName)}`,
       filename: resolvedName,
+      mimeType: attachmentMimeType || response.headers?.['content-type'] || '',
     };
   } catch (_error) {
     return {
       fileUrl: normalizedUrl,
       filename: String(attachmentFilename || '').trim(),
+      mimeType: attachmentMimeType || '',
     };
   }
 };
@@ -773,6 +805,7 @@ exports.processGupshupWebhook = async (body) => {
   const hasExplicitStatus = ['sent', 'submitted', 'enqueued', 'queued', 'delivered', 'read', 'failed'].includes(String(rawStatus || '').toLowerCase());
 
   const payloadImage = payload.image || nestedPayload.image || {};
+  const payloadAudio = payload.audio || nestedPayload.audio || {};
   const payloadDocument = payload.document || nestedPayload.document || {};
   const payloadMedia = payload.media || nestedPayload.media || {};
   const payloadFile = payload.file || nestedPayload.file || {};
@@ -829,6 +862,10 @@ exports.processGupshupWebhook = async (body) => {
     payloadImage.link ||
     payloadImage.originalUrl ||
     payloadImage.previewUrl ||
+    payloadAudio.url ||
+    payloadAudio.link ||
+    payloadAudio.originalUrl ||
+    payloadAudio.previewUrl ||
     payloadDocument.url ||
     payloadDocument.link ||
     payloadDocument.originalUrl ||
@@ -847,6 +884,10 @@ exports.processGupshupWebhook = async (body) => {
     nestedPayload?.image?.link ||
     nestedPayload?.image?.originalUrl ||
     nestedPayload?.image?.previewUrl ||
+    nestedPayload?.audio?.url ||
+    nestedPayload?.audio?.link ||
+    nestedPayload?.audio?.originalUrl ||
+    nestedPayload?.audio?.previewUrl ||
     nestedPayload?.document?.url ||
     nestedPayload?.document?.link ||
     nestedPayload?.document?.originalUrl ||
@@ -861,13 +902,16 @@ exports.processGupshupWebhook = async (body) => {
   let attachmentFilename =
     payload.filename ||
     payloadImage.filename ||
+    payloadAudio.filename ||
     payloadDocument.filename ||
     payloadMedia.filename ||
     payloadFile.filename ||
     payloadImage.caption ||
+    payloadAudio.caption ||
     payloadDocument.caption ||
     nestedPayload.filename ||
     nestedPayload?.image?.filename ||
+    nestedPayload?.audio?.filename ||
     nestedPayload?.document?.filename ||
     nestedPayload?.media?.filename ||
     nestedPayload?.file?.filename ||
@@ -878,6 +922,9 @@ exports.processGupshupWebhook = async (body) => {
     payloadImage.mimeType ||
     payloadImage.mimetype ||
     payloadImage.contentType ||
+    payloadAudio.mimeType ||
+    payloadAudio.mimetype ||
+    payloadAudio.contentType ||
     payloadDocument.mimeType ||
     payloadDocument.mimetype ||
     payloadDocument.contentType ||
@@ -892,6 +939,9 @@ exports.processGupshupWebhook = async (body) => {
     nestedPayload?.image?.mimeType ||
     nestedPayload?.image?.mimetype ||
     nestedPayload?.image?.contentType ||
+    nestedPayload?.audio?.mimeType ||
+    nestedPayload?.audio?.mimetype ||
+    nestedPayload?.audio?.contentType ||
     nestedPayload?.document?.mimeType ||
     nestedPayload?.document?.mimetype ||
     nestedPayload?.document?.contentType ||
@@ -903,10 +953,12 @@ exports.processGupshupWebhook = async (body) => {
     '';
   const hasStructuredMediaUrl = Boolean(
     payloadImage.url || payloadImage.link || payloadImage.originalUrl || payloadImage.previewUrl ||
+    payloadAudio.url || payloadAudio.link || payloadAudio.originalUrl || payloadAudio.previewUrl ||
     payloadDocument.url || payloadDocument.link || payloadDocument.originalUrl || payloadDocument.previewUrl ||
     payloadMedia.url || payloadMedia.link || payloadMedia.originalUrl || payloadMedia.previewUrl ||
     payloadFile.url || payloadFile.link || payloadFile.originalUrl || payloadFile.previewUrl ||
     nestedPayload?.image?.url || nestedPayload?.image?.link || nestedPayload?.image?.originalUrl || nestedPayload?.image?.previewUrl ||
+    nestedPayload?.audio?.url || nestedPayload?.audio?.link || nestedPayload?.audio?.originalUrl || nestedPayload?.audio?.previewUrl ||
     nestedPayload?.document?.url || nestedPayload?.document?.link || nestedPayload?.document?.originalUrl || nestedPayload?.document?.previewUrl ||
     nestedPayload?.media?.url || nestedPayload?.media?.link || nestedPayload?.media?.originalUrl || nestedPayload?.media?.previewUrl ||
     nestedPayload?.file?.url || nestedPayload?.file?.link
@@ -921,11 +973,14 @@ exports.processGupshupWebhook = async (body) => {
   const messageType = String(
     payload.type || nestedPayload.type || (attachmentUrl ? 'file' : 'text')
   ).toLowerCase();
-  const resolvedMimeType = attachmentMimeType || (messageType === 'image' ? 'image/jpeg' : '');
+  const resolvedMimeType = attachmentMimeType
+    || (messageType === 'image' ? 'image/jpeg' : '')
+    || (messageType === 'audio' ? 'audio/ogg' : '');
   const isKnownMediaType = mediaPayloadTypes.has(messageType);
   const hasAttachmentPayload = Boolean(isKnownMediaType || attachmentUrl);
-  const persistedFilename = hasAttachmentPayload ? attachmentFilename : '';
-  const persistedMimeType = hasAttachmentPayload ? resolvedMimeType : '';
+  let persistedFilename = hasAttachmentPayload ? attachmentFilename : '';
+  let persistedMimeType = hasAttachmentPayload ? resolvedMimeType : '';
+  let persistedMediaType = hasAttachmentPayload ? resolveMediaType(messageType, persistedMimeType, persistedFilename, attachmentUrl) : '';
   const displayText = text || attachmentFilename || (isMediaType ? normalizedPayloadType : '');
   const reason = payload.reason || nestedPayload.reason || '';
   const eventTimestamp = payload.timestamp || nestedPayload.timestamp || new Date();
@@ -998,6 +1053,15 @@ exports.processGupshupWebhook = async (body) => {
     console.log('--- WEBHOOK INCOMING ---');
     console.log('[WEBHOOK INCOMING RAW]', body);
 
+    if (hasAttachmentPayload) {
+      console.log('[MEDIA MESSAGE RECEIVED]', {
+        type: messageType,
+        mimeType: persistedMimeType,
+        url: attachmentUrl,
+        fileName: persistedFilename,
+      });
+    }
+
     // Ignore non-status events that have no text and no usable phone fields.
     if (!String(text || '').trim() && !source && !destination) {
       return null;
@@ -1005,11 +1069,14 @@ exports.processGupshupWebhook = async (body) => {
 
     let persistedAttachmentUrl = attachmentUrl;
     if (attachmentUrl) {
-      const mirrored = await mirrorIncomingAttachmentUrl(attachmentUrl, attachmentFilename, attachmentMimeType);
+      const mirrored = await mirrorIncomingAttachmentUrl(attachmentUrl, attachmentFilename, persistedMimeType);
       persistedAttachmentUrl = mirrored.fileUrl || attachmentUrl;
       if (!attachmentFilename && mirrored.filename) {
         attachmentFilename = mirrored.filename;
       }
+      persistedFilename = attachmentFilename || mirrored.filename || persistedFilename;
+      persistedMimeType = mirrored.mimeType || persistedMimeType;
+      persistedMediaType = resolveMediaType(messageType, persistedMimeType, persistedFilename, persistedAttachmentUrl);
     }
 
     const inboundDirection = isFromBusiness ? 'out' : 'in';
@@ -1029,6 +1096,8 @@ exports.processGupshupWebhook = async (body) => {
       fileUrl: persistedAttachmentUrl,
       filename: persistedFilename,
       mimeType: persistedMimeType,
+      mediaType: persistedMediaType,
+      mediaUrl: persistedAttachmentUrl,
       direction: inboundDirection,
       status: 'sent',
       timestamp: eventTimestamp,
@@ -1100,6 +1169,8 @@ exports.getChatByPhone = async (req, res, next) => {
       fileUrl: item.fileUrl || '',
       filename: item.filename || '',
       mimeType: item.mimeType || '',
+      mediaType: item.mediaType || '',
+      mediaUrl: item.mediaUrl || item.fileUrl || '',
       direction: item.direction,
       status: item.status,
       timestamp: item.timestamp,

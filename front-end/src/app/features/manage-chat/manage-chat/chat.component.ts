@@ -278,6 +278,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly templateDisplayLoggedMessageIds = new Set<string>();
   private readonly brokenInlineImageMessageIds = new Set<string>();
   private readonly loadedInlineImageMessageIds = new Set<string>();
+  private readonly audioDetectedLoggedMessageIds = new Set<string>();
+  private readonly audioPlayerLoggedMessageIds = new Set<string>();
   private readonly notifiedIncomingKeys = new Set<string>();
   private readonly lastNotificationAtByPhone: Record<string, number> = {};
   private unreadCountByConversationId: Record<string, number> = {};
@@ -390,6 +392,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.optimisticImagePreviewUrls.clear();
     this.brokenInlineImageMessageIds.clear();
     this.loadedInlineImageMessageIds.clear();
+    this.audioDetectedLoggedMessageIds.clear();
+    this.audioPlayerLoggedMessageIds.clear();
     this.notifiedIncomingKeys.clear();
     this.destroy$.next();
     this.destroy$.complete();
@@ -1524,20 +1528,92 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     const fileUrl = String(message.fileUrl || '').trim();
     const fileName = String(message.filename || '').trim().toLowerCase();
     const mimeType = String(message.mimeType || '').trim().toLowerCase();
+    const mediaType = String(message.mediaType || '').trim().toLowerCase();
 
     if (fileUrl) {
       return true;
     }
 
-    if (mimeType.startsWith('image/') || mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('sheet') || mimeType.includes('msword')) {
+    if (mediaType || mimeType.startsWith('image/') || mimeType.startsWith('audio/') || mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('sheet') || mimeType.includes('msword')) {
       return true;
     }
 
-    return /\.(png|jpe?g|gif|webp|pdf|docx?|xlsx?|xls|txt)(\?|$)/i.test(fileName);
+    return /\.(png|jpe?g|gif|webp|ogg|mp3|wav|m4a|aac|pdf|docx?|xlsx?|xls|txt)(\?|$)/i.test(fileName);
+  }
+
+  isAudioFileMessage(message: PendingMessage): boolean {
+    if (!this.isFileMessage(message)) {
+      return false;
+    }
+
+    const mediaType = String(message.mediaType || '').toLowerCase();
+    const mimeType = String(message.mimeType || '').toLowerCase();
+    const fileName = String(message.filename || '').toLowerCase();
+    const fileUrl = this.normalizeFileUrl(String(message.fileUrl || message.mediaUrl || '')).toLowerCase();
+    const fallbackText = String(message.text || '').toLowerCase();
+    const isAudio = (
+      mediaType === 'audio'
+      || mimeType.startsWith('audio/')
+      || /\.(ogg|mp3|wav|m4a|aac)(\?|$)/i.test(fileName)
+      || /\.(ogg|mp3|wav|m4a|aac)(\?|$)/i.test(fileUrl)
+      || fallbackText === 'audio'
+    );
+
+    if (isAudio) {
+      const messageId = this.getMessageMenuId(message);
+      if (!this.audioDetectedLoggedMessageIds.has(messageId)) {
+        this.audioDetectedLoggedMessageIds.add(messageId);
+        console.log('[UI AUDIO DETECTED]', {
+          messageId,
+          mediaType: message.mediaType || '',
+          mimeType: message.mimeType || '',
+          filename: message.filename || '',
+          fileUrl: message.fileUrl || message.mediaUrl || '',
+        });
+      }
+    }
+
+    return isAudio;
+  }
+
+  getAudioSourceUrl(message: PendingMessage): string {
+    return this.normalizeFileUrl(String(message.fileUrl || message.mediaUrl || ''));
+  }
+
+  getAudioFileName(message: PendingMessage): string {
+    return String(message.filename || message.text || 'Voice note');
+  }
+
+  logAudioPlayerRender(message: PendingMessage): boolean {
+    const messageId = this.getMessageMenuId(message);
+    if (!this.audioPlayerLoggedMessageIds.has(messageId)) {
+      this.audioPlayerLoggedMessageIds.add(messageId);
+      console.log('[UI AUDIO PLAYER RENDER]', {
+        messageId,
+        mimeType: message.mimeType || '',
+        mediaType: message.mediaType || '',
+        fileUrl: message.fileUrl || message.mediaUrl || '',
+      });
+    }
+    return true;
+  }
+
+  onAudioPlayError(message: PendingMessage, event: Event): void {
+    const target = event.target as HTMLAudioElement | null;
+    console.log('[UI AUDIO PLAY ERROR]', {
+      messageId: this.getMessageMenuId(message),
+      mimeType: message.mimeType || '',
+      fileUrl: message.fileUrl || message.mediaUrl || '',
+      errorCode: target?.error?.code || null,
+      errorMessage: target?.error?.message || '',
+    });
   }
 
   isImageFileMessage(message: PendingMessage): boolean {
     if (!this.isFileMessage(message)) {
+      return false;
+    }
+    if (this.isAudioFileMessage(message)) {
       return false;
     }
 
@@ -1602,6 +1678,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   getFileIconClass(message: PendingMessage): string {
     const fileName = String(message.filename || '').toLowerCase();
     const mimeType = String(message.mimeType || '').toLowerCase();
+
+    if (this.isAudioFileMessage(message)) {
+      return 'fa-file-audio';
+    }
 
     if (fileName.endsWith('.pdf') || mimeType.includes('pdf')) {
       return 'fa-file-pdf';
@@ -1736,6 +1816,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   getFileTypeLabel(message: PendingMessage): string {
     const mimeType = String(message.mimeType || '').toLowerCase();
+    if (this.isAudioFileMessage(message)) {
+      return 'Audio';
+    }
     if (mimeType.includes('pdf')) {
       return 'PDF';
     }
@@ -1767,6 +1850,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (normalizedName.endsWith('.pdf') || normalizedMimeType.includes('pdf')) {
       return 'fa-file-pdf';
+    }
+
+    if (normalizedMimeType.startsWith('audio/') || /\.(ogg|mp3|wav|m4a|aac)$/i.test(normalizedName)) {
+      return 'fa-file-audio';
     }
 
     if (

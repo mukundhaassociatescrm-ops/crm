@@ -27,6 +27,8 @@ export interface ChatMessage {
   fileUrl?: string;
   filename?: string;
   mimeType?: string;
+  mediaType?: string;
+  mediaUrl?: string;
   direction: 'incoming' | 'outgoing';
   status: 'sent' | 'delivered' | 'read' | 'failed';
   timestamp: string;
@@ -304,9 +306,10 @@ export class ChatService {
           const inferredNameFromUrl = fileUrl ? decodeURIComponent(fileUrl.split('?')[0].split('/').pop() || '') : '';
           const filename = String(item.filename || inferredNameFromUrl || '').trim();
           const mimeType = String(item.mimeType || item.mimetype || '').trim();
+          const mediaType = String(item.mediaType || '').trim().toLowerCase();
           const rawType = String(item.type || 'text').toLowerCase();
           const looksLikeMediaText = ['image', 'document', 'video', 'audio', 'file', 'sticker'].includes(normalizedText.toLowerCase());
-          const isFileMessage = rawType === 'file' || Boolean(fileUrl || filename || looksLikeMediaText);
+          const isFileMessage = rawType === 'file' || Boolean(fileUrl || filename || looksLikeMediaText || mediaType);
 
           if (!normalizedText && !isFileMessage) {
             return acc;
@@ -331,6 +334,8 @@ export class ChatService {
             fileUrl: fileUrl || undefined,
             filename: (filename || normalizedText || inferredNameFromUrl) || undefined,
             mimeType: mimeType || undefined,
+            mediaType: mediaType || undefined,
+            mediaUrl: String(item.mediaUrl || rawFileUrl || '').trim() || undefined,
             direction: isIncoming ? 'incoming' : 'outgoing',
             status: (['sent', 'delivered', 'read', 'failed'].includes(normalizedStatus) ? normalizedStatus : 'sent') as ChatMessage['status'],
             timestamp: item.timestamp,

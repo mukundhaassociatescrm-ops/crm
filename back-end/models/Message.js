@@ -48,6 +48,16 @@ const messageSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    mediaType: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    mediaUrl: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     direction: {
       type: String,
       enum: ['incoming', 'outgoing', 'in', 'out'],

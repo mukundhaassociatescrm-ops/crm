@@ -222,6 +222,35 @@
             </div>
             <ng-container *ngIf="isFileMessage(message); else textMessageTpl">
               <div class="file-message-card">
+                <ng-container *ngIf="isAudioFileMessage(message); else nonAudioFileTpl">
+                  <div class="audio-message-card" *ngIf="logAudioPlayerRender(message)">
+                    <div class="audio-message-icon" aria-hidden="true">
+                      <i class="fa-solid fa-microphone-lines"></i>
+                    </div>
+                    <div class="audio-message-body">
+                      <div class="audio-message-title">{{ getAudioFileName(message) }}</div>
+                      <audio
+                        class="audio-player"
+                        controls
+                        preload="metadata"
+                        [src]="getAudioSourceUrl(message)"
+                        (error)="onAudioPlayError(message, $event)"
+                      >
+                        Your browser does not support audio playback.
+                      </audio>
+                    </div>
+                    <button
+                      type="button"
+                      class="audio-download-btn"
+                      (click)="downloadFileMessage(message)"
+                      title="Download audio"
+                      aria-label="Download audio"
+                    >
+                      <i class="fa-solid fa-download"></i>
+                    </button>
+                  </div>
+                </ng-container>
+                <ng-template #nonAudioFileTpl>
                 <ng-container *ngIf="shouldRenderImagePreview(message)">
                   <div class="image-loading-skeleton" *ngIf="!isInlineImageLoaded(message)">
                     <span class="image-loading-spinner"></span>
@@ -254,6 +283,7 @@
                     <span class="file-type">{{ isPdfFileMessage(message) ? 'PDF' : 'Document' }}</span>
                   </div>
                 </button>
+                </ng-template>
               </div>
             </ng-container>
             <ng-template #textMessageTpl>
