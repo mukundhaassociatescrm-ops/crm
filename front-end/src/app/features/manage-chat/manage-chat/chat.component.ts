@@ -32,6 +32,7 @@ interface SelectedAttachment {
   name: string;
   mimeType: string;
   isImage: boolean;
+  isVideo: boolean;
   isPdf: boolean;
   previewUrl?: string;
   previewResourceUrl?: SafeResourceUrl | null;
@@ -42,6 +43,7 @@ interface ActiveFileViewer {
   name: string;
   mimeType: string;
   isImage: boolean;
+  isVideo: boolean;
   isPdf: boolean;
 }
 
@@ -55,6 +57,7 @@ interface ActiveFileViewer {
 export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('messageScroller') private messageScroller?: ElementRef<HTMLDivElement>;
   @ViewChild('imageAttachmentInput') private imageAttachmentInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('videoAttachmentInput') private videoAttachmentInput?: ElementRef<HTMLInputElement>;
   @ViewChild('documentAttachmentInput') private documentAttachmentInput?: ElementRef<HTMLInputElement>;
 
   conversations: ChatConversation[] = [];
@@ -280,6 +283,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly loadedInlineImageMessageIds = new Set<string>();
   private readonly audioDetectedLoggedMessageIds = new Set<string>();
   private readonly audioPlayerLoggedMessageIds = new Set<string>();
+  private readonly videoDetectedLoggedMessageIds = new Set<string>();
+  private readonly videoPlayerLoggedMessageIds = new Set<string>();
+  private readonly loadingVideoMessageIds = new Set<string>();
+  private readonly erroredVideoMessageIds = new Set<string>();
   private readonly notifiedIncomingKeys = new Set<string>();
   private readonly lastNotificationAtByPhone: Record<string, number> = {};
   private unreadCountByConversationId: Record<string, number> = {};
@@ -394,6 +401,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.loadedInlineImageMessageIds.clear();
     this.audioDetectedLoggedMessageIds.clear();
     this.audioPlayerLoggedMessageIds.clear();
+    this.videoDetectedLoggedMessageIds.clear();
+    this.videoPlayerLoggedMessageIds.clear();
+    this.loadingVideoMessageIds.clear();
+    this.erroredVideoMessageIds.clear();
     this.notifiedIncomingKeys.clear();
     this.destroy$.next();
     this.destroy$.complete();
@@ -1219,11 +1230,16 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  openAttachmentType(type: 'image' | 'document'): void {
+  openAttachmentType(type: 'image' | 'video' | 'document'): void {
     this.showAttachmentMenu = false;
 
     if (type === 'image') {
       this.imageAttachmentInput?.nativeElement.click();
+      return;
+    }
+
+    if (type === 'video') {
+      this.videoAttachmentInput?.nativeElement.click();
       return;
     }
 
@@ -1252,8 +1268,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     const normalizedMimeType = String(file.type || '').toLowerCase();
     const normalizedName = String(file.name || '').toLowerCase();
     const isImage = normalizedMimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(normalizedName);
+    const isVideo = normalizedMimeType.startsWith('video/') || /\.(mp4|webm|ogv|mov|m4v)$/i.test(normalizedName);
     const isPdf = normalizedMimeType.includes('pdf') || normalizedName.endsWith('.pdf');
-    const previewUrl = (isImage || isPdf) ? URL.createObjectURL(file) : undefined;
+    const previewUrl = (isImage || isVideo || isPdf) ? URL.createObjectURL(file) : undefined;
     const previewResourceUrl = (isPdf && previewUrl)
       ? this.sanitizer.bypassSecurityTrustResourceUrl(previewUrl)
       : null;
@@ -1265,6 +1282,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         name: file.name,
         mimeType: file.type,
         isImage,
+        isVideo,
         isPdf,
         previewUrl,
         previewResourceUrl,
@@ -1329,7 +1347,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     return index === this.activeAttachmentIndex;
   }
 
-  addAnotherAttachment(type: 'image' | 'document'): void {
+  addAnotherAttachment(type: 'image' | 'video' | 'document'): void {
     this.openAttachmentType(type);
   }
 
@@ -1349,6 +1367,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     if (this.documentAttachmentInput?.nativeElement) {
       this.documentAttachmentInput.nativeElement.value = '';
+    }
+    if (this.videoAttachmentInput?.nativeElement) {
+      this.videoAttachmentInput.nativeElement.value = '';
     }
   }
 
@@ -1525,7 +1546,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return true;
     }
 
-    const fileUrl = String(message.fileUrl || '').trim();
+    const fileUrl = String(message.fileUrl || message.mediaUrl || '').trim();
     const fileName = String(message.filename || '').trim().toLowerCase();
     const mimeType = String(message.mimeType || '').trim().toLowerCase();
     const mediaType = String(message.mediaType || '').trim().toLowerCase();
@@ -1534,11 +1555,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return true;
     }
 
-    if (mediaType || mimeType.startsWith('image/') || mimeType.startsWith('audio/') || mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('sheet') || mimeType.includes('msword')) {
+    if (mediaType || mimeType.startsWith('image/') || mimeType.startsWith('audio/') || mimeType.startsWith('video/') || mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('sheet') || mimeType.includes('msword')) {
       return true;
     }
 
-    return /\.(png|jpe?g|gif|webp|ogg|mp3|wav|m4a|aac|pdf|docx?|xlsx?|xls|txt)(\?|$)/i.test(fileName);
+    return /\.(png|jpe?g|gif|webp|ogg|mp3|wav|m4a|aac|mp4|webm|ogv|mov|m4v|pdf|docx?|xlsx?|xls|txt)(\?|$)/i.test(fileName);
   }
 
   isAudioFileMessage(message: PendingMessage): boolean {
@@ -1609,17 +1630,113 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
+  isVideoFileMessage(message: PendingMessage): boolean {
+    if (!this.isFileMessage(message)) {
+      return false;
+    }
+
+    const mediaType = String(message.mediaType || '').toLowerCase();
+    const mimeType = String(message.mimeType || '').toLowerCase();
+    const fileName = String(message.filename || '').toLowerCase();
+    const fileUrl = this.normalizeFileUrl(String(message.fileUrl || message.mediaUrl || '')).toLowerCase();
+    const fallbackText = String(message.text || '').toLowerCase();
+    const isVideo = (
+      mediaType === 'video'
+      || mimeType.startsWith('video/')
+      || /\.(mp4|webm|ogv|mov|m4v)(\?|$)/i.test(fileName)
+      || /\.(mp4|webm|ogv|mov|m4v)(\?|$)/i.test(fileUrl)
+      || fallbackText === 'video'
+    );
+
+    if (isVideo) {
+      const messageId = this.getMessageMenuId(message);
+      if (!this.videoDetectedLoggedMessageIds.has(messageId)) {
+        this.videoDetectedLoggedMessageIds.add(messageId);
+        this.loadingVideoMessageIds.add(messageId);
+        console.log('[UI VIDEO DETECTED]', {
+          messageId,
+          mediaType: message.mediaType || '',
+          mimeType: message.mimeType || '',
+          filename: message.filename || '',
+          fileUrl: message.fileUrl || message.mediaUrl || '',
+        });
+      }
+    }
+
+    return isVideo;
+  }
+
+  getVideoSourceUrl(message: PendingMessage): string {
+    return this.normalizeFileUrl(String(message.fileUrl || message.mediaUrl || ''));
+  }
+
+  getVideoFileName(message: PendingMessage): string {
+    return String(message.filename || message.text || 'Video');
+  }
+
+  getVideoMetaLabel(message: PendingMessage): string {
+    const parts = ['Video'];
+    const mimeType = String(message.mimeType || '').trim();
+    if (mimeType) {
+      parts.push(mimeType);
+    }
+    return parts.join(' | ');
+  }
+
+  logVideoPlayerRender(message: PendingMessage): boolean {
+    const messageId = this.getMessageMenuId(message);
+    if (!this.videoPlayerLoggedMessageIds.has(messageId)) {
+      this.videoPlayerLoggedMessageIds.add(messageId);
+      console.log('[UI VIDEO PLAYER RENDER]', {
+        messageId,
+        mimeType: message.mimeType || '',
+        mediaType: message.mediaType || '',
+        fileUrl: message.fileUrl || message.mediaUrl || '',
+      });
+    }
+    return true;
+  }
+
+  isVideoLoading(message: PendingMessage): boolean {
+    const messageId = this.getMessageMenuId(message);
+    return this.loadingVideoMessageIds.has(messageId) && !this.erroredVideoMessageIds.has(messageId);
+  }
+
+  hasVideoError(message: PendingMessage): boolean {
+    return this.erroredVideoMessageIds.has(this.getMessageMenuId(message));
+  }
+
+  onVideoMetadataLoaded(message: PendingMessage): void {
+    const messageId = this.getMessageMenuId(message);
+    this.loadingVideoMessageIds.delete(messageId);
+    this.queueScrollToBottom(true, true);
+  }
+
+  onVideoPlayError(message: PendingMessage, event: Event): void {
+    const messageId = this.getMessageMenuId(message);
+    const target = event.target as HTMLVideoElement | null;
+    this.loadingVideoMessageIds.delete(messageId);
+    this.erroredVideoMessageIds.add(messageId);
+    console.log('[UI VIDEO PLAY ERROR]', {
+      messageId,
+      mimeType: message.mimeType || '',
+      fileUrl: message.fileUrl || message.mediaUrl || '',
+      errorCode: target?.error?.code || null,
+      errorMessage: target?.error?.message || '',
+    });
+  }
+
   isImageFileMessage(message: PendingMessage): boolean {
     if (!this.isFileMessage(message)) {
       return false;
     }
-    if (this.isAudioFileMessage(message)) {
+    if (this.isAudioFileMessage(message) || this.isVideoFileMessage(message)) {
       return false;
     }
 
     const fileName = String(message.filename || '').toLowerCase();
     const mimeType = String(message.mimeType || '').toLowerCase();
-    const fileUrl = String(message.fileUrl || '').toLowerCase();
+    const fileUrl = String(message.fileUrl || message.mediaUrl || '').toLowerCase();
     const fallbackText = String(message.text || '').toLowerCase();
     const msgType = String((message as any).type || '').toLowerCase();
     return (
@@ -1634,7 +1751,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   shouldRenderImagePreview(message: PendingMessage): boolean {
     const messageId = this.getMessageMenuId(message);
-    return this.isImageFileMessage(message) && Boolean(message.fileUrl) && !this.brokenInlineImageMessageIds.has(messageId);
+    return this.isImageFileMessage(message) && Boolean(message.fileUrl || message.mediaUrl) && !this.brokenInlineImageMessageIds.has(messageId);
   }
 
   onInlineImageError(message: PendingMessage): void {
@@ -1683,6 +1800,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return 'fa-file-audio';
     }
 
+    if (this.isVideoFileMessage(message)) {
+      return 'fa-file-video';
+    }
+
     if (fileName.endsWith('.pdf') || mimeType.includes('pdf')) {
       return 'fa-file-pdf';
     }
@@ -1714,7 +1835,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const fileName = String(message.filename || '').toLowerCase();
     const mimeType = String(message.mimeType || '').toLowerCase();
-    const fileUrl = this.normalizeFileUrl(String(message.fileUrl || '')).toLowerCase();
+    const fileUrl = this.normalizeFileUrl(String(message.fileUrl || message.mediaUrl || '')).toLowerCase();
     const fallbackText = String(message.text || '').toLowerCase();
 
     return (
@@ -1726,7 +1847,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   openFileViewer(message: PendingMessage): void {
-    const fileUrl = this.normalizeFileUrl(String(message.fileUrl || ''));
+    const fileUrl = this.normalizeFileUrl(String(message.fileUrl || message.mediaUrl || ''));
     if (!fileUrl) {
       return;
     }
@@ -1734,10 +1855,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     const name = String(message.filename || message.text || 'Attachment');
     const mimeType = this.resolveMessageMimeType(message);
     const isImage = this.isImageFileMessage(message);
+    const isVideo = this.isVideoFileMessage(message);
     const isPdf = this.isPdfFileMessage(message);
 
     this.revokePdfBlobUrl();
-    this.activeFileViewer = { url: fileUrl, name, mimeType, isImage, isPdf };
+    this.activeFileViewer = { url: fileUrl, name, mimeType, isImage, isVideo, isPdf };
     this.activeFileViewerResourceUrl = isPdf
       ? this.sanitizer.bypassSecurityTrustResourceUrl(fileUrl)
       : null;
@@ -1769,7 +1891,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   async downloadFileMessage(message: PendingMessage): Promise<void> {
-    const fileUrl = String(message.fileUrl || '').trim();
+    const fileUrl = String(message.fileUrl || message.mediaUrl || '').trim();
     if (!fileUrl) {
       return;
     }
@@ -1819,6 +1941,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.isAudioFileMessage(message)) {
       return 'Audio';
     }
+    if (this.isVideoFileMessage(message)) {
+      return 'Video';
+    }
     if (mimeType.includes('pdf')) {
       return 'PDF';
     }
@@ -1854,6 +1979,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (normalizedMimeType.startsWith('audio/') || /\.(ogg|mp3|wav|m4a|aac)$/i.test(normalizedName)) {
       return 'fa-file-audio';
+    }
+
+    if (normalizedMimeType.startsWith('video/') || /\.(mp4|webm|ogv|mov|m4v)$/i.test(normalizedName)) {
+      return 'fa-file-video';
     }
 
     if (
@@ -2220,7 +2349,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const fileName = String(message.filename || '').toLowerCase();
-    const fileUrl = this.normalizeFileUrl(String(message.fileUrl || '')).toLowerCase();
+    const fileUrl = this.normalizeFileUrl(String(message.fileUrl || message.mediaUrl || '')).toLowerCase();
     if (fileName.endsWith('.pdf')) {
       return 'application/pdf';
     }
@@ -2235,6 +2364,22 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (fileName.endsWith('.xlsx')) {
       return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
+
+    if (fileName.endsWith('.mp4') || /\.mp4(\?|$)/i.test(fileUrl)) {
+      return 'video/mp4';
+    }
+
+    if (fileName.endsWith('.webm') || /\.webm(\?|$)/i.test(fileUrl)) {
+      return 'video/webm';
+    }
+
+    if (fileName.endsWith('.ogv') || /\.ogv(\?|$)/i.test(fileUrl)) {
+      return 'video/ogg';
+    }
+
+    if (fileName.endsWith('.mov') || /\.mov(\?|$)/i.test(fileUrl)) {
+      return 'video/quicktime';
     }
 
     return 'application/octet-stream';
@@ -3059,6 +3204,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
           fileUrl: uploadedData.url,
           filename: uploadedData.filename,
           mimeType: uploadedData.mimeType,
+          mediaType: attachment.isVideo ? 'video' : (attachment.isImage ? 'image' : ''),
+          mediaUrl: uploadedData.url,
         });
 
         const sendPayload: SendFileRequest = {
@@ -3079,6 +3226,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
               fileUrl: uploadedData?.url,
               filename: uploadedData?.filename,
               mimeType: uploadedData?.mimeType,
+              mediaType: attachment.isVideo ? 'video' : (attachment.isImage ? 'image' : ''),
+              mediaUrl: uploadedData?.url,
             });
 
             this.sendAttachmentBatch(conversation, attachments, pendingIds, captionText, index + 1);
@@ -3118,6 +3267,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         name: message.filename,
         mimeType: message.mimeType || '',
         isImage: this.isImageFileMessage(message),
+        isVideo: this.isVideoFileMessage(message),
         isPdf: this.isPdfFileMessage(message),
         previewUrl: undefined,
         previewResourceUrl: null,
@@ -3130,6 +3280,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       fileUrl: message.fileUrl,
       filename: message.filename,
       mimeType: message.mimeType,
+      mediaType: this.isVideoFileMessage(message) ? 'video' : (this.isImageFileMessage(message) ? 'image' : message.mediaType),
+      mediaUrl: message.mediaUrl || message.fileUrl,
     });
     this.queueScrollToBottom(true);
 
@@ -3157,7 +3309,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     fallbackText: string
   ): void {
     const now = new Date().toISOString();
-    const localPreviewUrl = attachment.isImage ? URL.createObjectURL(attachment.file) : '';
+    const localPreviewUrl = attachment.isImage || attachment.isVideo ? URL.createObjectURL(attachment.file) : '';
     if (localPreviewUrl) {
       this.optimisticImagePreviewUrls.add(localPreviewUrl);
     }
@@ -3173,6 +3325,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       fileUrl: localPreviewUrl,
       filename: attachment.name,
       mimeType: attachment.mimeType,
+      mediaType: attachment.isVideo ? 'video' : (attachment.isImage ? 'image' : ''),
+      mediaUrl: localPreviewUrl,
       direction: 'outgoing',
       status: 'sent',
       timestamp: now,
@@ -3398,6 +3552,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       fileUrl: '',
       filename: attachment.name,
       mimeType: attachment.mimeType,
+      mediaType: attachment.isVideo ? 'video' : (attachment.isImage ? 'image' : ''),
       direction: 'outgoing',
       status: 'read',
       timestamp: now,

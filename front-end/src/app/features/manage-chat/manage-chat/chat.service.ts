@@ -301,12 +301,13 @@ export class ChatService {
         ...response,
         data: (response.data || []).reduce<ChatMessage[]>((acc, item) => {
           const normalizedText = String(item.text || '').trim();
-          const rawFileUrl = String(item.fileUrl || item.url || '').trim();
+          const rawMediaUrl = String(item.mediaUrl || '').trim();
+          const rawFileUrl = String(item.fileUrl || rawMediaUrl || item.url || '').trim();
           const fileUrl = this.toAbsoluteFileUrl(rawFileUrl);
           const inferredNameFromUrl = fileUrl ? decodeURIComponent(fileUrl.split('?')[0].split('/').pop() || '') : '';
           const filename = String(item.filename || inferredNameFromUrl || '').trim();
           const mimeType = String(item.mimeType || item.mimetype || '').trim();
-          const mediaType = String(item.mediaType || '').trim().toLowerCase();
+          const mediaType = String(item.mediaType || this.inferMediaType(mimeType, filename, fileUrl)).trim().toLowerCase();
           const rawType = String(item.type || 'text').toLowerCase();
           const looksLikeMediaText = ['image', 'document', 'video', 'audio', 'file', 'sticker'].includes(normalizedText.toLowerCase());
           const isFileMessage = rawType === 'file' || Boolean(fileUrl || filename || looksLikeMediaText || mediaType);
@@ -335,7 +336,7 @@ export class ChatService {
             filename: (filename || normalizedText || inferredNameFromUrl) || undefined,
             mimeType: mimeType || undefined,
             mediaType: mediaType || undefined,
-            mediaUrl: String(item.mediaUrl || rawFileUrl || '').trim() || undefined,
+            mediaUrl: this.toAbsoluteFileUrl(rawMediaUrl || rawFileUrl) || undefined,
             direction: isIncoming ? 'incoming' : 'outgoing',
             status: (['sent', 'delivered', 'read', 'failed'].includes(normalizedStatus) ? normalizedStatus : 'sent') as ChatMessage['status'],
             timestamp: item.timestamp,
@@ -499,5 +500,25 @@ export class ChatService {
     }
 
     return this.apiBaseUrl ? `${this.apiBaseUrl}/${normalized}` : normalized;
+  }
+
+  private inferMediaType(mimeType: string, filename: string, fileUrl: string): string {
+    const normalizedMimeType = String(mimeType || '').toLowerCase();
+    const normalizedName = String(filename || '').toLowerCase();
+    const normalizedUrl = String(fileUrl || '').toLowerCase();
+
+    if (normalizedMimeType.startsWith('video/') || /\.(mp4|webm|ogv|mov|m4v)(\?|$)/i.test(normalizedName) || /\.(mp4|webm|ogv|mov|m4v)(\?|$)/i.test(normalizedUrl)) {
+      return 'video';
+    }
+
+    if (normalizedMimeType.startsWith('audio/') || /\.(ogg|mp3|wav|m4a|aac)(\?|$)/i.test(normalizedName) || /\.(ogg|mp3|wav|m4a|aac)(\?|$)/i.test(normalizedUrl)) {
+      return 'audio';
+    }
+
+    if (normalizedMimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp)(\?|$)/i.test(normalizedName) || /\.(png|jpe?g|gif|webp)(\?|$)/i.test(normalizedUrl)) {
+      return 'image';
+    }
+
+    return '';
   }
 }

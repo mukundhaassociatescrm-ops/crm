@@ -10,6 +10,10 @@ const allowedMimeTypes = new Set([
   'image/jpeg',
   'image/jpg',
   'image/png',
+  'video/mp4',
+  'video/webm',
+  'video/ogg',
+  'video/quicktime',
   'text/plain',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -36,7 +40,7 @@ const upload = multer({
   },
   fileFilter: (_req, file, cb) => {
     if (!allowedMimeTypes.has(String(file.mimetype || '').toLowerCase())) {
-      return cb(new Error('Unsupported file type. Allowed: pdf, doc, docx, xls, xlsx, jpg, png, txt.'));
+      return cb(new Error('Unsupported file type. Allowed: pdf, doc, docx, xls, xlsx, jpg, png, mp4, webm, ogg, mov, txt.'));
     }
 
     return cb(null, true);

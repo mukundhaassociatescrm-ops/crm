@@ -87,6 +87,10 @@ const resolveExtensionFromMimeType = (mimeType) => {
   if (mimeIncludes(mime, 'audio/ogg') || mimeIncludes(mime, 'ogg') || mimeIncludes(mime, 'opus')) return '.ogg';
   if (mimeIncludes(mime, 'audio/mpeg') || mimeIncludes(mime, 'mp3')) return '.mp3';
   if (mimeIncludes(mime, 'audio/wav') || mimeIncludes(mime, 'wav')) return '.wav';
+  if (mimeIncludes(mime, 'video/mp4')) return '.mp4';
+  if (mimeIncludes(mime, 'video/webm')) return '.webm';
+  if (mimeIncludes(mime, 'video/ogg')) return '.ogv';
+  if (mimeIncludes(mime, 'video/quicktime')) return '.mov';
   if (mimeIncludes(mime, 'msword') || mimeIncludes(mime, 'wordprocessingml')) return '.docx';
   if (mimeIncludes(mime, 'spreadsheetml') || mimeIncludes(mime, 'ms-excel')) return '.xlsx';
   return '.bin';
@@ -98,14 +102,20 @@ const resolveMediaType = (messageType, mimeType, filename = '', fileUrl = '') =>
   const normalizedName = String(filename || '').toLowerCase();
   const normalizedUrl = String(fileUrl || '').toLowerCase();
 
-  if (normalizedType === 'audio' || normalizedMimeType.startsWith('audio/') || /\.(ogg|mp3|wav|m4a|aac)(\?|$)/i.test(normalizedName) || /\.(ogg|mp3|wav|m4a|aac)(\?|$)/i.test(normalizedUrl)) {
+  if (normalizedType === 'video') {
+    return 'video';
+  }
+  if (normalizedType === 'audio') {
     return 'audio';
+  }
+  if (normalizedMimeType.startsWith('audio/') || /\.(ogg|mp3|wav|m4a|aac)(\?|$)/i.test(normalizedName) || /\.(ogg|mp3|wav|m4a|aac)(\?|$)/i.test(normalizedUrl)) {
+    return 'audio';
+  }
+  if (normalizedMimeType.startsWith('video/') || /\.(mp4|webm|ogv|mov|m4v)(\?|$)/i.test(normalizedName) || /\.(mp4|webm|ogv|mov|m4v)(\?|$)/i.test(normalizedUrl)) {
+    return 'video';
   }
   if (normalizedType === 'image' || normalizedMimeType.startsWith('image/')) {
     return 'image';
-  }
-  if (normalizedType === 'video' || normalizedMimeType.startsWith('video/')) {
-    return 'video';
   }
   if (normalizedType === 'document' || normalizedType === 'file') {
     return 'document';
@@ -134,6 +144,20 @@ const resolveAttachmentFilename = (attachmentUrl, attachmentFilename, attachment
 
   if (fromQuery) {
     return fromQuery;
+  }
+
+  const fromPath = (() => {
+    try {
+      const parsed = new URL(String(attachmentUrl || ''));
+      const basename = path.basename(decodeURIComponent(parsed.pathname || ''));
+      return path.extname(basename) ? basename : '';
+    } catch (_error) {
+      return '';
+    }
+  })();
+
+  if (fromPath) {
+    return fromPath;
   }
 
   const extension = resolveExtensionFromMimeType(attachmentMimeType);
@@ -585,6 +609,7 @@ exports.sendChatFile = async (req, res, next) => {
     });
     const messageId = result.messageId || `local-file-${Date.now()}`;
     const normalizedTo = normalizePhone(to);
+    const mediaType = resolveMediaType('file', mimeType || '', filename, normalizedFileUrl);
 
     await saveMessage({
       messageId,
@@ -594,6 +619,8 @@ exports.sendChatFile = async (req, res, next) => {
       fileUrl: normalizedFileUrl,
       filename,
       mimeType: mimeType || '',
+      mediaType,
+      mediaUrl: normalizedFileUrl,
       direction: 'out',
       status: 'sent',
       timestamp: new Date(),
@@ -806,6 +833,7 @@ exports.processGupshupWebhook = async (body) => {
 
   const payloadImage = payload.image || nestedPayload.image || {};
   const payloadAudio = payload.audio || nestedPayload.audio || {};
+  const payloadVideo = payload.video || nestedPayload.video || {};
   const payloadDocument = payload.document || nestedPayload.document || {};
   const payloadMedia = payload.media || nestedPayload.media || {};
   const payloadFile = payload.file || nestedPayload.file || {};
@@ -866,6 +894,10 @@ exports.processGupshupWebhook = async (body) => {
     payloadAudio.link ||
     payloadAudio.originalUrl ||
     payloadAudio.previewUrl ||
+    payloadVideo.url ||
+    payloadVideo.link ||
+    payloadVideo.originalUrl ||
+    payloadVideo.previewUrl ||
     payloadDocument.url ||
     payloadDocument.link ||
     payloadDocument.originalUrl ||
@@ -888,6 +920,10 @@ exports.processGupshupWebhook = async (body) => {
     nestedPayload?.audio?.link ||
     nestedPayload?.audio?.originalUrl ||
     nestedPayload?.audio?.previewUrl ||
+    nestedPayload?.video?.url ||
+    nestedPayload?.video?.link ||
+    nestedPayload?.video?.originalUrl ||
+    nestedPayload?.video?.previewUrl ||
     nestedPayload?.document?.url ||
     nestedPayload?.document?.link ||
     nestedPayload?.document?.originalUrl ||
@@ -901,20 +937,41 @@ exports.processGupshupWebhook = async (body) => {
     '';
   let attachmentFilename =
     payload.filename ||
+    payload.fileName ||
+    payload.name ||
     payloadImage.filename ||
+    payloadImage.fileName ||
     payloadAudio.filename ||
+    payloadAudio.fileName ||
+    payloadVideo.filename ||
+    payloadVideo.fileName ||
+    payloadVideo.name ||
     payloadDocument.filename ||
+    payloadDocument.fileName ||
     payloadMedia.filename ||
+    payloadMedia.fileName ||
     payloadFile.filename ||
+    payloadFile.fileName ||
     payloadImage.caption ||
     payloadAudio.caption ||
+    payloadVideo.caption ||
     payloadDocument.caption ||
     nestedPayload.filename ||
+    nestedPayload.fileName ||
+    nestedPayload.name ||
     nestedPayload?.image?.filename ||
+    nestedPayload?.image?.fileName ||
     nestedPayload?.audio?.filename ||
+    nestedPayload?.audio?.fileName ||
+    nestedPayload?.video?.filename ||
+    nestedPayload?.video?.fileName ||
+    nestedPayload?.video?.name ||
     nestedPayload?.document?.filename ||
+    nestedPayload?.document?.fileName ||
     nestedPayload?.media?.filename ||
+    nestedPayload?.media?.fileName ||
     nestedPayload?.file?.filename ||
+    nestedPayload?.file?.fileName ||
     '';
   const attachmentMimeType =
     payload.mimeType ||
@@ -925,6 +982,9 @@ exports.processGupshupWebhook = async (body) => {
     payloadAudio.mimeType ||
     payloadAudio.mimetype ||
     payloadAudio.contentType ||
+    payloadVideo.mimeType ||
+    payloadVideo.mimetype ||
+    payloadVideo.contentType ||
     payloadDocument.mimeType ||
     payloadDocument.mimetype ||
     payloadDocument.contentType ||
@@ -942,6 +1002,9 @@ exports.processGupshupWebhook = async (body) => {
     nestedPayload?.audio?.mimeType ||
     nestedPayload?.audio?.mimetype ||
     nestedPayload?.audio?.contentType ||
+    nestedPayload?.video?.mimeType ||
+    nestedPayload?.video?.mimetype ||
+    nestedPayload?.video?.contentType ||
     nestedPayload?.document?.mimeType ||
     nestedPayload?.document?.mimetype ||
     nestedPayload?.document?.contentType ||
@@ -954,11 +1017,13 @@ exports.processGupshupWebhook = async (body) => {
   const hasStructuredMediaUrl = Boolean(
     payloadImage.url || payloadImage.link || payloadImage.originalUrl || payloadImage.previewUrl ||
     payloadAudio.url || payloadAudio.link || payloadAudio.originalUrl || payloadAudio.previewUrl ||
+    payloadVideo.url || payloadVideo.link || payloadVideo.originalUrl || payloadVideo.previewUrl ||
     payloadDocument.url || payloadDocument.link || payloadDocument.originalUrl || payloadDocument.previewUrl ||
     payloadMedia.url || payloadMedia.link || payloadMedia.originalUrl || payloadMedia.previewUrl ||
     payloadFile.url || payloadFile.link || payloadFile.originalUrl || payloadFile.previewUrl ||
     nestedPayload?.image?.url || nestedPayload?.image?.link || nestedPayload?.image?.originalUrl || nestedPayload?.image?.previewUrl ||
     nestedPayload?.audio?.url || nestedPayload?.audio?.link || nestedPayload?.audio?.originalUrl || nestedPayload?.audio?.previewUrl ||
+    nestedPayload?.video?.url || nestedPayload?.video?.link || nestedPayload?.video?.originalUrl || nestedPayload?.video?.previewUrl ||
     nestedPayload?.document?.url || nestedPayload?.document?.link || nestedPayload?.document?.originalUrl || nestedPayload?.document?.previewUrl ||
     nestedPayload?.media?.url || nestedPayload?.media?.link || nestedPayload?.media?.originalUrl || nestedPayload?.media?.previewUrl ||
     nestedPayload?.file?.url || nestedPayload?.file?.link
@@ -975,7 +1040,8 @@ exports.processGupshupWebhook = async (body) => {
   ).toLowerCase();
   const resolvedMimeType = attachmentMimeType
     || (messageType === 'image' ? 'image/jpeg' : '')
-    || (messageType === 'audio' ? 'audio/ogg' : '');
+    || (messageType === 'audio' ? 'audio/ogg' : '')
+    || (messageType === 'video' ? 'video/mp4' : '');
   const isKnownMediaType = mediaPayloadTypes.has(messageType);
   const hasAttachmentPayload = Boolean(isKnownMediaType || attachmentUrl);
   let persistedFilename = hasAttachmentPayload ? attachmentFilename : '';
@@ -1068,6 +1134,7 @@ exports.processGupshupWebhook = async (body) => {
     }
 
     let persistedAttachmentUrl = attachmentUrl;
+    let videoMessageLogged = false;
     if (attachmentUrl) {
       const mirrored = await mirrorIncomingAttachmentUrl(attachmentUrl, attachmentFilename, persistedMimeType);
       persistedAttachmentUrl = mirrored.fileUrl || attachmentUrl;
@@ -1077,6 +1144,24 @@ exports.processGupshupWebhook = async (body) => {
       persistedFilename = attachmentFilename || mirrored.filename || persistedFilename;
       persistedMimeType = mirrored.mimeType || persistedMimeType;
       persistedMediaType = resolveMediaType(messageType, persistedMimeType, persistedFilename, persistedAttachmentUrl);
+      if (persistedMediaType === 'video') {
+        console.log('[VIDEO MESSAGE RECEIVED]', {
+          mimeType: persistedMimeType,
+          mediaType: persistedMediaType,
+          fileName: persistedFilename,
+          mediaUrl: persistedAttachmentUrl,
+        });
+        videoMessageLogged = true;
+      }
+    }
+
+    if (persistedMediaType === 'video' && !videoMessageLogged) {
+      console.log('[VIDEO MESSAGE RECEIVED]', {
+        mimeType: persistedMimeType,
+        mediaType: persistedMediaType,
+        fileName: persistedFilename,
+        mediaUrl: persistedAttachmentUrl,
+      });
     }
 
     const inboundDirection = isFromBusiness ? 'out' : 'in';

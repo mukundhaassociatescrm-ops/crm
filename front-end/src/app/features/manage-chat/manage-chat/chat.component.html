@@ -128,9 +128,20 @@
             <img class="compose-stage-image" [src]="attachment.previewUrl" [alt]="attachment.name || 'Image preview'">
           </ng-container>
           <ng-template #fullNonImagePreviewTpl>
+            <video
+              *ngIf="attachment.isVideo && attachment.previewUrl; else fullPdfPreviewTpl"
+              class="compose-stage-video"
+              controls
+              preload="metadata"
+              [src]="attachment.previewUrl"
+            >
+              Your browser does not support video playback.
+            </video>
+            <ng-template #fullPdfPreviewTpl>
             <div class="compose-stage-pdf" *ngIf="attachment.isPdf && attachment.previewResourceUrl; else fullGenericFilePreviewTpl">
               <iframe [src]="attachment.previewResourceUrl" title="PDF preview"></iframe>
             </div>
+            </ng-template>
             <ng-template #fullGenericFilePreviewTpl>
               <div class="compose-stage-file-card">
                 <i class="fa-solid" [ngClass]="getSelectedAttachmentIconClass()"></i>
@@ -159,6 +170,9 @@
             </button>
             <button type="button" class="preview-strip-item add-more" (click)="addAnotherAttachment('image')" aria-label="Add image">
               <i class="fa-solid fa-image"></i>
+            </button>
+            <button type="button" class="preview-strip-item add-more" (click)="addAnotherAttachment('video')" aria-label="Add video">
+              <i class="fa-solid fa-file-video"></i>
             </button>
             <button type="button" class="preview-strip-item add-more" (click)="addAnotherAttachment('document')" aria-label="Add document">
               <i class="fa-regular fa-file-lines"></i>
@@ -222,6 +236,52 @@
             </div>
             <ng-container *ngIf="isFileMessage(message); else textMessageTpl">
               <div class="file-message-card">
+                <ng-container *ngIf="isVideoFileMessage(message); else nonVideoFileTpl">
+                  <div class="video-message-card" *ngIf="logVideoPlayerRender(message)" [class.video-error]="hasVideoError(message)">
+                    <div class="video-preview-shell">
+                      <div class="video-loading-overlay" *ngIf="isVideoLoading(message)">
+                        <span class="image-loading-spinner"></span>
+                        <span>Loading video...</span>
+                      </div>
+                      <div class="video-error-overlay" *ngIf="hasVideoError(message)">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Video preview unavailable</span>
+                      </div>
+                      <video
+                        class="video-player"
+                        controls
+                        playsinline
+                        preload="metadata"
+                        [attr.poster]="null"
+                        [src]="getVideoSourceUrl(message)"
+                        (loadedmetadata)="onVideoMetadataLoaded(message)"
+                        (canplay)="onVideoMetadataLoaded(message)"
+                        (error)="onVideoPlayError(message, $event)"
+                      >
+                        Your browser does not support video playback.
+                      </video>
+                      <div class="video-thumbnail-placeholder" aria-hidden="true" *ngIf="isVideoLoading(message)">
+                        <i class="fa-solid fa-play"></i>
+                      </div>
+                    </div>
+                    <div class="video-message-footer">
+                      <div class="video-message-meta">
+                        <span class="video-message-title">{{ getVideoFileName(message) }}</span>
+                        <span class="video-message-detail">{{ getVideoMetaLabel(message) }}</span>
+                      </div>
+                      <button
+                        type="button"
+                        class="video-download-btn"
+                        (click)="downloadFileMessage(message)"
+                        title="Download video"
+                        aria-label="Download video"
+                      >
+                        <i class="fa-solid fa-download"></i>
+                      </button>
+                    </div>
+                  </div>
+                </ng-container>
+                <ng-template #nonVideoFileTpl>
                 <ng-container *ngIf="isAudioFileMessage(message); else nonAudioFileTpl">
                   <div class="audio-message-card" *ngIf="logAudioPlayerRender(message)">
                     <div class="audio-message-icon" aria-hidden="true">
@@ -250,6 +310,7 @@
                     </button>
                   </div>
                 </ng-container>
+                </ng-template>
                 <ng-template #nonAudioFileTpl>
                 <ng-container *ngIf="shouldRenderImagePreview(message)">
                   <div class="image-loading-skeleton" *ngIf="!isInlineImageLoaded(message)">
@@ -264,7 +325,7 @@
                   >
                     <img
                       class="image-preview"
-                      [src]="message.fileUrl"
+                      [src]="message.fileUrl || message.mediaUrl"
                       [alt]="message.filename || 'Image attachment'"
                       (load)="onInlineImageLoad(message)"
                       (error)="onInlineImageError(message)"
@@ -343,6 +404,13 @@
           (change)="onAttachmentSelected($event)"
         >
         <input
+          #videoAttachmentInput
+          type="file"
+          class="hidden-file-input"
+          accept="video/mp4,video/webm,video/ogg,video/quicktime,.mp4,.webm,.ogv,.mov,.m4v"
+          (change)="onAttachmentSelected($event)"
+        >
+        <input
           #documentAttachmentInput
           type="file"
           class="hidden-file-input"
@@ -378,6 +446,10 @@
                   <button type="button" class="attachment-option" (click)="openAttachmentType('image')">
                     <i class="fa-regular fa-image"></i>
                     <span>Image</span>
+                  </button>
+                  <button type="button" class="attachment-option" (click)="openAttachmentType('video')">
+                    <i class="fa-solid fa-file-video"></i>
+                    <span>Video</span>
                   </button>
                   <button type="button" class="attachment-option" (click)="openAttachmentType('document')">
                     <i class="fa-regular fa-file-lines"></i>
