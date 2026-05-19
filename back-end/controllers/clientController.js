@@ -1,34 +1,33 @@
 const Client = require('../models/Client');
 const Group = require('../models/Group');
 const multer = require('multer');
-const csv = require('csv-parse/sync');
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
 
-/**
- * Format a raw phone number to +91XXXXXXXXXX.
- * Accepts: 10-digit, 91XXXXXXXXXX, +91XXXXXXXXXX.
- * Returns null if it cannot be normalised.
- */
-const formatMobile = (raw) => {
-  const digits = String(raw || '').replace(/\D/g, '');
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
-  if (digits.length === 13 && String(raw).startsWith('+91')) return `+91${digits.slice(2)}`;
-  return null;
-};
+const { formatMobile } = require('../utils/phoneUtils');
 
 // ─── Multer (in-memory for CSV upload) ────────────────────────────────────────
 
+const {
+  IMPORT_ACCEPTED_EXTENSIONS,
+  IMPORT_ACCEPTED_MIME_TYPES,
+  importContactsFromFile,
+} = require('../services/contactImportService');
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+    const originalName = String(file.originalname || '').toLowerCase();
+    const extension = originalName.includes('.') ? originalName.slice(originalName.lastIndexOf('.')) : '';
+    const mimeType = String(file.mimetype || '').toLowerCase();
+
+    if (IMPORT_ACCEPTED_EXTENSIONS.has(extension) || IMPORT_ACCEPTED_MIME_TYPES.has(mimeType)) {
       cb(null, true);
-    } else {
-      cb(new Error('Only CSV files are allowed'));
+      return;
     }
+
+    cb(new Error('Only CSV, XLS, and XLSX files are allowed'));
   },
 });
 
@@ -272,69 +271,39 @@ exports.assignGroupsToClient = async (req, res, next) => {
 exports.bulkUpload = async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No CSV file provided.' });
+      return res.status(400).json({ success: false, message: 'No import file provided.' });
     }
 
-    const text = req.file.buffer.toString('utf8');
-    let records;
-    try {
-      records = csv.parse(text, {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true,
-      });
-    } catch {
-      return res.status(400).json({ success: false, message: 'Failed to parse CSV. Ensure it has headers: name,mobile,alternateMobile.' });
-    }
+    const result = await importContactsFromFile(req.file, {
+      createdBy: req.user?._id,
+    });
 
-    let created = 0;
-    let skipped = 0;
-    const errors = [];
+    const { summary, columnMap, fileType, parser } = result;
 
-    for (const row of records) {
-      const name = (row.name || row.Name || '').trim();
-      const rawMobile = (row.mobile || row.Mobile || '').trim();
-      const rawAlt = (row.alternateMobile || row.AlternateMobile || row.alternate_mobile || '').trim();
-
-      if (!name) {
-        errors.push({ row: rawMobile || '(unknown)', reason: 'Missing name' });
-        skipped++;
-        continue;
-      }
-
-      const formatted = formatMobile(rawMobile);
-      if (!formatted) {
-        errors.push({ row: rawMobile, reason: 'Invalid mobile number' });
-        skipped++;
-        continue;
-      }
-
-      const exists = await Client.findOne({ mobile: formatted });
-      if (exists) {
-        skipped++;
-        continue;
-      }
-
-      try {
-        await Client.create({
-          name,
-          mobile: formatted,
-          alternateMobile: rawAlt ? (formatMobile(rawAlt) || rawAlt) : '',
-          whatsappOptIn: true,
-        });
-        created++;
-      } catch (err) {
-        if (err.code === 11000) {
-          skipped++;
-        } else {
-          errors.push({ row: rawMobile, reason: err.message });
-          skipped++;
-        }
-      }
-    }
-
-    res.json({ success: true, created, skipped, errors });
+    res.json({
+      success: true,
+      created: summary.imported,
+      skipped: summary.skipped,
+      errors: summary.errors,
+      meta: {
+        fileType,
+        parser,
+        columnMap,
+      },
+      summary: {
+        totalRows: summary.totalRows,
+        imported: summary.imported,
+        duplicates: summary.duplicates,
+        invalid: summary.invalid,
+        groupsCreated: summary.groupsCreated,
+        groupAssignments: summary.groupAssignments,
+        skipped: summary.skipped,
+      },
+    });
   } catch (error) {
+    if (error.statusCode === 400) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };

@@ -39,7 +39,12 @@ export class ManageClientComponent implements OnInit {
 
   // Bulk upload
   selectedFile: File | null = null;
-  bulkResult: { created: number; skipped: number; errors: { row: string; reason: string }[] } | null = null;
+  bulkResult: {
+    created: number;
+    skipped: number;
+    groupsCreated: number;
+    errors: { row: string; reason: string }[];
+  } | null = null;
   isBulkUploading = false;
   groupSearchTerm = '';
 
@@ -289,7 +294,7 @@ export class ManageClientComponent implements OnInit {
 
   uploadCSV(): void {
     if (!this.selectedFile) {
-      this.toastr.error('Please select a CSV file', 'Error');
+      this.toastr.error('Please select a CSV or Excel file', 'Error');
       return;
     }
     this.isBulkUploading = true;
@@ -297,7 +302,12 @@ export class ManageClientComponent implements OnInit {
       next: (res) => {
         this.isBulkUploading = false;
         if (res.success) {
-          this.bulkResult = { created: res.created, skipped: res.skipped, errors: res.errors };
+          this.bulkResult = {
+            created: res.created,
+            skipped: res.skipped,
+            groupsCreated: res.summary?.groupsCreated || 0,
+            errors: res.errors,
+          };
           this.toastr.success(`${res.created} clients imported`, 'Bulk Upload');
           this.loadClients();
         } else {

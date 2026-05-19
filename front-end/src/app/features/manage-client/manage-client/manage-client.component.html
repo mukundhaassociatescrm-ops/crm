@@ -260,27 +260,30 @@
   <div class="client-modal bulk-modal">
 
     <div class="modal-header">
-      <h3><i class="fas fa-file-csv"></i> Bulk Upload Clients</h3>
+      <h3><i class="fas fa-file-import"></i> Bulk Import Clients</h3>
       <button class="close-btn" (click)="closeBulkUpload()"><i class="fas fa-times"></i></button>
     </div>
 
     <div class="modal-body">
       <div class="csv-info">
-        <p>Upload a CSV file with the following columns:</p>
-        <code>name, mobile, alternateMobile</code>
-        <p class="hint">Duplicate mobiles will be skipped automatically.</p>
+        <p>Upload a CSV or Excel file (.csv, .xls, .xlsx) with columns such as:</p>
+        <code>NAME, Phone 1 - Value, GROUP</code>
+        <p class="hint">Legacy CSV format still supported: <code>name, mobile, alternateMobile</code>. Duplicate phones are skipped; existing clients can still be assigned to groups.</p>
       </div>
 
       <div class="form-group">
-        <label>Select CSV File</label>
-        <input type="file" accept=".csv" (change)="onFileSelected($event)" />
+        <label>Select File</label>
+        <input type="file" accept=".csv,.xls,.xlsx" (change)="onFileSelected($event)" />
         <span class="file-name" *ngIf="selectedFile">{{ selectedFile.name }}</span>
       </div>
 
       <!-- Result -->
       <div class="bulk-result" *ngIf="bulkResult">
         <div class="result-row success-row">
-          <i class="fas fa-check-circle"></i> {{ bulkResult.created }} clients created
+          <i class="fas fa-check-circle"></i> {{ bulkResult.created }} clients imported
+        </div>
+        <div class="result-row skip-row" *ngIf="bulkResult.groupsCreated">
+          <i class="fas fa-layer-group"></i> {{ bulkResult.groupsCreated }} groups created
         </div>
         <div class="result-row skip-row">
           <i class="fas fa-minus-circle"></i> {{ bulkResult.skipped }} skipped (duplicates or invalid)

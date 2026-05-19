@@ -38,6 +38,25 @@ export interface BulkUploadResponse {
   skipped: number;
   errors: { row: string; reason: string }[];
   message?: string;
+  meta?: {
+    fileType?: string;
+    parser?: string;
+    columnMap?: {
+      nameColumn?: string | null;
+      phoneColumn?: string | null;
+      alternateMobileColumn?: string | null;
+      groupColumn?: string | null;
+    };
+  };
+  summary?: {
+    totalRows: number;
+    imported: number;
+    duplicates: number;
+    invalid: number;
+    groupsCreated: number;
+    groupAssignments: number;
+    skipped: number;
+  };
 }
 
 @Injectable({ providedIn: 'root' })
