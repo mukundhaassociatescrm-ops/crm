@@ -21,11 +21,28 @@
       </div>
 
       <div class="form-group">
+        <label>Select SMS Template</label>
+        <select
+          [(ngModel)]="selectedSmsTemplateId"
+          (ngModelChange)="onSmsTemplateChanged()"
+          [disabled]="isSending || isLoadingTemplates"
+        >
+          <option value="">{{ isLoadingTemplates ? 'Loading templates...' : '-- Select SMS template --' }}</option>
+          <option *ngFor="let template of smsTemplates" [value]="template.templateId">
+            {{ template.templateName || template.templateId }}
+          </option>
+        </select>
+        <div class="field-note" *ngIf="!isLoadingTemplates && !smsTemplates.length">
+          No active templates. <a routerLink="/manage-sms-templates">Import DLT templates</a>.
+        </div>
+      </div>
+
+      <div class="form-group">
         <label>SMS message</label>
         <textarea
           rows="8"
           [(ngModel)]="message"
-          placeholder="Type your SMS message..."
+          placeholder="Type your SMS message or select a template above..."
           [disabled]="isSending"
         ></textarea>
         <div class="counter-row">

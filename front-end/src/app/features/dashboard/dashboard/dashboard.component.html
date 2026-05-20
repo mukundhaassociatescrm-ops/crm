@@ -64,6 +64,12 @@
         <p>Pick a client and compose an SMS</p>
       </div>
 
+      <div class="card" *ngIf="isAdmin" (click)="nav('manage-sms-templates')">
+        <div class="icon icon-sms-templates"><i class="fa-solid fa-file-excel"></i></div>
+        <h3>Manage SMS Templates</h3>
+        <p>Import DLT Excel templates for Single and Bulk SMS</p>
+      </div>
+
       <div class="card" *ngIf="isAdmin" (click)="nav('work-history')">
         <div class="icon icon-history"><i class="fa-solid fa-timeline"></i></div>
         <h3>Work History</h3>

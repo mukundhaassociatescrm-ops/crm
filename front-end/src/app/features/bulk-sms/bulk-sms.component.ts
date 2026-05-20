@@ -6,6 +6,8 @@ import { Group } from '../manage-group/group.service';
 import { BulkMessageService, SendBulkMessagePayload } from '../manage-bulk-message/bulk-message.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 import { GroupSelectorComponent } from '../../shared/components/group-selector/group-selector.component';
+import { SmsTemplate, SmsTemplateService } from '../manage-sms-templates/sms-template.service';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-bulk-sms',
@@ -18,11 +20,17 @@ export class BulkSmsComponent {
   selectedGroup: Group | null = null;
   message = '';
   isSending = false;
+  smsTemplates: SmsTemplate[] = [];
+  selectedSmsTemplateId = '';
+  isLoadingTemplates = false;
 
   constructor(
     private readonly bulkMessageService: BulkMessageService,
     private readonly toastr: ToastrService,
-  ) {}
+    private readonly smsTemplateService: SmsTemplateService,
+  ) {
+    this.loadSmsTemplates();
+  }
 
   get selectedGroupMemberCount(): number {
     if (!this.selectedGroup) {
@@ -52,6 +60,28 @@ export class BulkSmsComponent {
 
   onGroupSelected(group: Group | null): void {
     this.selectedGroup = group;
+  }
+
+  onSmsTemplateChanged(): void {
+    const template = this.smsTemplates.find((item) => item.templateId === this.selectedSmsTemplateId);
+    if (!template) {
+      return;
+    }
+    this.message = template.templateContent || '';
+  }
+
+  private loadSmsTemplates(): void {
+    this.isLoadingTemplates = true;
+    this.smsTemplateService.getTemplates({ activeOnly: true }).subscribe({
+      next: (response) => {
+        this.isLoadingTemplates = false;
+        this.smsTemplates = response.success && Array.isArray(response.data) ? response.data : [];
+      },
+      error: () => {
+        this.isLoadingTemplates = false;
+        this.smsTemplates = [];
+      },
+    });
   }
 
   sendBulkSms(): void {

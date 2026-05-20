@@ -69,11 +69,28 @@
 
     <div class="composer-body">
       <label class="field">
+        <span>Select SMS Template</span>
+        <select
+          [(ngModel)]="selectedSmsTemplateId"
+          (ngModelChange)="onSmsTemplateChanged()"
+          [disabled]="!selectedClient || isSending || isLoadingTemplates"
+        >
+          <option value="">{{ isLoadingTemplates ? 'Loading templates...' : '-- Select SMS template --' }}</option>
+          <option *ngFor="let template of smsTemplates" [value]="template.templateId">
+            {{ template.templateName || template.templateId }}
+          </option>
+        </select>
+        <small class="field-hint" *ngIf="!isLoadingTemplates && !smsTemplates.length">
+          No active templates. <a routerLink="/manage-sms-templates">Import DLT templates</a>.
+        </small>
+      </label>
+
+      <label class="field">
         <span>Message</span>
         <textarea
           [(ngModel)]="message"
           rows="6"
-          placeholder="Type your SMS message..."
+          placeholder="Type your SMS message or select a template above..."
           [disabled]="!selectedClient || isSending"
         ></textarea>
       </label>

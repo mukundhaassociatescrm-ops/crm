@@ -18,6 +18,7 @@ import { ManageClientComponent } from './features/manage-client/manage-client/ma
 import { WorkHistoryComponent } from './features/work-history/work-history.component';
 import { AuthGuard } from './core/auth.guard';
 import { SmsComponent } from './features/sms/sms.component';
+import { ManageSmsTemplatesComponent } from './features/manage-sms-templates/manage-sms-templates.component';
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
 
@@ -89,6 +90,12 @@ export const routes: Routes = [
         component: SmsComponent,
         canActivate: [AuthGuard],
         data: { role: 'admin', breadcrumb: 'SMS', fullscreenPageKey: 'sms' }
+      },
+      {
+        path: 'manage-sms-templates',
+        component: ManageSmsTemplatesComponent,
+        canActivate: [AuthGuard],
+        data: { role: 'admin', breadcrumb: 'Manage SMS Templates', fullscreenPageKey: 'manage-sms-templates' }
       }
     ]
   }

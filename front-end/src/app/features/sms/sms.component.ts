@@ -1,11 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { ToastrService } from 'ngx-toastr';
 import { catchError, finalize, of } from 'rxjs';
 import { Client, ClientService } from '../manage-client/client.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
+import { SmsTemplate, SmsTemplateService } from '../manage-sms-templates/sms-template.service';
 
 type SmsClient = Pick<Client, '_id' | 'name' | 'mobile'>;
 type SmsSendResponse =
@@ -15,7 +17,7 @@ type SmsSendResponse =
 @Component({
   selector: 'app-sms',
   standalone: true,
-  imports: [CommonModule, FormsModule, FullscreenToggleComponent],
+  imports: [CommonModule, FormsModule, RouterLink, FullscreenToggleComponent],
   templateUrl: './sms.component.html',
   styleUrl: './sms.component.scss',
 })
@@ -26,17 +28,22 @@ export class SmsComponent implements OnInit, OnDestroy {
   searchQuery = '';
   message = '';
   isSending = false;
+  smsTemplates: SmsTemplate[] = [];
+  selectedSmsTemplateId = '';
+  isLoadingTemplates = false;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
   private searchRequestId = 0;
 
   constructor(
     private readonly clientService: ClientService,
     private readonly http: HttpClient,
-    private readonly toastr: ToastrService
+    private readonly toastr: ToastrService,
+    private readonly smsTemplateService: SmsTemplateService,
   ) {}
 
   ngOnInit(): void {
     this.loadClients();
+    this.loadSmsTemplates();
   }
 
   ngOnDestroy(): void {
@@ -62,6 +69,18 @@ export class SmsComponent implements OnInit, OnDestroy {
 
   get canSend(): boolean {
     return !!this.selectedClient && !!this.message.trim() && !this.isSending;
+  }
+
+  get selectedSmsTemplate(): SmsTemplate | null {
+    return this.smsTemplates.find((item) => item.templateId === this.selectedSmsTemplateId) || null;
+  }
+
+  onSmsTemplateChanged(): void {
+    const template = this.selectedSmsTemplate;
+    if (!template) {
+      return;
+    }
+    this.message = template.templateContent || '';
   }
 
   selectClient(client: SmsClient): void {
@@ -135,6 +154,20 @@ export class SmsComponent implements OnInit, OnDestroy {
           this.toastr.error(message);
         },
       });
+  }
+
+  private loadSmsTemplates(): void {
+    this.isLoadingTemplates = true;
+    this.smsTemplateService.getTemplates({ activeOnly: true }).subscribe({
+      next: (response) => {
+        this.isLoadingTemplates = false;
+        this.smsTemplates = response.success && Array.isArray(response.data) ? response.data : [];
+      },
+      error: () => {
+        this.isLoadingTemplates = false;
+        this.smsTemplates = [];
+      },
+    });
   }
 
   private loadClients(search = ''): void {

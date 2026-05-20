@@ -22,6 +22,10 @@ import {
 } from './chat.service';
 import { Customer } from '../../../shared/models/customer.model';
 import { FullscreenToggleComponent } from '../../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
+import {
+  getTemplateVariableCount,
+  resolveTemplateVariableIndexes,
+} from './template-variable.utils';
 
 interface PendingMessage extends ChatMessage {
   isPending?: boolean;
@@ -526,6 +530,36 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.renderTemplateBody(this.selectedTemplate, this.templateVariables);
   }
 
+  get newChatTemplatePreview(): string {
+    if (!this.selectedNewChatTemplateId) {
+      return 'Select a template to see the message preview.';
+    }
+
+    return this.renderTemplateBody(this.selectedNewChatTemplate, this.newChatTemplateVariables);
+  }
+
+  get selectedTemplateVariableLabel(): string {
+    const count = this.selectedTemplateVariableIndexes.length;
+    if (!this.selectedTemplateId) {
+      return '';
+    }
+    if (count === 0) {
+      return 'No variables required';
+    }
+    return `${count} variable${count === 1 ? '' : 's'} required`;
+  }
+
+  get newChatTemplateVariableLabel(): string {
+    const count = this.newChatTemplateVariableIndexes.length;
+    if (!this.selectedNewChatTemplateId) {
+      return '';
+    }
+    if (count === 0) {
+      return 'No variables required';
+    }
+    return `${count} variable${count === 1 ? '' : 's'} required`;
+  }
+
   getMessageDisplayText(message: PendingMessage): string {
     let displayText = resolveTemplateDisplayText(message);
 
@@ -627,19 +661,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get newChatTemplateVariableIndexes(): number[] {
-    const variables = this.selectedNewChatTemplate?.variables;
-    if (!Array.isArray(variables)) {
-      return [];
-    }
-    return [...variables].sort((a, b) => a - b);
+    return resolveTemplateVariableIndexes(this.selectedNewChatTemplate);
   }
 
   getTemplateVariableCount(template: WhatsAppTemplateOption | null | undefined): number {
-    const variables = template?.variables;
-    if (!Array.isArray(variables)) {
-      return 0;
-    }
-    return variables.length;
+    return getTemplateVariableCount(template);
   }
 
   getTemplateBodySnippet(body: string | undefined, maxLength = 140): string {
@@ -676,12 +702,21 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get selectedTemplateVariableIndexes(): number[] {
-    const variables = this.selectedTemplate?.variables;
-    if (!Array.isArray(variables)) {
-      return [];
-    }
+    return resolveTemplateVariableIndexes(this.selectedTemplate);
+  }
 
-    return [...variables].sort((a, b) => a - b);
+  isTemplateVariableMissing(index: number): boolean {
+    if (!this.selectedTemplateId) {
+      return false;
+    }
+    return !String(this.templateVariables[index] || '').trim();
+  }
+
+  isNewChatTemplateVariableMissing(index: number): boolean {
+    if (!this.selectedNewChatTemplateId) {
+      return false;
+    }
+    return !String(this.newChatTemplateVariables[index] || '').trim();
   }
 
   selectConversation(conversation: ChatConversation): void {
@@ -776,6 +811,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.logTemplateSelected('new_chat_modal', this.selectedNewChatTemplate, this.selectedNewChatTemplateId);
     this.syncNewChatTemplateVariableMap();
     this.newChatError = '';
+    this.logTemplatePreviewGenerated('new_chat_modal', this.selectedNewChatTemplate, this.newChatTemplateVariables);
+    this.focusFirstTemplateVariableInput('new_chat_modal');
   }
 
   private logTemplateSelected(
@@ -787,7 +824,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       || this.availableTemplates.find((item) => item.id === templateId)
       || this.newChatAvailableTemplates.find((item) => item.id === templateId)
       || null;
-    const variableIndexes = Array.isArray(resolvedTemplate?.variables) ? resolvedTemplate.variables : [];
+    const variableIndexes = resolveTemplateVariableIndexes(resolvedTemplate);
 
     console.log('[UI TEMPLATE SELECTED]', {
       source,
@@ -796,6 +833,48 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       hasVariables: variableIndexes.length > 0,
       variableCount: variableIndexes.length,
     });
+    console.log('[TEMPLATE VARIABLE DETECTED]', {
+      source,
+      templateId: templateId || resolvedTemplate?.id || '',
+      count: variableIndexes.length,
+      indexes: variableIndexes,
+    });
+  }
+
+  private logTemplatePreviewGenerated(
+    source: string,
+    template: WhatsAppTemplateOption | null | undefined,
+    variableValues: Record<number, string>,
+  ): void {
+    if (!template) {
+      return;
+    }
+
+    const preview = this.renderTemplateBody(template, variableValues);
+    console.log('[TEMPLATE PREVIEW GENERATED]', {
+      source,
+      templateId: template.id,
+      preview,
+    });
+  }
+
+  private focusFirstTemplateVariableInput(context: 'template_modal' | 'new_chat_modal'): void {
+    const indexes = context === 'template_modal'
+      ? this.selectedTemplateVariableIndexes
+      : this.newChatTemplateVariableIndexes;
+    const firstIndex = indexes[0];
+    if (!firstIndex) {
+      return;
+    }
+
+    const selector = context === 'template_modal'
+      ? `#template-modal-var-${firstIndex}`
+      : `#new-chat-modal-var-${firstIndex}`;
+
+    setTimeout(() => {
+      const input = document.querySelector<HTMLInputElement>(selector);
+      input?.focus();
+    }, 0);
   }
 
   private buildTemplateSendPayload(
@@ -821,6 +900,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       ...this.newChatTemplateVariables,
       [index]: value,
     };
+    console.log('[TEMPLATE VARIABLE INPUT UPDATED]', {
+      source: 'new_chat_modal',
+      index,
+      value,
+    });
+    this.logTemplatePreviewGenerated('new_chat_modal', this.selectedNewChatTemplate, this.newChatTemplateVariables);
   }
 
   private loadNewChatTemplates(): void {
@@ -2149,6 +2234,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   onTemplateChanged(): void {
     this.syncTemplateVariableMap();
     this.templateModalError = '';
+    this.logTemplatePreviewGenerated('template_modal', this.selectedTemplate, this.templateVariables);
+    this.focusFirstTemplateVariableInput('template_modal');
   }
 
   selectTemplate(template: WhatsAppTemplateOption): void {
@@ -2167,6 +2254,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       ...this.templateVariables,
       [index]: value,
     };
+    console.log('[TEMPLATE VARIABLE INPUT UPDATED]', {
+      source: 'template_modal',
+      index,
+      value,
+    });
+    this.logTemplatePreviewGenerated('template_modal', this.selectedTemplate, this.templateVariables);
   }
 
   /** Fetches session state from backend (single source of truth). Returns whether session is active. */

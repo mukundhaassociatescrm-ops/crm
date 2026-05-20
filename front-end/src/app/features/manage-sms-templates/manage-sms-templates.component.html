@@ -1,0 +1,112 @@
+<div class="sms-templates-page page-workspace">
+  <app-fullscreen-toggle pageKey="manage-sms-templates"></app-fullscreen-toggle>
+
+  <div class="page-header">
+    <div>
+      <h2>Manage SMS Templates</h2>
+      <p>Import approved DLT templates from Excel and use them across Single SMS and Bulk SMS</p>
+    </div>
+    <div class="header-actions">
+      <label class="btn-primary upload-btn" [class.disabled]="isImporting">
+        <i class="fa-solid fa-file-arrow-up"></i>
+        <span>{{ isImporting ? 'Importing...' : 'Upload DLT Excel' }}</span>
+        <input
+          type="file"
+          accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          (change)="onFileSelected($event)"
+          [disabled]="isImporting"
+          hidden
+        >
+      </label>
+    </div>
+  </div>
+
+  <div class="filters-row">
+    <label class="search-box" aria-label="Search SMS templates">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearchChange()"
+        placeholder="Search by template name, ID, or content"
+      >
+    </label>
+    <span class="count-pill">{{ filteredTemplates.length }} template{{ filteredTemplates.length === 1 ? '' : 's' }}</span>
+  </div>
+
+  <div class="loading-state" *ngIf="isLoading">
+    <i class="fa-solid fa-spinner fa-spin"></i> Loading templates...
+  </div>
+
+  <div class="table-card" *ngIf="!isLoading">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Template ID</th>
+            <th>Name</th>
+            <th>Sender</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="!filteredTemplates.length">
+            <td colspan="6" class="empty-state">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>No templates found. Upload an approved DLT Excel file to get started.</span>
+            </td>
+          </tr>
+          <tr *ngFor="let template of filteredTemplates; trackBy: trackById">
+            <td class="mono">{{ template.templateId }}</td>
+            <td>
+              <strong>{{ template.templateName || '—' }}</strong>
+              <p class="content-snippet">{{ template.templateContent }}</p>
+            </td>
+            <td>{{ template.senderId || '—' }}</td>
+            <td>{{ template.category || '—' }}</td>
+            <td>
+              <span class="status-badge" [class.active]="template.isActive" [class.inactive]="!template.isActive">
+                {{ template.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </td>
+            <td class="actions-cell">
+              <button type="button" class="btn-link" (click)="openPreview(template)">Preview</button>
+              <button type="button" class="btn-link" (click)="toggleActive(template)">
+                {{ template.isActive ? 'Deactivate' : 'Activate' }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="preview-drawer" *ngIf="selectedTemplate as preview">
+    <div class="preview-card">
+      <div class="preview-header">
+        <div>
+          <h3>{{ preview.templateName || preview.templateId }}</h3>
+          <p class="mono">{{ preview.templateId }}</p>
+        </div>
+        <button type="button" class="close-btn" (click)="closePreview()" aria-label="Close preview">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="preview-meta">
+        <span>Sender: {{ preview.senderId || '—' }}</span>
+        <span>Jio: {{ preview.jioStatus || '—' }}</span>
+        <span>Verified: {{ preview.verificationStatus ? 'Yes' : 'No' }}</span>
+      </div>
+      <div class="preview-block">
+        <span class="label">Template content</span>
+        <pre class="preview-text">{{ preview.templateContent || '—' }}</pre>
+      </div>
+      <div class="preview-block" *ngIf="preview.sampleContent">
+        <span class="label">Sample content</span>
+        <pre class="preview-text">{{ preview.sampleContent }}</pre>
+      </div>
+    </div>
+  </div>
+</div>
