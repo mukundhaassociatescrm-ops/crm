@@ -3,7 +3,7 @@
   <aside class="client-panel">
     <div class="panel-header">
       <div>
-        <h2>SMS</h2>
+        <h2>Single SMS (DLT)</h2>
         <p>{{ clients.length }} contact{{ clients.length === 1 ? '' : 's' }} visible</p>
       </div>
     </div>
@@ -62,12 +62,16 @@
       <ng-template #emptySelection>
         <div class="placeholder-title">
           <h3>Select a client</h3>
-          <p>Choose a client from the left to compose an SMS.</p>
+          <p>Choose a client from the left to send a DLT template SMS.</p>
         </div>
       </ng-template>
     </div>
 
     <div class="composer-body">
+      <p class="dlt-notice">
+        Messages are sent via Fast2SMS <strong>DLT route</strong> using approved templates only.
+      </p>
+
       <label class="field">
         <span>Select SMS Template</span>
         <select
@@ -85,31 +89,57 @@
         </small>
       </label>
 
-      <label class="field">
-        <span>Message</span>
-        <textarea
-          [(ngModel)]="message"
-          rows="6"
-          placeholder="Type your SMS message or select a template above..."
-          [disabled]="!selectedClient || isSending"
-        ></textarea>
-      </label>
+      <section class="template-variables-panel" *ngIf="selectedSmsTemplateId">
+        <div class="template-variables-header">
+          <h5>Template variables</h5>
+          <span class="template-variables-count">{{ templateVariableLabel }}</span>
+        </div>
 
-      <div class="composer-meta">
-        <span class="counter">
-          {{ characterCount }} chars
-          <ng-container *ngIf="characterCount > 0"> • {{ smsSegments }} segment{{ smsSegments === 1 ? '' : 's' }}</ng-container>
-        </span>
-        <span class="hint" *ngIf="characterCount > 320">Long messages may be split into multiple SMS segments.</span>
+        <p class="template-variables-hint" *ngIf="templateVariableSlots.length === 0">
+          This template has no placeholders. It will be sent as registered with DLT.
+        </p>
+
+        <div class="template-variables-fields" *ngIf="templateVariableSlots.length > 0">
+          <label
+            class="field template-var-field"
+            *ngFor="let slot of templateVariableSlots; trackBy: trackBySlotIndex; let first = first"
+            [class.template-field--missing]="isTemplateVariableMissing(slot.index)"
+          >
+            <span>Variable {{ slot.index + 1 }} <ng-container *ngIf="slot.label">({{ slot.label }})</ng-container></span>
+            <input
+              type="text"
+              [id]="'single-sms-var-' + slot.index"
+              [ngModel]="templateVariables[slot.index] || ''"
+              (ngModelChange)="onTemplateVariableChanged(slot.index, $event)"
+              [placeholder]="'Enter value for {# ' + slot.label + ' #}'"
+              [disabled]="!selectedClient || isSending"
+              [attr.autofocus]="first ? true : null"
+            >
+            <small class="template-field-error" *ngIf="isTemplateVariableMissing(slot.index)">Required</small>
+          </label>
+        </div>
+
+        <div class="template-preview" [class.template-preview--incomplete]="templateVariableSlots.length && !canSend">
+          <span class="label">Live preview</span>
+          <pre class="template-preview-text">{{ templatePreview }}</pre>
+        </div>
+
+        <p class="template-variables-validation" *ngIf="templateVariableSlots.length && !canSend">
+          Fill all variables above to enable Send DLT SMS.
+        </p>
+      </section>
+
+      <div class="sender-meta" *ngIf="selectedSmsTemplate as template">
+        <span>DLT ID: {{ template.templateId }}</span>
+        <span *ngIf="template.senderId">Sender: {{ template.senderId }}</span>
       </div>
     </div>
 
     <div class="composer-actions">
       <button type="button" class="send-btn" (click)="sendSms()" [disabled]="!canSend">
         <i class="fa-solid fa-message"></i>
-        <span>{{ isSending ? 'Sending...' : 'Send SMS' }}</span>
+        <span>{{ isSending ? 'Sending...' : 'Send DLT SMS' }}</span>
       </button>
     </div>
   </section>
 </div>
-

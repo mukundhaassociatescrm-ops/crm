@@ -11,6 +11,7 @@ const {
 
 const router = express.Router();
 
+router.post('/send-single', protect, sendSingleSms);
 router.post('/send', protect, sendSingleSms);
 router.get('/templates', protect, listSmsTemplates);
 router.post('/templates/import', protect, authorizeRole('admin'), templateUpload, importSmsTemplates);

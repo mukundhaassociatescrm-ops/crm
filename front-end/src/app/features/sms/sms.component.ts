@@ -8,10 +8,22 @@ import { catchError, finalize, of } from 'rxjs';
 import { Client, ClientService } from '../manage-client/client.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 import { SmsTemplate, SmsTemplateService } from '../manage-sms-templates/sms-template.service';
+import {
+  buildSmsVariablesArray,
+  renderSmsTemplatePreview,
+  resolveSmsTemplateVariableSlots,
+  SmsTemplateVariableSlot,
+} from '../manage-sms-templates/sms-template-variable.utils';
 
 type SmsClient = Pick<Client, '_id' | 'name' | 'mobile'>;
 type SmsSendResponse =
-  | { success: true; phone: string; providerResponse?: unknown }
+  | {
+      success: true;
+      phone: string;
+      templateId?: string;
+      variablesValues?: string;
+      providerResponse?: unknown;
+    }
   | { success: false; message?: string };
 
 @Component({
@@ -26,10 +38,10 @@ export class SmsComponent implements OnInit, OnDestroy {
   isLoadingClients = false;
   selectedClient: SmsClient | null = null;
   searchQuery = '';
-  message = '';
   isSending = false;
   smsTemplates: SmsTemplate[] = [];
   selectedSmsTemplateId = '';
+  templateVariables: Record<number, string> = {};
   isLoadingTemplates = false;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
   private searchRequestId = 0;
@@ -52,35 +64,75 @@ export class SmsComponent implements OnInit, OnDestroy {
     }
   }
 
-  get characterCount(): number {
-    return this.message.length;
-  }
-
-  get smsSegments(): number {
-    const len = this.characterCount;
-    if (len <= 0) {
-      return 0;
-    }
-    if (len <= 160) {
-      return 1;
-    }
-    return Math.ceil(len / 160);
-  }
-
-  get canSend(): boolean {
-    return !!this.selectedClient && !!this.message.trim() && !this.isSending;
-  }
-
   get selectedSmsTemplate(): SmsTemplate | null {
     return this.smsTemplates.find((item) => item.templateId === this.selectedSmsTemplateId) || null;
   }
 
-  onSmsTemplateChanged(): void {
-    const template = this.selectedSmsTemplate;
-    if (!template) {
-      return;
+  get templateVariableSlots(): SmsTemplateVariableSlot[] {
+    return resolveSmsTemplateVariableSlots(this.selectedSmsTemplate);
+  }
+
+  get templateVariableLabel(): string {
+    const count = this.templateVariableSlots.length;
+    if (!this.selectedSmsTemplateId) {
+      return '';
     }
-    this.message = template.templateContent || '';
+    if (count === 0) {
+      return 'No variables required';
+    }
+    return `${count} variable${count === 1 ? '' : 's'} required`;
+  }
+
+  get templatePreview(): string {
+    if (!this.selectedSmsTemplate) {
+      return 'Select a DLT template to preview the message.';
+    }
+    return renderSmsTemplatePreview(
+      this.selectedSmsTemplate.templateContent,
+      this.templateVariables,
+    );
+  }
+
+  get canSend(): boolean {
+    if (!this.selectedClient || !this.selectedSmsTemplateId || this.isSending) {
+      return false;
+    }
+
+    const slots = this.templateVariableSlots;
+    if (!slots.length) {
+      return true;
+    }
+
+    return slots.every((slot) => String(this.templateVariables[slot.index] || '').trim().length > 0);
+  }
+
+  onSmsTemplateChanged(): void {
+    this.syncTemplateVariableMap();
+    this.focusFirstVariableInput();
+    console.log('[TEMPLATE VARIABLE DETECTED]', {
+      source: 'single_sms',
+      templateId: this.selectedSmsTemplateId,
+      count: this.templateVariableSlots.length,
+      slots: this.templateVariableSlots,
+    });
+    this.logTemplatePreview();
+  }
+
+  onTemplateVariableChanged(index: number, value: string): void {
+    this.templateVariables = {
+      ...this.templateVariables,
+      [index]: value,
+    };
+    console.log('[TEMPLATE VARIABLE INPUT UPDATED]', {
+      source: 'single_sms',
+      index,
+      value,
+    });
+    this.logTemplatePreview();
+  }
+
+  isTemplateVariableMissing(index: number): boolean {
+    return !String(this.templateVariables[index] || '').trim();
   }
 
   selectClient(client: SmsClient): void {
@@ -109,6 +161,10 @@ export class SmsComponent implements OnInit, OnDestroy {
     return client._id || client.mobile || String(index);
   }
 
+  trackBySlotIndex(_: number, slot: SmsTemplateVariableSlot): number {
+    return slot.index;
+  }
+
   onSearchQueryChange(): void {
     if (this.searchTimer) {
       clearTimeout(this.searchTimer);
@@ -120,33 +176,36 @@ export class SmsComponent implements OnInit, OnDestroy {
   }
 
   sendSms(): void {
-    if (!this.canSend) {
+    if (!this.canSend || !this.selectedClient) {
       return;
     }
 
-    const phone = this.selectedClient?.mobile;
-    const cleanMessage = String(this.message || '').trim();
-    if (!phone || !cleanMessage) {
-      return;
-    }
+    const phone = this.selectedClient.mobile;
+    const templateId = this.selectedSmsTemplateId;
+    const variables = buildSmsVariablesArray(this.templateVariableSlots, this.templateVariables);
 
     this.isSending = true;
     this.http
-      .post<SmsSendResponse>('/api/sms/send', { phone, message: cleanMessage })
+      .post<SmsSendResponse>('/api/sms/send-single', {
+        phone,
+        templateId,
+        variables,
+      })
       .pipe(
         finalize(() => {
           this.isSending = false;
-        })
+        }),
       )
       .subscribe({
         next: (res) => {
-          if (res && (res as any).success === true) {
-            this.toastr.success('SMS sent successfully.');
-            this.message = '';
+          if (res && res.success === true) {
+            this.toastr.success('DLT SMS sent successfully.');
+            this.templateVariables = {};
+            this.syncTemplateVariableMap();
             return;
           }
 
-          const message = (res as any)?.message || 'Failed to send SMS.';
+          const message = res?.message || 'Failed to send SMS.';
           this.toastr.error(message);
         },
         error: (err) => {
@@ -154,6 +213,37 @@ export class SmsComponent implements OnInit, OnDestroy {
           this.toastr.error(message);
         },
       });
+  }
+
+  private syncTemplateVariableMap(): void {
+    const nextMap: Record<number, string> = {};
+    this.templateVariableSlots.forEach((slot) => {
+      nextMap[slot.index] = this.templateVariables[slot.index] || '';
+    });
+    this.templateVariables = nextMap;
+  }
+
+  private logTemplatePreview(): void {
+    if (!this.selectedSmsTemplate) {
+      return;
+    }
+    console.log('[TEMPLATE PREVIEW GENERATED]', {
+      source: 'single_sms',
+      templateId: this.selectedSmsTemplate.templateId,
+      preview: this.templatePreview,
+    });
+  }
+
+  private focusFirstVariableInput(): void {
+    const firstSlot = this.templateVariableSlots[0];
+    if (!firstSlot) {
+      return;
+    }
+
+    setTimeout(() => {
+      const input = document.querySelector<HTMLInputElement>(`#single-sms-var-${firstSlot.index}`);
+      input?.focus();
+    }, 0);
   }
 
   private loadSmsTemplates(): void {
@@ -191,8 +281,8 @@ export class SmsComponent implements OnInit, OnDestroy {
             success: true,
             data: normalizedSearch ? [] : this.getMockClients(),
             pagination: { total: 0, page: 1, limit: 100, totalPages: 1 },
-          })
-        )
+          }),
+        ),
       )
       .subscribe((response) => {
         if (requestId !== this.searchRequestId) {
@@ -225,4 +315,3 @@ export class SmsComponent implements OnInit, OnDestroy {
     ];
   }
 }
-

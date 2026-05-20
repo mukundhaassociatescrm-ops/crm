@@ -83,6 +83,98 @@ async function sendFast2SmsBulk({ message, numbers }) {
   };
 }
 
+async function postFast2SmsPayload(payload) {
+  const apiKey = process.env.FAST2SMS_API_KEY;
+  if (!apiKey) {
+    throw new Error('FAST2SMS_API_KEY is not configured.');
+  }
+
+  const fetch = await getFetch();
+  const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+    method: 'POST',
+    headers: {
+      authorization: apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    const messageFromApi = body?.message || body?.error || 'Fast2SMS request failed.';
+    throw new Error(Array.isArray(messageFromApi) ? messageFromApi.join(', ') : String(messageFromApi));
+  }
+
+  if (body && body.return === false) {
+    const apiMessage = body.message || 'Fast2SMS rejected the request.';
+    throw new Error(Array.isArray(apiMessage) ? apiMessage.join(', ') : String(apiMessage));
+  }
+
+  return body;
+}
+
+/**
+ * DLT template SMS (route: dlt) — required for DLT-enabled Fast2SMS accounts.
+ * @param {{ phone: string, templateId: string, senderId: string, variablesValues?: string }} params
+ */
+async function sendDltSms({ phone, templateId, senderId, variablesValues = '' }) {
+  const normalizedPhone = normalizeIndianMobile(phone);
+  if (!normalizedPhone) {
+    throw new Error('A valid Indian mobile number is required.');
+  }
+
+  const dltTemplateId = String(templateId || '').trim();
+  if (!dltTemplateId) {
+    throw new Error('templateId is required for DLT SMS.');
+  }
+
+  const dltSenderId = String(senderId || '').trim();
+  if (!dltSenderId) {
+    throw new Error('senderId is required for DLT SMS.');
+  }
+
+  const payload = {
+    route: 'dlt',
+    sender_id: dltSenderId,
+    message: dltTemplateId,
+    numbers: normalizedPhone,
+  };
+
+  const normalizedVariables = String(variablesValues || '').trim();
+  if (normalizedVariables) {
+    payload.variables_values = normalizedVariables;
+  }
+
+  console.log('[SINGLE DLT SMS REQUEST]', {
+    phone: normalizedPhone,
+    templateId: dltTemplateId,
+    senderId: dltSenderId,
+    variablesValues: normalizedVariables,
+    route: payload.route,
+    endpoint: 'https://www.fast2sms.com/dev/bulkV2',
+  });
+
+  const providerResponse = await postFast2SmsPayload(payload);
+
+  console.log('[FAST2SMS DLT RESPONSE]', providerResponse);
+
+  return {
+    success: true,
+    phone: normalizedPhone,
+    templateId: dltTemplateId,
+    senderId: dltSenderId,
+    variablesValues: normalizedVariables,
+    providerResponse,
+  };
+}
+
+/** @deprecated Use sendDltSms for DLT-enabled accounts. */
 async function sendSMS(phone, message) {
   const normalizedPhone = normalizeIndianMobile(phone);
   if (!normalizedPhone) {
@@ -109,6 +201,8 @@ async function sendSMS(phone, message) {
 
 module.exports = {
   sendFast2SmsBulk,
+  sendDltSms,
+  postFast2SmsPayload,
   sendSMS,
   normalizeIndianMobile,
 };
