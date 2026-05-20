@@ -272,7 +272,7 @@
                       <button
                         type="button"
                         class="video-download-btn"
-                        (click)="downloadFileMessage(message)"
+                        (click)="downloadFileMessage(message, $event)"
                         title="Download video"
                         aria-label="Download video"
                       >
@@ -302,7 +302,7 @@
                     <button
                       type="button"
                       class="audio-download-btn"
-                      (click)="downloadFileMessage(message)"
+                      (click)="downloadFileMessage(message, $event)"
                       title="Download audio"
                       aria-label="Download audio"
                     >
@@ -320,7 +320,7 @@
                     type="button"
                     class="image-preview-link"
                     [class.image-hidden]="!isInlineImageLoaded(message)"
-                    (click)="openFileViewer(message)"
+                    (click)="openFileViewer(message, $event)"
                     aria-label="Open image preview"
                   >
                     <img
@@ -335,7 +335,7 @@
                 <p class="image-caption" *ngIf="shouldRenderImagePreview(message) && message.text && message.text !== message.filename && message.text !== 'image' && message.text !== 'Attachment'">
                   {{ getMessageDisplayText(message) }}
                 </p>
-                <button type="button" class="file-message-header file-preview-link" *ngIf="!shouldRenderImagePreview(message)" (click)="openFileViewer(message)">
+                <button type="button" class="file-message-header file-preview-link" *ngIf="!shouldRenderImagePreview(message)" (click)="openFileViewer(message, $event)">
                   <div class="doc-icon-wrap" [class.pdf-icon]="isPdfFileMessage(message)">
                     <i class="fa-solid" [class.fa-file-pdf]="isPdfFileMessage(message)" [class.fa-file]="!isPdfFileMessage(message)"></i>
                   </div>
@@ -738,7 +738,7 @@
               type="button"
               class="image-viewer-download"
               [disabled]="isViewerDownloadInProgress"
-              (click)="downloadActiveViewerFile()"
+              (click)="downloadActiveViewerFile($event)"
               aria-label="Download file"
             >
               <i class="fa-solid" [class.fa-download]="!isViewerDownloadInProgress" [class.fa-spinner]="isViewerDownloadInProgress" [class.fa-spin]="isViewerDownloadInProgress"></i>

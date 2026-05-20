@@ -7,6 +7,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 const { ensureUploadsDir, resolveUploadsDir } = require('./config/uploads');
+const { createUploadsServeMiddleware } = require('./middleware/uploadsServeMiddleware');
 
 dotenv.config();
 
@@ -82,9 +83,9 @@ app.use((req, res, next) => {
   res.sendStatus(204);
 });
 
-// Serve persistent uploads (Coolify-friendly).
+// Serve persistent uploads with optional forced download via ?download=true
 const uploadsDir = ensureUploadsDir(resolveUploadsDir(process.env));
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', createUploadsServeMiddleware(uploadsDir));
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }

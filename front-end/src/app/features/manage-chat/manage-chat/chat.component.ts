@@ -1931,13 +1931,22 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     );
   }
 
-  openFileViewer(message: PendingMessage): void {
+  openFileViewer(message: PendingMessage, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+
     const fileUrl = this.normalizeFileUrl(String(message.fileUrl || message.mediaUrl || ''));
     if (!fileUrl) {
       return;
     }
 
     const name = String(message.filename || message.text || 'Attachment');
+    console.log('[ATTACHMENT DOWNLOAD CLICK]', {
+      fileName: name,
+      url: fileUrl,
+      isPreview: true,
+      isDownload: false,
+    });
     const mimeType = this.resolveMessageMimeType(message);
     const isImage = this.isImageFileMessage(message);
     const isVideo = this.isVideoFileMessage(message);
@@ -1975,24 +1984,47 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.revokePdfBlobUrl();
   }
 
-  async downloadFileMessage(message: PendingMessage): Promise<void> {
+  async downloadFileMessage(message: PendingMessage, event?: Event): Promise<void> {
+    event?.preventDefault();
+    event?.stopPropagation();
+
     const fileUrl = String(message.fileUrl || message.mediaUrl || '').trim();
     if (!fileUrl) {
       return;
     }
 
-    await this.downloadFileFromUrl(fileUrl, String(message.filename || 'attachment'));
+    const fileName = String(message.filename || 'attachment');
+    console.log('[ATTACHMENT DOWNLOAD CLICK]', {
+      fileName,
+      url: this.normalizeFileUrl(fileUrl),
+      isPreview: false,
+      isDownload: true,
+    });
+
+    await this.downloadFileFromUrl(fileUrl, fileName);
   }
 
-  async downloadActiveViewerFile(): Promise<void> {
+  async downloadActiveViewerFile(event?: Event): Promise<void> {
+    event?.preventDefault();
+    event?.stopPropagation();
+
     const viewer = this.activeFileViewer;
     if (!viewer?.url) {
       return;
     }
 
+    const fileName = String(viewer.name || 'attachment');
+    console.log('[ATTACHMENT DOWNLOAD CLICK]', {
+      fileName,
+      url: this.normalizeFileUrl(viewer.url),
+      isPreview: false,
+      isDownload: true,
+      source: 'file_viewer',
+    });
+
     this.isViewerDownloadInProgress = true;
     try {
-      await this.downloadFileFromUrl(viewer.url, String(viewer.name || 'attachment'));
+      await this.downloadFileFromUrl(viewer.url, fileName);
     } finally {
       window.setTimeout(() => {
         this.isViewerDownloadInProgress = false;
@@ -2007,17 +2039,51 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const downloadUrl = this.resolveDownloadUrl(normalizedUrl);
+    const safeFileName = fileName || 'attachment';
 
     try {
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed (${response.status})`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
-      anchor.href = downloadUrl;
-      anchor.download = fileName || 'attachment';
+      anchor.href = blobUrl;
+      anchor.download = safeFileName;
       anchor.rel = 'noopener';
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
-    } catch {
-      window.open(downloadUrl, '_blank', 'noopener');
+      URL.revokeObjectURL(blobUrl);
+      return;
+    } catch (error) {
+      console.log('[ATTACHMENT DOWNLOAD FALLBACK]', {
+        fileName: safeFileName,
+        downloadUrl,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = safeFileName;
+      anchor.rel = 'noopener';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    } catch (error) {
+      console.log('[ATTACHMENT DOWNLOAD ERROR]', {
+        fileName: safeFileName,
+        downloadUrl,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
