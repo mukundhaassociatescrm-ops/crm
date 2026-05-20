@@ -220,7 +220,12 @@ exports.handleWebhook = async (req, res, next) => {
       results.push(result);
 
       if (result?.isNew && event.direction === 'incoming' && event.conversationPhone) {
+        const { handleOwnerInboundMessage } = require('../services/ownerNotificationSessionService');
         const { maybeNotifyOwnerOnIncoming } = require('../services/ownerNotificationService');
+        void handleOwnerInboundMessage({
+          senderPhone: event.conversationPhone,
+          timestamp: event.timestamp,
+        });
         void maybeNotifyOwnerOnIncoming({
           customerPhone: event.conversationPhone,
           messageText: event.text,

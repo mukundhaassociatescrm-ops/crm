@@ -1242,7 +1242,12 @@ exports.processGupshupWebhook = async (body) => {
     });
 
     if (isNewIncoming && inboundDirection === 'in' && !isFromBusiness && normalizedCustomerPhone) {
+      const { handleOwnerInboundMessage } = require('../services/ownerNotificationSessionService');
       const { maybeNotifyOwnerOnIncoming } = require('../services/ownerNotificationService');
+      void handleOwnerInboundMessage({
+        senderPhone: normalizedCustomerPhone,
+        timestamp: eventTimestamp,
+      });
       void maybeNotifyOwnerOnIncoming({
         customerPhone: normalizedCustomerPhone,
         messageText: displayText,

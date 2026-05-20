@@ -10,12 +10,16 @@ const {
 const {
   normalizePhone,
   buildPhoneLookupCandidates,
-  findLastIncomingMessage,
 } = require('./chatMessageStore');
 const { getAppSettingsPayload } = require('./appSettingsService');
+const {
+  getOwnerNotificationSessionState,
+  isSenderOwnerPhone,
+  resolveConfiguredOwnerNumber,
+  logOwnerSessionCheck,
+} = require('./ownerNotificationSessionService');
 
 const COOLDOWN_MS = 15 * 60 * 1000;
-const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
 const PREVIEW_MAX_LEN = 120;
 const SEND_MODE_SESSION = 'session';
 const SEND_MODE_TEMPLATE = 'template';
@@ -254,30 +258,19 @@ const resolveClientDisplayName = async (customerPhone) => {
   };
 };
 
-const checkOwnerSession = async (ownerPhone) => {
+const checkOwnerNotificationSession = async (ownerPhone) => {
+  const session = await getOwnerNotificationSessionState();
   const canonicalOwner = normalizePhone(ownerPhone);
-  if (!canonicalOwner) {
-    return {
-      active: false,
-      expiresAt: null,
-      lastIncomingAt: null,
-      note: 'owner_phone_invalid',
-    };
-  }
-
-  const latestIncoming = await findLastIncomingMessage(canonicalOwner);
-  const lastIncomingAt = latestIncoming?.timestamp ? new Date(latestIncoming.timestamp) : null;
-  const expiresAt = lastIncomingAt ? new Date(lastIncomingAt.getTime() + SESSION_WINDOW_MS) : null;
-  const active = Boolean(lastIncomingAt && Date.now() < expiresAt.getTime());
 
   return {
-    active,
-    expiresAt,
-    lastIncomingAt,
-    lastIncomingMessageId: latestIncoming?.messageId || null,
-    note: active
-      ? 'owner_messaged_business_within_24h'
-      : 'no_owner_inbound_to_business_in_24h_window',
+    active: session.active,
+    expiresAt: session.expiresAt,
+    lastIncomingAt: session.lastIncomingAt,
+    minutesRemaining: session.minutesRemaining,
+    note: session.active
+      ? 'owner_notification_session_active'
+      : 'owner_notification_session_inactive',
+    trackedOwnerNumber: session.ownerNumber || canonicalOwner,
   };
 };
 
@@ -440,6 +433,11 @@ const maybeNotifyOwnerOnIncoming = async ({
     clientName = resolved.displayName;
     phone = resolved.normalizedPhone || normalizePhone(customerPhone);
 
+    const configuredOwnerNumber = await resolveConfiguredOwnerNumber();
+    if (isSenderOwnerPhone(phone, configuredOwnerNumber)) {
+      return;
+    }
+
     console.log('[OWNER NOTIFICATION WEBHOOK RECEIVED]', {
       customerPhone: phone,
       customerName: clientName,
@@ -496,13 +494,13 @@ const maybeNotifyOwnerOnIncoming = async ({
       return;
     }
 
-    const ownerSession = await checkOwnerSession(ownerNumber);
-    console.log('[OWNER SESSION CHECK]', {
-      active: ownerSession.active,
+    const ownerSession = await checkOwnerNotificationSession(ownerNumber);
+    logOwnerSessionCheck({
+      ownerNumber,
       expiresAt: ownerSession.expiresAt,
-      lastIncomingAt: ownerSession.lastIncomingAt,
-      lastIncomingMessageId: ownerSession.lastIncomingMessageId,
-      note: ownerSession.note,
+      minutesRemaining: ownerSession.minutesRemaining,
+      source: 'customer_notification',
+      active: ownerSession.active,
     });
 
     const sendPlan = resolveSendMode(settings, ownerSession);

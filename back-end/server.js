@@ -8,6 +8,10 @@ applyEnvironmentMode(process.env);
 const app = require('./app');
 const connectDB = require('./config/db');
 const { initializeReminders, cleanupAllReminders } = require('./services/reminderService');
+const {
+  initializeOwnerSessionReminderScheduler,
+  stopOwnerSessionReminderScheduler,
+} = require('./services/ownerNotificationSessionService');
 const { ensureDefaultSuperadmin } = require('./services/superadminService');
 const { setSocketServer } = require('./services/socketService');
 
@@ -47,6 +51,12 @@ const startServer = async () => {
       } catch (error) {
         console.error('Failed to initialize reminders:', error.message);
       }
+
+      try {
+        initializeOwnerSessionReminderScheduler();
+      } catch (error) {
+        console.error('Failed to initialize owner session reminder scheduler:', error.message);
+      }
     });
   } catch (error) {
     console.error('MongoDB connection error:', error.message);
@@ -60,6 +70,7 @@ startServer();
 process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
   cleanupAllReminders();
+  stopOwnerSessionReminderScheduler();
   if (!server) {
     process.exit(0);
   }
@@ -72,6 +83,7 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   console.log('SIGINT signal received: closing HTTP server');
   cleanupAllReminders();
+  stopOwnerSessionReminderScheduler();
   if (!server) {
     process.exit(0);
   }

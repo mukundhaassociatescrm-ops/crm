@@ -13,6 +13,11 @@ const appSettingsSchema = new mongoose.Schema(
   {
     ownerNotificationsEnabled: { type: Boolean, default: false },
     ownerWhatsappNumber: { type: String, trim: true, default: '' },
+    /** Owner ↔ CRM WhatsApp session (separate from customer chat sessions). */
+    ownerLastIncomingAt: { type: Date, default: null },
+    ownerNotificationSessionExpiresAt: { type: Date, default: null },
+    ownerSessionReminderSentAt: { type: Date, default: null },
+    ownerSessionReminderWindowExpiresAt: { type: Date, default: null },
     bankDetails: {
       type: bankDetailsSchema,
       default: () => ({
