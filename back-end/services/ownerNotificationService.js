@@ -1,5 +1,7 @@
 const Client = require('../models/Client');
+const Conversation = require('../models/Conversation');
 const OwnerNotificationCooldown = require('../models/OwnerNotificationCooldown');
+const { formatMobile } = require('../utils/phoneUtils');
 const {
   sendGupshupTextMessage,
   sendGupshupTemplateMessage,
@@ -71,25 +73,185 @@ const buildNotificationBody = ({ clientName, phone, preview, timeLabel }) => {
   ].join('\n');
 };
 
-const resolveClientName = async (customerPhone) => {
-  const normalizedPhone = normalizePhone(customerPhone);
-  if (!normalizedPhone) {
-    return 'Unknown Client';
+const buildClientPhoneLookupCandidates = (rawPhone) => {
+  const raw = String(rawPhone || '').trim();
+  const normalizedPhone = normalizePhone(raw);
+  const candidates = new Set();
+
+  for (const value of buildPhoneLookupCandidates(normalizedPhone)) {
+    candidates.add(value);
   }
 
-  const candidates = buildPhoneLookupCandidates(normalizedPhone);
-  const client = await Client.findOne({
+  if (normalizedPhone) {
+    const withCountryCode = normalizedPhone.startsWith('91') ? normalizedPhone : `91${normalizedPhone}`;
+    candidates.add(normalizedPhone);
+    candidates.add(withCountryCode);
+    candidates.add(`+${normalizedPhone}`);
+    candidates.add(`+${withCountryCode}`);
+  }
+
+  const formatted = formatMobile(raw) || formatMobile(normalizedPhone);
+  if (formatted) {
+    candidates.add(formatted);
+  }
+
+  for (const value of [...candidates]) {
+    const mobileFormatted = formatMobile(value);
+    if (mobileFormatted) {
+      candidates.add(mobileFormatted);
+    }
+  }
+
+  return {
+    rawPhone: raw,
+    normalizedPhone,
+    phoneCandidates: Array.from(candidates).filter(Boolean),
+  };
+};
+
+const pickMatchedPhone = (client, phoneCandidates) => {
+  if (!client) {
+    return null;
+  }
+
+  const mobile = String(client.mobile || '').trim();
+  const alternateMobile = String(client.alternateMobile || '').trim();
+
+  if (mobile && phoneCandidates.includes(mobile)) {
+    return mobile;
+  }
+  if (alternateMobile && phoneCandidates.includes(alternateMobile)) {
+    return alternateMobile;
+  }
+
+  const candidateSet = new Set(phoneCandidates);
+  for (const value of [mobile, alternateMobile]) {
+    const normalizedValue = normalizePhone(value);
+    if (normalizedValue && candidateSet.has(normalizedValue)) {
+      return value;
+    }
+    const formattedValue = formatMobile(value);
+    if (formattedValue && candidateSet.has(formattedValue)) {
+      return value;
+    }
+  }
+
+  return mobile || alternateMobile || null;
+};
+
+const isPlaceholderClientName = (name, phoneCandidates, normalizedPhone) => {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) {
+    return true;
+  }
+
+  if (phoneCandidates.includes(trimmed)) {
+    return true;
+  }
+
+  const formattedName = formatMobile(trimmed);
+  if (formattedName && phoneCandidates.includes(formattedName)) {
+    return true;
+  }
+
+  return normalizePhone(trimmed) === normalizedPhone;
+};
+
+const findClientByPhoneCandidates = async (phoneCandidates) => {
+  if (!phoneCandidates.length) {
+    return null;
+  }
+
+  return Client.findOne({
     $or: [
-      { mobile: { $in: candidates } },
-      { alternateMobile: { $in: candidates } },
+      { mobile: { $in: phoneCandidates } },
+      { alternateMobile: { $in: phoneCandidates } },
     ],
-  }).select('name mobile');
+  }).select('name mobile alternateMobile');
+};
 
-  if (client?.name) {
-    return String(client.name).trim();
+const resolveConversationClientName = async (phoneCandidates) => {
+  const conversation = await Conversation.findOne({
+    phoneNumber: { $in: phoneCandidates },
+  }).select('phoneNumber');
+
+  if (!conversation?.phoneNumber) {
+    return '';
   }
 
-  return formatDisplayPhone(normalizedPhone);
+  const conversationLookup = buildClientPhoneLookupCandidates(conversation.phoneNumber);
+  const client = await findClientByPhoneCandidates(conversationLookup.phoneCandidates);
+  const name = String(client?.name || '').trim();
+
+  if (!name || isPlaceholderClientName(name, conversationLookup.phoneCandidates, conversationLookup.normalizedPhone)) {
+    return '';
+  }
+
+  return name;
+};
+
+const resolveClientDisplayName = async (customerPhone) => {
+  const { rawPhone, normalizedPhone, phoneCandidates } = buildClientPhoneLookupCandidates(customerPhone);
+
+  console.log('[OWNER NOTIFICATION CLIENT LOOKUP]', {
+    rawPhone,
+    normalizedPhone,
+    phoneCandidates,
+  });
+
+  if (!normalizedPhone) {
+    console.log('[OWNER NOTIFICATION CLIENT MATCH]', {
+      found: false,
+      clientId: null,
+      clientName: null,
+      matchedPhone: null,
+    });
+    return {
+      displayName: 'Unknown Client',
+      normalizedPhone: '',
+    };
+  }
+
+  const client = await findClientByPhoneCandidates(phoneCandidates);
+  const matchedPhone = pickMatchedPhone(client, phoneCandidates);
+  const clientName = String(client?.name || '').trim();
+  const hasRealClientName = Boolean(
+    clientName && !isPlaceholderClientName(clientName, phoneCandidates, normalizedPhone)
+  );
+
+  console.log('[OWNER NOTIFICATION CLIENT MATCH]', {
+    found: Boolean(client),
+    clientId: client?._id ? String(client._id) : null,
+    clientName: clientName || null,
+    matchedPhone,
+  });
+
+  if (hasRealClientName) {
+    return {
+      displayName: clientName,
+      normalizedPhone,
+    };
+  }
+
+  const conversationName = await resolveConversationClientName(phoneCandidates);
+  if (conversationName) {
+    console.log('[OWNER NOTIFICATION CLIENT MATCH]', {
+      found: true,
+      clientId: client?._id ? String(client._id) : null,
+      clientName: conversationName,
+      matchedPhone: matchedPhone || 'conversation_lookup',
+      source: 'conversation_phone',
+    });
+    return {
+      displayName: conversationName,
+      normalizedPhone,
+    };
+  }
+
+  return {
+    displayName: formatDisplayPhone(normalizedPhone),
+    normalizedPhone,
+  };
 };
 
 const checkOwnerSession = async (ownerPhone) => {
@@ -269,12 +431,14 @@ const maybeNotifyOwnerOnIncoming = async ({
   messageType = '',
   timestamp = new Date(),
 }) => {
-  const phone = normalizePhone(customerPhone);
   const messagePreview = buildMessagePreview(messageText, messageType);
   let clientName = 'Unknown Client';
+  let phone = '';
 
   try {
-    clientName = await resolveClientName(phone);
+    const resolved = await resolveClientDisplayName(customerPhone);
+    clientName = resolved.displayName;
+    phone = resolved.normalizedPhone || normalizePhone(customerPhone);
 
     console.log('[OWNER NOTIFICATION WEBHOOK RECEIVED]', {
       customerPhone: phone,
