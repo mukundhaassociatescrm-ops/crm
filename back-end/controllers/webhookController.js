@@ -216,7 +216,18 @@ exports.handleWebhook = async (req, res, next) => {
 
     const results = [];
     for (const event of events) {
-      results.push(await persistWebhookEvent(event));
+      const result = await persistWebhookEvent(event);
+      results.push(result);
+
+      if (result?.isNew && event.direction === 'incoming' && event.conversationPhone) {
+        const { maybeNotifyOwnerOnIncoming } = require('../services/ownerNotificationService');
+        void maybeNotifyOwnerOnIncoming({
+          customerPhone: event.conversationPhone,
+          messageText: event.text,
+          messageType: event.type,
+          timestamp: event.timestamp,
+        });
+      }
     }
 
     return res.status(200).json({

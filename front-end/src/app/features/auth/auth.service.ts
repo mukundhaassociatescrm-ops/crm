@@ -59,6 +59,8 @@ export interface UpdateProfilePayload {
   name?: string;
   newPassword?: string;
   bankDetails?: ProfileBankDetails;
+  ownerNotificationsEnabled?: boolean;
+  ownerWhatsappNumber?: string;
 }
 
 @Injectable({

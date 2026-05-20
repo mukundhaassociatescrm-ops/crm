@@ -27,6 +27,8 @@ export class ProfileComponent implements OnInit {
     email: [{ value: '', disabled: true }],
     newPassword: [''],
     confirmPassword: [''],
+    ownerNotificationsEnabled: [false],
+    ownerWhatsappNumber: [''],
     bankDetails: this.fb.group({
       bankName: ['', Validators.required],
       accountNumber: ['', Validators.required],
@@ -78,6 +80,8 @@ export class ProfileComponent implements OnInit {
       this.profileForm.patchValue({
         name: this.currentUser.name,
         email: this.currentUser.email,
+        ownerNotificationsEnabled: !!this.currentUser.ownerNotificationsEnabled,
+        ownerWhatsappNumber: this.currentUser.ownerWhatsappNumber || '',
         bankDetails: profileBankDetails,
       });
     }
@@ -115,6 +119,8 @@ export class ProfileComponent implements OnInit {
 
     if (this.isAdmin) {
       payload.bankDetails = this.bankDetailsValue;
+      payload.ownerNotificationsEnabled = !!this.profileForm.get('ownerNotificationsEnabled')?.value;
+      payload.ownerWhatsappNumber = String(this.profileForm.get('ownerWhatsappNumber')?.value || '').trim();
     }
 
     this.authService.updateProfile(payload).subscribe({
@@ -123,7 +129,7 @@ export class ProfileComponent implements OnInit {
           this.applyProfileUpdate(
             res.data?.name || payload.name || '',
             true,
-            res.data?.bankDetails || payload.bankDetails,
+            res.data,
           );
         } else {
           this.saving = false;
@@ -132,7 +138,7 @@ export class ProfileComponent implements OnInit {
       },
       error: (err) => {
         if (err?.status === 404) {
-          this.applyProfileUpdate(payload.name || '', false, payload.bankDetails);
+          this.applyProfileUpdate(payload.name || '', false, payload);
           return;
         }
 
@@ -142,11 +148,13 @@ export class ProfileComponent implements OnInit {
     });
   }
 
-  private applyProfileUpdate(name: string, persistedToApi: boolean, bankDetails?: ProfileBankDetails): void {
+  private applyProfileUpdate(name: string, persistedToApi: boolean, profileData?: Partial<UpdateProfilePayload>): void {
     const updatedUser = {
       ...this.currentUser,
       name,
-      bankDetails: bankDetails || this.currentUser?.bankDetails || DEFAULT_BANK_DETAILS,
+      bankDetails: profileData?.bankDetails || this.currentUser?.bankDetails || DEFAULT_BANK_DETAILS,
+      ownerNotificationsEnabled: profileData?.ownerNotificationsEnabled ?? this.currentUser?.ownerNotificationsEnabled,
+      ownerWhatsappNumber: profileData?.ownerWhatsappNumber ?? this.currentUser?.ownerWhatsappNumber,
     };
 
     this.authService.saveUser(updatedUser);
@@ -156,6 +164,8 @@ export class ProfileComponent implements OnInit {
       name,
       newPassword: '',
       confirmPassword: '',
+      ownerNotificationsEnabled: !!updatedUser.ownerNotificationsEnabled,
+      ownerWhatsappNumber: updatedUser.ownerWhatsappNumber || '',
       bankDetails: updatedUser.bankDetails,
     });
 

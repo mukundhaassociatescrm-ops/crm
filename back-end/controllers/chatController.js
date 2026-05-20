@@ -1166,15 +1166,24 @@ exports.processGupshupWebhook = async (body) => {
 
     const inboundDirection = isFromBusiness ? 'out' : 'in';
     const normalizedCustomerPhone = normalizePhone(phone);
+    const resolvedMessageId = messageId || `incoming-${Date.now()}`;
+    let isNewIncoming = true;
+    if (messageId) {
+      const existingInbound = await Message.findOne({ messageId });
+      if (existingInbound) {
+        isNewIncoming = false;
+      }
+    }
 
     console.log('[INCOMING PARSED]', {
       phone: normalizedCustomerPhone,
       direction: inboundDirection,
-      messageId: messageId || `incoming-${Date.now()}`,
+      messageId: resolvedMessageId,
+      isNewIncoming,
     });
 
     const saved = await saveMessage({
-      messageId: messageId || `incoming-${Date.now()}`,
+      messageId: resolvedMessageId,
       phone: normalizedCustomerPhone,
       text: displayText,
       type: isKnownMediaType || attachmentUrl ? 'file' : 'text',
@@ -1231,6 +1240,16 @@ exports.processGupshupWebhook = async (body) => {
       source,
       destination,
     });
+
+    if (isNewIncoming && inboundDirection === 'in' && !isFromBusiness && normalizedCustomerPhone) {
+      const { maybeNotifyOwnerOnIncoming } = require('../services/ownerNotificationService');
+      void maybeNotifyOwnerOnIncoming({
+        customerPhone: normalizedCustomerPhone,
+        messageText: displayText,
+        messageType: persistedMediaType || messageType,
+        timestamp: eventTimestamp,
+      });
+    }
 
     return saved;
   }

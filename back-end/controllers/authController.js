@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
 const { normalizeRole } = require('../utils/roles');
+const { getAppSettingsPayload, updateAppSettings } = require('../services/appSettingsService');
 
 const generateToken = (user) => {
   return jwt.sign({ id: user._id, tokenVersion: user.tokenVersion || 0 }, process.env.JWT_SECRET, { expiresIn: '24h' });
@@ -25,13 +26,20 @@ const getEmployeeAccountContext = async (email) => {
   };
 };
 
-const serializeUser = (user, accountContext = {}) => ({
+const serializeUser = (user, accountContext = {}, appSettings = null) => ({
   id: user._id,
   name: user.name,
   email: user.email,
   role: normalizeRole(accountContext.effectiveRole || user.role),
   isTemporaryAdmin: !!accountContext.isTemporaryAdmin,
   isEmployeeAccount: !!accountContext.isEmployeeAccount,
+  ...(appSettings
+    ? {
+        bankDetails: appSettings.bankDetails,
+        ownerNotificationsEnabled: appSettings.ownerNotificationsEnabled,
+        ownerWhatsappNumber: appSettings.ownerWhatsappNumber,
+      }
+    : {}),
 });
 
 exports.login = async (req, res, next) => {
@@ -65,11 +73,13 @@ exports.login = async (req, res, next) => {
     }
 
     const token = generateToken(user);
+    const role = normalizeRole(accountContext.effectiveRole || user.role);
+    const appSettings = role === 'admin' ? await getAppSettingsPayload() : null;
 
     res.status(200).json({
       success: true,
       data: {
-        user: serializeUser(user, accountContext),
+        user: serializeUser(user, accountContext, appSettings),
         token,
       },
     });
@@ -80,7 +90,7 @@ exports.login = async (req, res, next) => {
 
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, newPassword } = req.body;
+    const { name, newPassword, bankDetails, ownerNotificationsEnabled, ownerWhatsappNumber } = req.body;
     const userId = req.user._id;
 
     const user = await User.findById(userId).select('+password');
@@ -101,13 +111,34 @@ exports.updateProfile = async (req, res, next) => {
 
     await user.save();
 
+    const role = normalizeRole(user.role);
+    let appSettings = null;
+    if (role === 'admin') {
+      appSettings = await updateAppSettings(
+        {
+          bankDetails,
+          ownerNotificationsEnabled:
+            typeof ownerNotificationsEnabled === 'boolean' ? ownerNotificationsEnabled : undefined,
+          ownerWhatsappNumber,
+        },
+        userId
+      );
+    }
+
     res.status(200).json({
       success: true,
       data: {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: normalizeRole(user.role),
+        role,
+        ...(appSettings
+          ? {
+              bankDetails: appSettings.bankDetails,
+              ownerNotificationsEnabled: appSettings.ownerNotificationsEnabled,
+              ownerWhatsappNumber: appSettings.ownerWhatsappNumber,
+            }
+          : {}),
       },
     });
   } catch (error) {
@@ -163,11 +194,13 @@ exports.setPassword = async (req, res, next) => {
     await user.save();
 
     const token = generateToken(user);
+    const role = normalizeRole(accountContext.effectiveRole || user.role);
+    const appSettings = role === 'admin' ? await getAppSettingsPayload() : null;
 
     res.status(200).json({
       success: true,
       data: {
-        user: serializeUser(user, accountContext),
+        user: serializeUser(user, accountContext, appSettings),
         token,
       },
     });
