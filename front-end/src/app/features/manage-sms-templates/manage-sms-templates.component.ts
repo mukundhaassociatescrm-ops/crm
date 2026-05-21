@@ -136,6 +136,9 @@ export class ManageSmsTemplatesComponent implements OnInit {
     this.filteredTemplates = this.templates.filter((template) => {
       const haystack = [
         template.templateId,
+        template.dltMessageId,
+        template.contentTemplateId,
+        template.entityId,
         template.templateName,
         template.templateContent,
         template.sampleContent,

@@ -5,6 +5,9 @@ import { Observable } from 'rxjs';
 export interface SmsTemplate {
   _id: string;
   templateId: string;
+  dltMessageId?: string;
+  contentTemplateId?: string;
+  entityId?: string;
   templateName: string;
   templateContent: string;
   sampleContent?: string;

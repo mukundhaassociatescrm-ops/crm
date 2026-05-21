@@ -98,6 +98,10 @@ export class SmsComponent implements OnInit, OnDestroy {
       return false;
     }
 
+    if (!this.selectedSmsTemplate?.dltMessageId) {
+      return false;
+    }
+
     const slots = this.templateVariableSlots;
     if (!slots.length) {
       return true;

@@ -59,6 +59,9 @@ exports.listSmsTemplates = async (req, res, next) => {
       const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       query.$or = [
         { templateId: regex },
+        { dltMessageId: regex },
+        { contentTemplateId: regex },
+        { entityId: regex },
         { templateName: regex },
         { templateContent: regex },
         { sampleContent: regex },

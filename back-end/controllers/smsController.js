@@ -4,6 +4,12 @@ const {
   extractSmsTemplateVariableSlots,
   buildVariablesValues,
 } = require('../services/smsTemplateVariableUtils');
+const {
+  resolveFast2smsMessageId,
+  resolveFast2smsSenderId,
+  resolveFast2smsEntityId,
+  buildTemplateLookupQuery,
+} = require('../services/dltTemplateResolver');
 
 const normalizeVariablesInput = (rawVariables, slotCount) => {
   if (!slotCount) {
@@ -23,11 +29,11 @@ const normalizeVariablesInput = (rawVariables, slotCount) => {
 
 exports.sendSingleSms = async (req, res) => {
   const phone = req.body?.phone;
-  const templateId = String(req.body?.templateId || '').trim();
+  const requestedTemplateKey = String(req.body?.templateId || '').trim();
   const rawVariables = req.body?.variables;
 
   try {
-    if (!templateId) {
+    if (!requestedTemplateKey) {
       return res.status(400).json({
         success: false,
         message: 'templateId is required. Single SMS uses DLT template mode only.',
@@ -42,7 +48,8 @@ exports.sendSingleSms = async (req, res) => {
       });
     }
 
-    const template = await SmsTemplate.findOne({ templateId, isActive: true });
+    const lookupQuery = buildTemplateLookupQuery(requestedTemplateKey);
+    const template = await SmsTemplate.findOne({ ...lookupQuery, isActive: true });
     if (!template) {
       return res.status(404).json({
         success: false,
@@ -50,7 +57,15 @@ exports.sendSingleSms = async (req, res) => {
       });
     }
 
-    const senderId = String(template.senderId || '').trim();
+    const fast2smsMessageId = resolveFast2smsMessageId(template);
+    if (!fast2smsMessageId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Template is missing Fast2SMS Message ID (MESSAGE_ID). Re-import the DLT Excel file.',
+      });
+    }
+
+    const senderId = resolveFast2smsSenderId(template);
     if (!senderId) {
       return res.status(400).json({
         success: false,
@@ -74,17 +89,31 @@ exports.sendSingleSms = async (req, res) => {
 
     const variablesValues = buildVariablesValues(slots, variables);
 
+    console.log('[SINGLE DLT SMS RESOLVED]', {
+      requestedTemplateKey,
+      crmTemplateId: template.templateId,
+      dltMessageId: template.dltMessageId,
+      contentTemplateId: template.contentTemplateId,
+      fast2smsMessageId,
+      senderId,
+      entityId: template.entityId || resolveFast2smsEntityId(template),
+    });
+
     const result = await sendDltSms({
       phone: normalizedPhone,
-      templateId: template.templateId,
+      messageId: fast2smsMessageId,
       senderId,
       variablesValues,
+      entityId: resolveFast2smsEntityId(template),
+      contentTemplateId: template.contentTemplateId,
     });
 
     return res.status(200).json({
       success: true,
       phone: result.phone,
-      templateId: result.templateId,
+      templateId: template.templateId,
+      dltMessageId: fast2smsMessageId,
+      contentTemplateId: template.contentTemplateId,
       senderId: result.senderId,
       variablesValues: result.variablesValues,
       providerResponse: result.providerResponse,
@@ -92,7 +121,7 @@ exports.sendSingleSms = async (req, res) => {
   } catch (error) {
     console.log('[SINGLE DLT SMS ERROR]', {
       phone,
-      templateId,
+      templateId: requestedTemplateKey,
       message: error?.message || String(error),
     });
     return res.status(400).json({

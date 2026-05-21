@@ -43,7 +43,8 @@
       <table>
         <thead>
           <tr>
-            <th>Template ID</th>
+            <th>Message ID</th>
+            <th>Content Template ID</th>
             <th>Name</th>
             <th>Sender</th>
             <th>Category</th>
@@ -53,13 +54,14 @@
         </thead>
         <tbody>
           <tr *ngIf="!filteredTemplates.length">
-            <td colspan="6" class="empty-state">
+            <td colspan="7" class="empty-state">
               <i class="fa-solid fa-file-excel"></i>
               <span>No templates found. Upload an approved DLT Excel file to get started.</span>
             </td>
           </tr>
           <tr *ngFor="let template of filteredTemplates; trackBy: trackById">
-            <td class="mono">{{ template.templateId }}</td>
+            <td class="mono">{{ template.dltMessageId || '—' }}</td>
+            <td class="mono">{{ template.contentTemplateId || template.templateId || '—' }}</td>
             <td>
               <strong>{{ template.templateName || '—' }}</strong>
               <p class="content-snippet">{{ template.templateContent }}</p>
@@ -88,7 +90,8 @@
       <div class="preview-header">
         <div>
           <h3>{{ preview.templateName || preview.templateId }}</h3>
-          <p class="mono">{{ preview.templateId }}</p>
+          <p class="mono" *ngIf="preview.dltMessageId">Message ID: {{ preview.dltMessageId }}</p>
+          <p class="mono" *ngIf="preview.contentTemplateId">Content Template ID: {{ preview.contentTemplateId }}</p>
         </div>
         <button type="button" class="close-btn" (click)="closePreview()" aria-label="Close preview">
           <i class="fa-solid fa-xmark"></i>

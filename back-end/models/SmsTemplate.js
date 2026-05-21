@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const smsTemplateSchema = new mongoose.Schema(
   {
+    /** CRM lookup key (usually DLT Content Template ID from Excel TEMPLATE_ID). */
     templateId: {
       type: String,
       required: true,
@@ -9,6 +10,12 @@ const smsTemplateSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    /** Fast2SMS DLT Manager Message ID — sent as bulkV2 `message` (route: dlt). */
+    dltMessageId: { type: String, trim: true, default: '', index: true },
+    /** DLT registry Content Template ID (Excel TEMPLATE_ID). */
+    contentTemplateId: { type: String, trim: true, default: '' },
+    /** DLT Principal Entity ID (Excel ENTITY_ID), optional on API. */
+    entityId: { type: String, trim: true, default: '' },
     templateName: { type: String, trim: true, default: '' },
     templateContent: { type: String, default: '' },
     sampleContent: { type: String, default: '' },

@@ -9,7 +9,15 @@ const IMPORT_ACCEPTED_MIME_TYPES = new Set([
 ]);
 
 const COLUMN_ALIASES = {
-  templateId: ['template_id', 'template id'],
+  dltMessageId: ['message_id', 'message id', 'dlt message id', 'fast2sms message id'],
+  contentTemplateId: [
+    'template_id',
+    'template id',
+    'content_template_id',
+    'content template id',
+    'dlt template id',
+  ],
+  entityId: ['entity_id', 'entity id', 'principal entity id'],
   templateName: ['template_name', 'template name'],
   templateContent: ['template_content', 'template content', 'content'],
   sampleContent: ['sample_content', 'sample content'],
@@ -44,6 +52,9 @@ const resolveColumnMap = (headers = []) => {
   Object.keys(COLUMN_ALIASES).forEach((field) => {
     columnMap[field] = null;
     normalizedHeaders.forEach((header, index) => {
+      if (columnMap[field]) {
+        return;
+      }
       if (COLUMN_ALIASES[field].includes(header)) {
         columnMap[field] = headers[index];
       }
@@ -118,17 +129,33 @@ const parseDateValue = (value) => {
 };
 
 const buildTemplatePayload = (row, columnMap) => {
-  const templateId = getCellValue(row, columnMap.templateId);
-  if (!templateId) {
+  const dltMessageId = getCellValue(row, columnMap.dltMessageId);
+  const contentTemplateId = getCellValue(row, columnMap.contentTemplateId);
+  const entityId = getCellValue(row, columnMap.entityId);
+
+  if (!dltMessageId && !contentTemplateId) {
     return null;
   }
+
+  if (!dltMessageId && contentTemplateId) {
+    console.log('[SMS TEMPLATE WARNING]', {
+      reason: 'message_id_column_missing',
+      contentTemplateId,
+      hint: 'TEMPLATE_ID alone is not valid for Fast2SMS message= parameter; add MESSAGE_ID column',
+    });
+  }
+
+  const crmTemplateId = contentTemplateId || dltMessageId;
 
   const verificationStatus = parseVerificationStatus(getCellValue(row, columnMap.verificationStatus));
   const jioStatus = getCellValue(row, columnMap.jioStatus);
   const isActive = verificationStatus && isJioStatusActive(jioStatus);
 
   return {
-    templateId,
+    templateId: crmTemplateId,
+    dltMessageId: dltMessageId || '',
+    contentTemplateId: contentTemplateId || '',
+    entityId,
     templateName: getCellValue(row, columnMap.templateName),
     templateContent: getCellValue(row, columnMap.templateContent),
     sampleContent: getCellValue(row, columnMap.sampleContent),
@@ -144,6 +171,9 @@ const buildTemplatePayload = (row, columnMap) => {
 };
 
 const TRACKED_FIELDS = [
+  'dltMessageId',
+  'contentTemplateId',
+  'entityId',
   'templateName',
   'templateContent',
   'sampleContent',
@@ -166,6 +196,19 @@ const hasTemplateChanged = (existing, nextPayload) => TRACKED_FIELDS.some((field
   return String(existing[field] ?? '') !== String(nextPayload[field] ?? '');
 });
 
+const buildExistingLookup = (payload) => {
+  const clauses = [{ templateId: payload.templateId }];
+
+  if (payload.dltMessageId) {
+    clauses.push({ dltMessageId: payload.dltMessageId });
+  }
+  if (payload.contentTemplateId) {
+    clauses.push({ contentTemplateId: payload.contentTemplateId });
+  }
+
+  return { $or: clauses };
+};
+
 const importSmsTemplatesFromFile = async (file) => {
   console.log('[SMS TEMPLATE IMPORT START]', {
     fileName: file?.originalname || '',
@@ -185,8 +228,14 @@ const importSmsTemplatesFromFile = async (file) => {
   const { headers, rows, parser } = parseExcelBuffer(file.buffer, fileType);
   const columnMap = resolveColumnMap(headers);
 
-  if (!columnMap.templateId) {
-    throw new Error('TEMPLATE_ID column is required in the Excel file.');
+  console.log('[SMS TEMPLATE COLUMN MAP]', {
+    headers,
+    columnMap,
+    note: 'Fast2SMS route dlt uses MESSAGE_ID -> dltMessageId, not TEMPLATE_ID',
+  });
+
+  if (!columnMap.dltMessageId && !columnMap.contentTemplateId) {
+    throw new Error('Excel must include MESSAGE_ID and/or TEMPLATE_ID column.');
   }
 
   const summary = {
@@ -196,23 +245,37 @@ const importSmsTemplatesFromFile = async (file) => {
     skipped: 0,
     inactive: 0,
     errors: 0,
+    missingMessageId: 0,
   };
 
   for (const row of rows) {
     summary.parsed += 1;
+
+    console.log('[SMS TEMPLATE RAW IMPORT]', {
+      rowNumber: summary.parsed,
+      rowData: row,
+    });
+
     const payload = buildTemplatePayload(row, columnMap);
 
     if (!payload) {
       summary.skipped += 1;
       console.log('[SMS TEMPLATE SKIPPED]', {
-        reason: 'missing_template_id',
+        reason: 'missing_ids',
         rowNumber: summary.parsed,
       });
       continue;
     }
 
+    if (!payload.dltMessageId) {
+      summary.missingMessageId += 1;
+    }
+
     console.log('[SMS TEMPLATE ROW PARSED]', {
       templateId: payload.templateId,
+      dltMessageId: payload.dltMessageId || '(missing)',
+      contentTemplateId: payload.contentTemplateId || '(missing)',
+      entityId: payload.entityId || '(missing)',
       templateName: payload.templateName,
       verificationStatus: payload.verificationStatus,
       jioStatus: payload.jioStatus,
@@ -224,13 +287,14 @@ const importSmsTemplatesFromFile = async (file) => {
     }
 
     try {
-      const existing = await SmsTemplate.findOne({ templateId: payload.templateId });
+      const existing = await SmsTemplate.findOne(buildExistingLookup(payload));
 
       if (!existing) {
         await SmsTemplate.create(payload);
         summary.created += 1;
         console.log('[SMS TEMPLATE SAVED]', {
           templateId: payload.templateId,
+          dltMessageId: payload.dltMessageId,
           action: 'created',
           isActive: payload.isActive,
         });
@@ -249,10 +313,12 @@ const importSmsTemplatesFromFile = async (file) => {
       TRACKED_FIELDS.forEach((field) => {
         existing[field] = payload[field];
       });
+      existing.templateId = payload.templateId;
       await existing.save();
       summary.updated += 1;
       console.log('[SMS TEMPLATE SAVED]', {
         templateId: payload.templateId,
+        dltMessageId: payload.dltMessageId,
         action: 'updated',
         isActive: payload.isActive,
       });
