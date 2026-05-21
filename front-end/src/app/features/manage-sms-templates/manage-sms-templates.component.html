@@ -60,7 +60,20 @@
             </td>
           </tr>
           <tr *ngFor="let template of filteredTemplates; trackBy: trackById">
-            <td class="mono">{{ template.dltMessageId || '—' }}</td>
+            <td class="message-id-cell">
+              <span class="mono" [class.not-configured]="!isMessageIdConfigured(template)">
+                {{ displayMessageId(template) }}
+              </span>
+              <button
+                type="button"
+                class="btn-icon"
+                (click)="openMessageIdEditor(template)"
+                title="Edit Message ID"
+                aria-label="Edit Message ID"
+              >
+                <i class="fa-solid fa-pen"></i>
+              </button>
+            </td>
             <td class="mono">{{ template.contentTemplateId || template.templateId || '—' }}</td>
             <td>
               <strong>{{ template.templateName || '—' }}</strong>
@@ -90,7 +103,7 @@
       <div class="preview-header">
         <div>
           <h3>{{ preview.templateName || preview.templateId }}</h3>
-          <p class="mono" *ngIf="preview.dltMessageId">Message ID: {{ preview.dltMessageId }}</p>
+          <p class="mono" *ngIf="isMessageIdConfigured(preview)">Message ID: {{ displayMessageId(preview) }}</p>
           <p class="mono" *ngIf="preview.contentTemplateId">Content Template ID: {{ preview.contentTemplateId }}</p>
         </div>
         <button type="button" class="close-btn" (click)="closePreview()" aria-label="Close preview">
@@ -109,6 +122,45 @@
       <div class="preview-block" *ngIf="preview.sampleContent">
         <span class="label">Sample content</span>
         <pre class="preview-text">{{ preview.sampleContent }}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="message-id-modal" *ngIf="editingTemplate as edit">
+    <div class="message-id-dialog" role="dialog" aria-labelledby="message-id-dialog-title">
+      <div class="dialog-header">
+        <h3 id="message-id-dialog-title">Configure Message ID</h3>
+        <button type="button" class="close-btn" (click)="closeMessageIdEditor()" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <label>
+          <span>Template Name</span>
+          <input type="text" [value]="edit.templateName || edit.templateId" readonly>
+        </label>
+        <label>
+          <span>Sender ID</span>
+          <input type="text" [value]="edit.senderId || '—'" readonly>
+        </label>
+        <label>
+          <span>Message ID</span>
+          <input
+            type="text"
+            [(ngModel)]="editMessageId"
+            placeholder="e.g. 215773"
+            [disabled]="isSavingMessageId"
+          >
+        </label>
+        <p class="dialog-hint">Fast2SMS DLT route uses this value as the <code>message</code> parameter.</p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" (click)="closeMessageIdEditor()" [disabled]="isSavingMessageId">
+          Cancel
+        </button>
+        <button type="button" class="btn-primary" (click)="saveMessageId()" [disabled]="isSavingMessageId">
+          {{ isSavingMessageId ? 'Saving...' : 'Save' }}
+        </button>
       </div>
     </div>
   </div>

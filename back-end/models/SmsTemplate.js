@@ -10,7 +10,9 @@ const smsTemplateSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-    /** Fast2SMS DLT Manager Message ID — sent as bulkV2 `message` (route: dlt). */
+    /** Fast2SMS Message ID — set manually in CRM; sent as bulkV2 `message` (route: dlt). */
+    messageId: { type: String, trim: true, default: '' },
+    /** @deprecated Use messageId; kept for backward compatibility. */
     dltMessageId: { type: String, trim: true, default: '', index: true },
     /** DLT registry Content Template ID (Excel TEMPLATE_ID). */
     contentTemplateId: { type: String, trim: true, default: '' },

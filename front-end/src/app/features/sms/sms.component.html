@@ -127,15 +127,15 @@
         <p class="template-variables-validation" *ngIf="templateVariableSlots.length && !canSend">
           Fill all variables above to enable Send DLT SMS.
         </p>
-        <p class="template-variables-validation" *ngIf="selectedSmsTemplate && !selectedSmsTemplate.dltMessageId">
-          This template has no Fast2SMS Message ID (MESSAGE_ID). Re-import the DLT Excel file.
+        <p class="template-variables-validation" *ngIf="selectedTemplateMissingMessageId">
+          Message ID not configured for this template. Set it in Manage SMS Templates.
         </p>
       </section>
 
       <div class="sender-meta" *ngIf="selectedSmsTemplate as template">
-        <span *ngIf="template.dltMessageId">Fast2SMS Message ID: {{ template.dltMessageId }}</span>
+        <span *ngIf="template.messageId || template.dltMessageId">Message ID: {{ template.messageId || template.dltMessageId }}</span>
         <span *ngIf="template.contentTemplateId">Content Template ID: {{ template.contentTemplateId }}</span>
-        <span *ngIf="!template.dltMessageId">CRM Template Key: {{ template.templateId }}</span>
+        <span *ngIf="!template.messageId && !template.dltMessageId">CRM Template Key: {{ template.templateId }}</span>
         <span *ngIf="template.senderId">Sender: {{ template.senderId }}</span>
         <span *ngIf="template.entityId">Entity: {{ template.entityId }}</span>
       </div>

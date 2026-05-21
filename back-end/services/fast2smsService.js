@@ -175,7 +175,7 @@ async function sendDltSms({
     payload.template_id = normalizedContentTemplateId;
   }
 
-  console.log('[SINGLE DLT SMS PAYLOAD]', {
+  console.log('[SMS SEND PAYLOAD]', {
     sender_id: payload.sender_id,
     message: payload.message,
     variables_values: payload.variables_values || '',
@@ -187,7 +187,7 @@ async function sendDltSms({
 
   const providerResponse = await postFast2SmsPayload(payload);
 
-  console.log('[FAST2SMS DLT RESPONSE]', providerResponse);
+  console.log('[FAST2SMS RESPONSE]', providerResponse);
 
   return {
     success: true,

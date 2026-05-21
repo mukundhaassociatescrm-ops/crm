@@ -1,7 +1,9 @@
 /**
- * Fast2SMS route "dlt" expects `message` = Message ID from Fast2SMS DLT Manager,
- * NOT the DLT registry Content Template ID (Excel TEMPLATE_ID).
+ * Fast2SMS route "dlt" expects `message` = Message ID from Fast2SMS DLT Manager.
+ * Jio DLT Excel does not include this — configure via CRM (messageId field).
  */
+
+const resolveConfiguredMessageId = (template) => String(template?.messageId || template?.dltMessageId || '').trim();
 
 const resolveFast2smsMessageId = (template) => {
   const testMessageId = String(process.env.FAST2SMS_DLT_TEST_MESSAGE_ID || '').trim();
@@ -13,23 +15,15 @@ const resolveFast2smsMessageId = (template) => {
     return testMessageId;
   }
 
-  const dltMessageId = String(template?.dltMessageId || '').trim();
-  if (dltMessageId) {
-    return dltMessageId;
-  }
-
-  const legacyId = String(template?.templateId || '').trim();
-  if (legacyId) {
-    console.log('[SINGLE DLT SMS WARNING]', {
-      reason: 'dlt_message_id_missing_using_template_id_fallback',
-      templateId: legacyId,
-      hint: 'Re-import Excel with MESSAGE_ID column mapped to dltMessageId',
-    });
-    return legacyId;
+  const messageId = resolveConfiguredMessageId(template);
+  if (messageId) {
+    return messageId;
   }
 
   return '';
 };
+
+const hasConfiguredMessageId = (template) => Boolean(resolveConfiguredMessageId(template));
 
 const resolveFast2smsSenderId = (template) => {
   const testSenderId = String(process.env.FAST2SMS_DLT_TEST_SENDER_ID || '').trim();
@@ -57,6 +51,7 @@ const buildTemplateLookupQuery = (requestedId) => {
 
   return {
     $or: [
+      { messageId: id },
       { dltMessageId: id },
       { contentTemplateId: id },
       { templateId: id },
@@ -65,7 +60,9 @@ const buildTemplateLookupQuery = (requestedId) => {
 };
 
 module.exports = {
+  resolveConfiguredMessageId,
   resolveFast2smsMessageId,
+  hasConfiguredMessageId,
   resolveFast2smsSenderId,
   resolveFast2smsEntityId,
   buildTemplateLookupQuery,

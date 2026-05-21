@@ -7,7 +7,11 @@ import { ToastrService } from 'ngx-toastr';
 import { catchError, finalize, of } from 'rxjs';
 import { Client, ClientService } from '../manage-client/client.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
-import { SmsTemplate, SmsTemplateService } from '../manage-sms-templates/sms-template.service';
+import {
+  hasSmsTemplateMessageId,
+  SmsTemplate,
+  SmsTemplateService,
+} from '../manage-sms-templates/sms-template.service';
 import {
   buildSmsVariablesArray,
   renderSmsTemplatePreview,
@@ -93,12 +97,16 @@ export class SmsComponent implements OnInit, OnDestroy {
     );
   }
 
+  get selectedTemplateMissingMessageId(): boolean {
+    return Boolean(this.selectedSmsTemplate) && !hasSmsTemplateMessageId(this.selectedSmsTemplate);
+  }
+
   get canSend(): boolean {
     if (!this.selectedClient || !this.selectedSmsTemplateId || this.isSending) {
       return false;
     }
 
-    if (!this.selectedSmsTemplate?.dltMessageId) {
+    if (!hasSmsTemplateMessageId(this.selectedSmsTemplate)) {
       return false;
     }
 

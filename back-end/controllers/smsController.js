@@ -5,7 +5,9 @@ const {
   buildVariablesValues,
 } = require('../services/smsTemplateVariableUtils');
 const {
+  resolveConfiguredMessageId,
   resolveFast2smsMessageId,
+  hasConfiguredMessageId,
   resolveFast2smsSenderId,
   resolveFast2smsEntityId,
   buildTemplateLookupQuery,
@@ -57,19 +59,33 @@ exports.sendSingleSms = async (req, res) => {
       });
     }
 
-    const fast2smsMessageId = resolveFast2smsMessageId(template);
-    if (!fast2smsMessageId) {
+    console.log('[SMS SEND TEMPLATE]', {
+      requestedTemplateKey,
+      templateId: template.templateId,
+      templateName: template.templateName,
+      senderId: template.senderId,
+      messageId: resolveConfiguredMessageId(template) || null,
+    });
+
+    if (!hasConfiguredMessageId(template)) {
       return res.status(400).json({
         success: false,
-        message: 'Template is missing Fast2SMS Message ID (MESSAGE_ID). Re-import the DLT Excel file.',
+        message: 'Message ID not configured for this template',
       });
     }
+
+    const fast2smsMessageId = resolveFast2smsMessageId(template);
+
+    console.log('[SMS MESSAGE ID]', {
+      messageId: fast2smsMessageId,
+      source: template.messageId ? 'messageId' : 'dltMessageId',
+    });
 
     const senderId = resolveFast2smsSenderId(template);
     if (!senderId) {
       return res.status(400).json({
         success: false,
-        message: 'Template is missing sender ID (HEADER). Re-import the DLT Excel file.',
+        message: 'Template is missing sender ID (HEADER). Configure sender in imported template.',
       });
     }
 
@@ -89,16 +105,6 @@ exports.sendSingleSms = async (req, res) => {
 
     const variablesValues = buildVariablesValues(slots, variables);
 
-    console.log('[SINGLE DLT SMS RESOLVED]', {
-      requestedTemplateKey,
-      crmTemplateId: template.templateId,
-      dltMessageId: template.dltMessageId,
-      contentTemplateId: template.contentTemplateId,
-      fast2smsMessageId,
-      senderId,
-      entityId: template.entityId || resolveFast2smsEntityId(template),
-    });
-
     const result = await sendDltSms({
       phone: normalizedPhone,
       messageId: fast2smsMessageId,
@@ -112,8 +118,7 @@ exports.sendSingleSms = async (req, res) => {
       success: true,
       phone: result.phone,
       templateId: template.templateId,
-      dltMessageId: fast2smsMessageId,
-      contentTemplateId: template.contentTemplateId,
+      messageId: fast2smsMessageId,
       senderId: result.senderId,
       variablesValues: result.variablesValues,
       providerResponse: result.providerResponse,

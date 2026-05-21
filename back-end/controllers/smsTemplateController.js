@@ -59,6 +59,7 @@ exports.listSmsTemplates = async (req, res, next) => {
       const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       query.$or = [
         { templateId: regex },
+        { messageId: regex },
         { dltMessageId: regex },
         { contentTemplateId: regex },
         { entityId: regex },
@@ -81,6 +82,42 @@ exports.listSmsTemplates = async (req, res, next) => {
         count: templates.length,
         activeOnly: activeOnly || (!includeInactive && !search),
       },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.updateSmsTemplateMessageId = async (req, res, next) => {
+  try {
+    const template = await SmsTemplate.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'SMS template not found.' });
+    }
+
+    const messageId = String(req.body?.messageId || '').trim();
+    if (!messageId) {
+      return res.status(400).json({
+        success: false,
+        message: 'messageId is required and cannot be empty.',
+      });
+    }
+
+    template.messageId = messageId;
+    template.dltMessageId = messageId;
+    await template.save();
+
+    console.log('[SMS TEMPLATE MESSAGE ID UPDATED]', {
+      templateId: template.templateId,
+      templateName: template.templateName,
+      messageId: template.messageId,
+      mongoId: String(template._id),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Message ID updated successfully.',
+      data: template,
     });
   } catch (error) {
     return next(error);

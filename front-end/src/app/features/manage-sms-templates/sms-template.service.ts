@@ -2,9 +2,22 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
+export function getSmsTemplateMessageId(
+  template: Pick<SmsTemplate, 'messageId' | 'dltMessageId'> | null | undefined,
+): string {
+  return String(template?.messageId || template?.dltMessageId || '').trim();
+}
+
+export function hasSmsTemplateMessageId(
+  template: Pick<SmsTemplate, 'messageId' | 'dltMessageId'> | null | undefined,
+): boolean {
+  return Boolean(getSmsTemplateMessageId(template));
+}
+
 export interface SmsTemplate {
   _id: string;
   templateId: string;
+  messageId?: string;
   dltMessageId?: string;
   contentTemplateId?: string;
   entityId?: string;
@@ -74,5 +87,12 @@ export class SmsTemplateService {
 
   setTemplateActive(id: string, isActive: boolean): Observable<{ success: boolean; data: SmsTemplate }> {
     return this.http.patch<{ success: boolean; data: SmsTemplate }>(`/api/sms/templates/${id}/active`, { isActive });
+  }
+
+  updateMessageId(id: string, messageId: string): Observable<{ success: boolean; message?: string; data: SmsTemplate }> {
+    return this.http.put<{ success: boolean; message?: string; data: SmsTemplate }>(
+      `/api/sms/templates/${id}/message-id`,
+      { messageId },
+    );
   }
 }

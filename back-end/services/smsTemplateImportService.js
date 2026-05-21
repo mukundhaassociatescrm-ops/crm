@@ -133,19 +133,11 @@ const buildTemplatePayload = (row, columnMap) => {
   const contentTemplateId = getCellValue(row, columnMap.contentTemplateId);
   const entityId = getCellValue(row, columnMap.entityId);
 
-  if (!dltMessageId && !contentTemplateId) {
+  if (!contentTemplateId) {
     return null;
   }
 
-  if (!dltMessageId && contentTemplateId) {
-    console.log('[SMS TEMPLATE WARNING]', {
-      reason: 'message_id_column_missing',
-      contentTemplateId,
-      hint: 'TEMPLATE_ID alone is not valid for Fast2SMS message= parameter; add MESSAGE_ID column',
-    });
-  }
-
-  const crmTemplateId = contentTemplateId || dltMessageId;
+  const crmTemplateId = contentTemplateId;
 
   const verificationStatus = parseVerificationStatus(getCellValue(row, columnMap.verificationStatus));
   const jioStatus = getCellValue(row, columnMap.jioStatus);
@@ -153,6 +145,7 @@ const buildTemplatePayload = (row, columnMap) => {
 
   return {
     templateId: crmTemplateId,
+    messageId: dltMessageId || '',
     dltMessageId: dltMessageId || '',
     contentTemplateId: contentTemplateId || '',
     entityId,
@@ -234,8 +227,8 @@ const importSmsTemplatesFromFile = async (file) => {
     note: 'Fast2SMS route dlt uses MESSAGE_ID -> dltMessageId, not TEMPLATE_ID',
   });
 
-  if (!columnMap.dltMessageId && !columnMap.contentTemplateId) {
-    throw new Error('Excel must include MESSAGE_ID and/or TEMPLATE_ID column.');
+  if (!columnMap.contentTemplateId) {
+    throw new Error('Excel must include TEMPLATE_ID column.');
   }
 
   const summary = {
@@ -311,6 +304,13 @@ const importSmsTemplatesFromFile = async (file) => {
       }
 
       TRACKED_FIELDS.forEach((field) => {
+        if (field === 'dltMessageId') {
+          if (payload.dltMessageId) {
+            existing.dltMessageId = payload.dltMessageId;
+            existing.messageId = payload.dltMessageId;
+          }
+          return;
+        }
         existing[field] = payload[field];
       });
       existing.templateId = payload.templateId;

@@ -4,7 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { finalize } from 'rxjs';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
-import { SmsTemplate, SmsTemplateService } from './sms-template.service';
+import {
+  getSmsTemplateMessageId,
+  hasSmsTemplateMessageId,
+  SmsTemplate,
+  SmsTemplateService,
+} from './sms-template.service';
 
 @Component({
   selector: 'app-manage-sms-templates',
@@ -20,6 +25,10 @@ export class ManageSmsTemplatesComponent implements OnInit {
   isLoading = false;
   isImporting = false;
   selectedTemplate: SmsTemplate | null = null;
+
+  editingTemplate: SmsTemplate | null = null;
+  editMessageId = '';
+  isSavingMessageId = false;
 
   constructor(
     private readonly smsTemplateService: SmsTemplateService,
@@ -74,6 +83,70 @@ export class ManageSmsTemplatesComponent implements OnInit {
 
   closePreview(): void {
     this.selectedTemplate = null;
+  }
+
+  openMessageIdEditor(template: SmsTemplate): void {
+    this.editingTemplate = template;
+    this.editMessageId = getSmsTemplateMessageId(template);
+  }
+
+  closeMessageIdEditor(): void {
+    if (this.isSavingMessageId) {
+      return;
+    }
+    this.editingTemplate = null;
+    this.editMessageId = '';
+  }
+
+  saveMessageId(): void {
+    if (!this.editingTemplate) {
+      return;
+    }
+
+    const messageId = this.editMessageId.trim();
+    if (!messageId) {
+      this.toastr.error('Message ID is required', 'SMS Templates');
+      return;
+    }
+
+    this.isSavingMessageId = true;
+    this.smsTemplateService
+      .updateMessageId(this.editingTemplate._id, messageId)
+      .pipe(finalize(() => {
+        this.isSavingMessageId = false;
+      }))
+      .subscribe({
+        next: (response) => {
+          if (!response.success) {
+            this.toastr.error(response.message || 'Failed to update Message ID', 'SMS Templates');
+            return;
+          }
+
+          const updated = response.data;
+          const index = this.templates.findIndex((item) => item._id === updated._id);
+          if (index >= 0) {
+            this.templates[index] = updated;
+          }
+          if (this.editingTemplate) {
+            this.editingTemplate.messageId = updated.messageId;
+            this.editingTemplate.dltMessageId = updated.dltMessageId;
+          }
+          this.applyFilter();
+          this.toastr.success('Message ID updated successfully');
+          this.closeMessageIdEditor();
+        },
+        error: (error) => {
+          this.toastr.error(error?.error?.message || 'Failed to update Message ID', 'SMS Templates');
+        },
+      });
+  }
+
+  displayMessageId(template: SmsTemplate): string {
+    return hasSmsTemplateMessageId(template) ? getSmsTemplateMessageId(template) : 'Not Configured';
+  }
+
+  isMessageIdConfigured(template: SmsTemplate): boolean {
+    return hasSmsTemplateMessageId(template);
   }
 
   toggleActive(template: SmsTemplate): void {
@@ -136,6 +209,7 @@ export class ManageSmsTemplatesComponent implements OnInit {
     this.filteredTemplates = this.templates.filter((template) => {
       const haystack = [
         template.templateId,
+        template.messageId,
         template.dltMessageId,
         template.contentTemplateId,
         template.entityId,
