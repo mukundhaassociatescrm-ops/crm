@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const smsTemplateSchema = new mongoose.Schema(
   {
-    /** CRM lookup key (usually DLT Content Template ID from Excel TEMPLATE_ID). */
+    templateName: { type: String, trim: true, default: '' },
+    /** CRM / DLT content template ID (lookup key for send API). */
     templateId: {
       type: String,
       required: true,
@@ -10,25 +11,27 @@ const smsTemplateSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-    /** Fast2SMS Message ID — set manually in CRM; sent as bulkV2 `message` (route: dlt). */
-    messageId: { type: String, trim: true, default: '' },
-    /** @deprecated Use messageId; kept for backward compatibility. */
-    dltMessageId: { type: String, trim: true, default: '', index: true },
-    /** DLT registry Content Template ID (Excel TEMPLATE_ID). */
-    contentTemplateId: { type: String, trim: true, default: '' },
-    /** DLT Principal Entity ID (Excel ENTITY_ID), optional on API. */
-    entityId: { type: String, trim: true, default: '' },
-    templateName: { type: String, trim: true, default: '' },
-    templateContent: { type: String, default: '' },
-    sampleContent: { type: String, default: '' },
+    /** Fast2SMS DLT Manager Message ID — sent as bulkV2 `message` (route: dlt). */
+    messageId: { type: String, trim: true, default: '', index: true },
     senderId: { type: String, trim: true, default: '' },
-    category: { type: String, trim: true, default: '' },
+    entityId: { type: String, trim: true, default: '' },
+    entityName: { type: String, trim: true, default: '' },
+    templateContent: { type: String, default: '' },
     templateType: { type: String, trim: true, default: '' },
+    approvalStatus: { type: String, trim: true, default: '' },
+    provider: { type: String, trim: true, default: 'fast2sms', index: true },
+    syncedAt: { type: Date, default: null },
+    isActive: { type: Boolean, default: false, index: true },
+
+    /** @deprecated Excel / legacy fields — kept for fallback import compatibility. */
+    dltMessageId: { type: String, trim: true, default: '' },
+    contentTemplateId: { type: String, trim: true, default: '' },
+    sampleContent: { type: String, default: '' },
+    category: { type: String, trim: true, default: '' },
     verificationStatus: { type: Boolean, default: false },
     jioStatus: { type: String, trim: true, default: '' },
     approvalDate: { type: Date, default: null },
     validTill: { type: Date, default: null },
-    isActive: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

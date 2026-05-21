@@ -8,7 +8,7 @@ import { catchError, finalize, of } from 'rxjs';
 import { Client, ClientService } from '../manage-client/client.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 import {
-  hasSmsTemplateMessageId,
+  isSmsTemplateReadyToSend,
   SmsTemplate,
   SmsTemplateService,
 } from '../manage-sms-templates/sms-template.service';
@@ -97,8 +97,8 @@ export class SmsComponent implements OnInit, OnDestroy {
     );
   }
 
-  get selectedTemplateMissingMessageId(): boolean {
-    return Boolean(this.selectedSmsTemplate) && !hasSmsTemplateMessageId(this.selectedSmsTemplate);
+  get selectedTemplateNotReady(): boolean {
+    return Boolean(this.selectedSmsTemplate) && !isSmsTemplateReadyToSend(this.selectedSmsTemplate);
   }
 
   get canSend(): boolean {
@@ -106,7 +106,7 @@ export class SmsComponent implements OnInit, OnDestroy {
       return false;
     }
 
-    if (!hasSmsTemplateMessageId(this.selectedSmsTemplate)) {
+    if (!isSmsTemplateReadyToSend(this.selectedSmsTemplate)) {
       return false;
     }
 

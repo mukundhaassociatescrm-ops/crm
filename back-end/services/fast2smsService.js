@@ -7,6 +7,8 @@ const getFetch = async () => {
   return fetch;
 };
 
+const DLT_MANAGER_BASE_URL = 'https://www.fast2sms.com/dev/dlt_manager';
+
 const normalizeIndianMobile = (value) => {
   const digits = String(value || '').replace(/\D/g, '');
   if (!digits) {
@@ -23,6 +25,92 @@ const normalizeIndianMobile = (value) => {
 
   return null;
 };
+
+const unwrapDltManagerRecords = (body) => {
+  if (!body) {
+    return [];
+  }
+
+  if (Array.isArray(body)) {
+    return body;
+  }
+
+  const candidates = [
+    body.data,
+    body.records,
+    body.templates,
+    body.senders,
+    body.result,
+    body.list,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+    if (candidate && typeof candidate === 'object') {
+      const nested = Object.values(candidate).find((value) => Array.isArray(value));
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return [];
+};
+
+async function fetchDltManager(type) {
+  const apiKey = process.env.FAST2SMS_API_KEY;
+  if (!apiKey) {
+    throw new Error('FAST2SMS_API_KEY is not configured.');
+  }
+
+  const normalizedType = String(type || '').trim().toLowerCase();
+  if (!['template', 'sender'].includes(normalizedType)) {
+    throw new Error("DLT Manager type must be 'template' or 'sender'.");
+  }
+
+  const url = new URL(DLT_MANAGER_BASE_URL);
+  url.searchParams.set('authorization', apiKey);
+  url.searchParams.set('type', normalizedType);
+
+  const fetch = await getFetch();
+  const response = await fetch(url.toString(), { method: 'GET' });
+
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    const messageFromApi = body?.message || body?.error || `Fast2SMS DLT Manager (${normalizedType}) request failed.`;
+    throw new Error(Array.isArray(messageFromApi) ? messageFromApi.join(', ') : String(messageFromApi));
+  }
+
+  if (body && (body.return === false || body.return === 'false' || body.status === false)) {
+    const apiMessage = body.message || 'Fast2SMS DLT Manager rejected the request.';
+    throw new Error(Array.isArray(apiMessage) ? apiMessage.join(', ') : String(apiMessage));
+  }
+
+  const records = unwrapDltManagerRecords(body);
+  console.log('[FAST2SMS TEMPLATE RESPONSE]', {
+    type: normalizedType,
+    recordCount: records.length,
+    keys: body && typeof body === 'object' ? Object.keys(body) : [],
+  });
+
+  return records;
+}
+
+async function fetchDltTemplates() {
+  return fetchDltManager('template');
+}
+
+async function fetchDltSenders() {
+  return fetchDltManager('sender');
+}
 
 async function sendFast2SmsBulk({ message, numbers }) {
   const apiKey = process.env.FAST2SMS_API_KEY;
@@ -225,6 +313,9 @@ async function sendSMS(phone, message) {
 }
 
 module.exports = {
+  fetchDltManager,
+  fetchDltTemplates,
+  fetchDltSenders,
   sendFast2SmsBulk,
   sendDltSms,
   postFast2SmsPayload,

@@ -85,7 +85,7 @@
           </option>
         </select>
         <small class="field-hint" *ngIf="!isLoadingTemplates && !smsTemplates.length">
-          No active templates. <a routerLink="/manage-sms-templates">Import DLT templates</a>.
+          No active templates. <a routerLink="/manage-sms-templates">Sync from Fast2SMS</a>.
         </small>
       </label>
 
@@ -127,8 +127,8 @@
         <p class="template-variables-validation" *ngIf="templateVariableSlots.length && !canSend">
           Fill all variables above to enable Send DLT SMS.
         </p>
-        <p class="template-variables-validation" *ngIf="selectedTemplateMissingMessageId">
-          Message ID not configured for this template. Set it in Manage SMS Templates.
+        <p class="template-variables-validation" *ngIf="selectedTemplateNotReady">
+          Template is not ready to send. Sync from Fast2SMS and ensure Message ID and Sender ID are configured.
         </p>
       </section>
 

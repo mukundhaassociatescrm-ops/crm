@@ -14,19 +14,29 @@ export function hasSmsTemplateMessageId(
   return Boolean(getSmsTemplateMessageId(template));
 }
 
+export function isSmsTemplateReadyToSend(
+  template: Pick<SmsTemplate, 'messageId' | 'dltMessageId' | 'senderId' | 'isActive'> | null | undefined,
+): boolean {
+  return Boolean(template?.isActive && hasSmsTemplateMessageId(template) && String(template?.senderId || '').trim());
+}
+
 export interface SmsTemplate {
   _id: string;
   templateId: string;
+  templateName: string;
   messageId?: string;
   dltMessageId?: string;
   contentTemplateId?: string;
   entityId?: string;
-  templateName: string;
+  entityName?: string;
   templateContent: string;
   sampleContent?: string;
   senderId?: string;
   category?: string;
   templateType?: string;
+  approvalStatus?: string;
+  provider?: string;
+  syncedAt?: string;
   verificationStatus?: boolean;
   jioStatus?: string;
   approvalDate?: string;
@@ -45,10 +55,30 @@ export interface SmsTemplateImportSummary {
   errors: number;
 }
 
+export interface SmsTemplateListMeta {
+  count: number;
+  total?: number;
+  page?: number;
+  limit?: number;
+  pages?: number;
+  activeOnly?: boolean;
+}
+
 export interface SmsTemplateListResponse {
   success: boolean;
   data: SmsTemplate[];
-  meta?: { count: number; activeOnly?: boolean };
+  meta?: SmsTemplateListMeta;
+}
+
+export interface SmsTemplateSyncResponse {
+  success: boolean;
+  message?: string;
+  synced: number;
+  created: number;
+  updated: number;
+  skipped?: number;
+  errors?: number;
+  parsed?: number;
 }
 
 export interface SmsTemplateImportResponse {
@@ -65,6 +95,8 @@ export class SmsTemplateService {
     search?: string;
     activeOnly?: boolean;
     includeInactive?: boolean;
+    page?: number;
+    limit?: number;
   } = {}): Observable<SmsTemplateListResponse> {
     let params = new HttpParams();
     if (options.search?.trim()) {
@@ -76,7 +108,17 @@ export class SmsTemplateService {
     if (options.includeInactive) {
       params = params.set('includeInactive', 'true');
     }
+    if (options.page) {
+      params = params.set('page', String(options.page));
+    }
+    if (options.limit) {
+      params = params.set('limit', String(options.limit));
+    }
     return this.http.get<SmsTemplateListResponse>('/api/sms/templates', { params });
+  }
+
+  syncTemplates(): Observable<SmsTemplateSyncResponse> {
+    return this.http.post<SmsTemplateSyncResponse>('/api/sms/templates/sync', {});
   }
 
   importTemplates(file: File): Observable<SmsTemplateImportResponse> {
@@ -87,12 +129,5 @@ export class SmsTemplateService {
 
   setTemplateActive(id: string, isActive: boolean): Observable<{ success: boolean; data: SmsTemplate }> {
     return this.http.patch<{ success: boolean; data: SmsTemplate }>(`/api/sms/templates/${id}/active`, { isActive });
-  }
-
-  updateMessageId(id: string, messageId: string): Observable<{ success: boolean; message?: string; data: SmsTemplate }> {
-    return this.http.put<{ success: boolean; message?: string; data: SmsTemplate }>(
-      `/api/sms/templates/${id}/message-id`,
-      { messageId },
-    );
   }
 }

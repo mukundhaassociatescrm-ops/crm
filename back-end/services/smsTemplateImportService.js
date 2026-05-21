@@ -149,6 +149,9 @@ const buildTemplatePayload = (row, columnMap) => {
     dltMessageId: dltMessageId || '',
     contentTemplateId: contentTemplateId || '',
     entityId,
+    provider: 'excel',
+    approvalStatus: jioStatus,
+    syncedAt: null,
     templateName: getCellValue(row, columnMap.templateName),
     templateContent: getCellValue(row, columnMap.templateContent),
     sampleContent: getCellValue(row, columnMap.sampleContent),
@@ -164,9 +167,12 @@ const buildTemplatePayload = (row, columnMap) => {
 };
 
 const TRACKED_FIELDS = [
+  'messageId',
   'dltMessageId',
   'contentTemplateId',
   'entityId',
+  'provider',
+  'approvalStatus',
   'templateName',
   'templateContent',
   'sampleContent',

@@ -4,21 +4,38 @@
   <div class="page-header">
     <div>
       <h2>Manage SMS Templates</h2>
-      <p>Import approved DLT templates from Excel and use them across Single SMS and Bulk SMS</p>
+      <p>Sync approved DLT templates from Fast2SMS. Excel import is available as a fallback only.</p>
     </div>
     <div class="header-actions">
-      <label class="btn-primary upload-btn" [class.disabled]="isImporting">
-        <i class="fa-solid fa-file-arrow-up"></i>
-        <span>{{ isImporting ? 'Importing...' : 'Upload DLT Excel' }}</span>
-        <input
-          type="file"
-          accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          (change)="onFileSelected($event)"
-          [disabled]="isImporting"
-          hidden
-        >
-      </label>
+      <button
+        type="button"
+        class="btn-primary"
+        (click)="syncTemplates()"
+        [disabled]="isSyncing || isLoading"
+      >
+        <i class="fa-solid fa-arrows-rotate" [class.fa-spin]="isSyncing"></i>
+        <span>{{ isSyncing ? 'Syncing...' : 'Sync Templates' }}</span>
+      </button>
+      <button type="button" class="btn-secondary" (click)="showExcelFallback = !showExcelFallback">
+        <i class="fa-solid fa-file-excel"></i>
+        <span>Excel Fallback</span>
+      </button>
     </div>
+  </div>
+
+  <div class="fallback-panel" *ngIf="showExcelFallback">
+    <p>Upload Jio DLT Excel only when Fast2SMS sync is unavailable. Manual Message ID entry is not required after sync.</p>
+    <label class="btn-secondary upload-btn" [class.disabled]="isImporting">
+      <i class="fa-solid fa-file-arrow-up"></i>
+      <span>{{ isImporting ? 'Importing...' : 'Upload DLT Excel' }}</span>
+      <input
+        type="file"
+        accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        (change)="onFileSelected($event)"
+        [disabled]="isImporting"
+        hidden
+      >
+    </label>
   </div>
 
   <div class="filters-row">
@@ -28,10 +45,10 @@
         type="text"
         [(ngModel)]="searchTerm"
         (ngModelChange)="onSearchChange()"
-        placeholder="Search by template name, ID, or content"
+        placeholder="Search template name, sender ID, or entity"
       >
     </label>
-    <span class="count-pill">{{ filteredTemplates.length }} template{{ filteredTemplates.length === 1 ? '' : 's' }}</span>
+    <span class="count-pill">{{ totalTemplates }} template{{ totalTemplates === 1 ? '' : 's' }}</span>
   </div>
 
   <div class="loading-state" *ngIf="isLoading">
@@ -43,49 +60,40 @@
       <table>
         <thead>
           <tr>
+            <th>Template Name</th>
             <th>Message ID</th>
-            <th>Content Template ID</th>
-            <th>Name</th>
-            <th>Sender</th>
-            <th>Category</th>
+            <th>Sender ID</th>
+            <th>Entity Name</th>
+            <th>Provider</th>
             <th>Status</th>
+            <th>Synced At</th>
             <th class="text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngIf="!filteredTemplates.length">
-            <td colspan="7" class="empty-state">
-              <i class="fa-solid fa-file-excel"></i>
-              <span>No templates found. Upload an approved DLT Excel file to get started.</span>
+          <tr *ngIf="!templates.length">
+            <td colspan="8" class="empty-state">
+              <i class="fa-solid fa-cloud-arrow-down"></i>
+              <span>No templates yet. Click <strong>Sync Templates</strong> to pull from Fast2SMS DLT Manager.</span>
             </td>
           </tr>
-          <tr *ngFor="let template of filteredTemplates; trackBy: trackById">
-            <td class="message-id-cell">
-              <span class="mono" [class.not-configured]="!isMessageIdConfigured(template)">
-                {{ displayMessageId(template) }}
-              </span>
-              <button
-                type="button"
-                class="btn-icon"
-                (click)="openMessageIdEditor(template)"
-                title="Edit Message ID"
-                aria-label="Edit Message ID"
-              >
-                <i class="fa-solid fa-pen"></i>
-              </button>
-            </td>
-            <td class="mono">{{ template.contentTemplateId || template.templateId || '—' }}</td>
+          <tr *ngFor="let template of templates; trackBy: trackById">
             <td>
               <strong>{{ template.templateName || '—' }}</strong>
               <p class="content-snippet">{{ template.templateContent }}</p>
             </td>
+            <td class="mono" [class.not-configured]="!isMessageIdConfigured(template)">
+              {{ displayMessageId(template) }}
+            </td>
             <td>{{ template.senderId || '—' }}</td>
-            <td>{{ template.category || '—' }}</td>
+            <td>{{ template.entityName || '—' }}</td>
+            <td>{{ displayProvider(template) }}</td>
             <td>
               <span class="status-badge" [class.active]="template.isActive" [class.inactive]="!template.isActive">
-                {{ template.isActive ? 'Active' : 'Inactive' }}
+                {{ displayStatus(template) }}
               </span>
             </td>
+            <td class="synced-at">{{ displaySyncedAt(template) }}</td>
             <td class="actions-cell">
               <button type="button" class="btn-link" (click)="openPreview(template)">Preview</button>
               <button type="button" class="btn-link" (click)="toggleActive(template)">
@@ -103,8 +111,10 @@
       <div class="preview-header">
         <div>
           <h3>{{ preview.templateName || preview.templateId }}</h3>
-          <p class="mono" *ngIf="isMessageIdConfigured(preview)">Message ID: {{ displayMessageId(preview) }}</p>
-          <p class="mono" *ngIf="preview.contentTemplateId">Content Template ID: {{ preview.contentTemplateId }}</p>
+          <p class="mono">Message ID: {{ displayMessageId(preview) }}</p>
+          <p class="mono" *ngIf="preview.contentTemplateId || preview.templateId">
+            Content Template ID: {{ preview.contentTemplateId || preview.templateId }}
+          </p>
         </div>
         <button type="button" class="close-btn" (click)="closePreview()" aria-label="Close preview">
           <i class="fa-solid fa-xmark"></i>
@@ -112,8 +122,9 @@
       </div>
       <div class="preview-meta">
         <span>Sender: {{ preview.senderId || '—' }}</span>
-        <span>Jio: {{ preview.jioStatus || '—' }}</span>
-        <span>Verified: {{ preview.verificationStatus ? 'Yes' : 'No' }}</span>
+        <span>Entity: {{ preview.entityName || preview.entityId || '—' }}</span>
+        <span>Provider: {{ displayProvider(preview) }}</span>
+        <span>Approval: {{ preview.approvalStatus || preview.jioStatus || '—' }}</span>
       </div>
       <div class="preview-block">
         <span class="label">Template content</span>
@@ -122,45 +133,6 @@
       <div class="preview-block" *ngIf="preview.sampleContent">
         <span class="label">Sample content</span>
         <pre class="preview-text">{{ preview.sampleContent }}</pre>
-      </div>
-    </div>
-  </div>
-
-  <div class="message-id-modal" *ngIf="editingTemplate as edit">
-    <div class="message-id-dialog" role="dialog" aria-labelledby="message-id-dialog-title">
-      <div class="dialog-header">
-        <h3 id="message-id-dialog-title">Configure Message ID</h3>
-        <button type="button" class="close-btn" (click)="closeMessageIdEditor()" aria-label="Close">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-      <div class="dialog-body">
-        <label>
-          <span>Template Name</span>
-          <input type="text" [value]="edit.templateName || edit.templateId" readonly>
-        </label>
-        <label>
-          <span>Sender ID</span>
-          <input type="text" [value]="edit.senderId || '—'" readonly>
-        </label>
-        <label>
-          <span>Message ID</span>
-          <input
-            type="text"
-            [(ngModel)]="editMessageId"
-            placeholder="e.g. 215773"
-            [disabled]="isSavingMessageId"
-          >
-        </label>
-        <p class="dialog-hint">Fast2SMS DLT route uses this value as the <code>message</code> parameter.</p>
-      </div>
-      <div class="dialog-actions">
-        <button type="button" class="btn-secondary" (click)="closeMessageIdEditor()" [disabled]="isSavingMessageId">
-          Cancel
-        </button>
-        <button type="button" class="btn-primary" (click)="saveMessageId()" [disabled]="isSavingMessageId">
-          {{ isSavingMessageId ? 'Saving...' : 'Save' }}
-        </button>
       </div>
     </div>
   </div>

@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
-import { finalize } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, finalize, takeUntil } from 'rxjs';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 import {
   getSmsTemplateMessageId,
@@ -18,17 +18,21 @@ import {
   templateUrl: './manage-sms-templates.component.html',
   styleUrl: './manage-sms-templates.component.scss',
 })
-export class ManageSmsTemplatesComponent implements OnInit {
+export class ManageSmsTemplatesComponent implements OnInit, OnDestroy {
   templates: SmsTemplate[] = [];
-  filteredTemplates: SmsTemplate[] = [];
   searchTerm = '';
   isLoading = false;
+  isSyncing = false;
   isImporting = false;
+  showExcelFallback = false;
   selectedTemplate: SmsTemplate | null = null;
 
-  editingTemplate: SmsTemplate | null = null;
-  editMessageId = '';
-  isSavingMessageId = false;
+  totalTemplates = 0;
+  currentPage = 1;
+  readonly pageSize = 50;
+
+  private readonly destroy$ = new Subject<void>();
+  private readonly search$ = new Subject<string>();
 
   constructor(
     private readonly smsTemplateService: SmsTemplateService,
@@ -36,11 +40,50 @@ export class ManageSmsTemplatesComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.search$
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.currentPage = 1;
+        this.loadTemplates();
+      });
+
     this.loadTemplates();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   onSearchChange(): void {
-    this.applyFilter();
+    this.search$.next(this.searchTerm);
+  }
+
+  syncTemplates(): void {
+    this.isSyncing = true;
+    this.smsTemplateService
+      .syncTemplates()
+      .pipe(finalize(() => {
+        this.isSyncing = false;
+      }))
+      .subscribe({
+        next: (response) => {
+          if (!response.success) {
+            this.toastr.error('Template sync failed', 'SMS Templates');
+            return;
+          }
+
+          this.toastr.success('Templates synced successfully');
+          this.toastr.info(
+            `Synced ${response.synced}: ${response.created} created, ${response.updated} updated`,
+            'Fast2SMS',
+          );
+          this.loadTemplates();
+        },
+        error: (error) => {
+          this.toastr.error(error?.error?.message || 'Failed to sync templates from Fast2SMS', 'SMS Templates');
+        },
+      });
   }
 
   onFileSelected(event: Event): void {
@@ -66,7 +109,7 @@ export class ManageSmsTemplatesComponent implements OnInit {
 
           const summary = response.data;
           this.toastr.success(
-            `Imported: ${summary.created} new, ${summary.updated} updated, ${summary.skipped} skipped`,
+            `Excel fallback: ${summary.created} new, ${summary.updated} updated`,
             'SMS Templates',
           );
           this.loadTemplates();
@@ -85,68 +128,32 @@ export class ManageSmsTemplatesComponent implements OnInit {
     this.selectedTemplate = null;
   }
 
-  openMessageIdEditor(template: SmsTemplate): void {
-    this.editingTemplate = template;
-    this.editMessageId = getSmsTemplateMessageId(template);
-  }
-
-  closeMessageIdEditor(): void {
-    if (this.isSavingMessageId) {
-      return;
-    }
-    this.editingTemplate = null;
-    this.editMessageId = '';
-  }
-
-  saveMessageId(): void {
-    if (!this.editingTemplate) {
-      return;
-    }
-
-    const messageId = this.editMessageId.trim();
-    if (!messageId) {
-      this.toastr.error('Message ID is required', 'SMS Templates');
-      return;
-    }
-
-    this.isSavingMessageId = true;
-    this.smsTemplateService
-      .updateMessageId(this.editingTemplate._id, messageId)
-      .pipe(finalize(() => {
-        this.isSavingMessageId = false;
-      }))
-      .subscribe({
-        next: (response) => {
-          if (!response.success) {
-            this.toastr.error(response.message || 'Failed to update Message ID', 'SMS Templates');
-            return;
-          }
-
-          const updated = response.data;
-          const index = this.templates.findIndex((item) => item._id === updated._id);
-          if (index >= 0) {
-            this.templates[index] = updated;
-          }
-          if (this.editingTemplate) {
-            this.editingTemplate.messageId = updated.messageId;
-            this.editingTemplate.dltMessageId = updated.dltMessageId;
-          }
-          this.applyFilter();
-          this.toastr.success('Message ID updated successfully');
-          this.closeMessageIdEditor();
-        },
-        error: (error) => {
-          this.toastr.error(error?.error?.message || 'Failed to update Message ID', 'SMS Templates');
-        },
-      });
+  isMessageIdConfigured(template: SmsTemplate): boolean {
+    return hasSmsTemplateMessageId(template);
   }
 
   displayMessageId(template: SmsTemplate): string {
     return hasSmsTemplateMessageId(template) ? getSmsTemplateMessageId(template) : 'Not Configured';
   }
 
-  isMessageIdConfigured(template: SmsTemplate): boolean {
-    return hasSmsTemplateMessageId(template);
+  displayProvider(template: SmsTemplate): string {
+    const provider = String(template.provider || 'fast2sms').trim();
+    return provider === 'excel' ? 'Excel (fallback)' : 'Fast2SMS';
+  }
+
+  displaySyncedAt(template: SmsTemplate): string {
+    if (!template.syncedAt) {
+      return template.provider === 'excel' ? '—' : 'Never';
+    }
+    return new Date(template.syncedAt).toLocaleString();
+  }
+
+  displayStatus(template: SmsTemplate): string {
+    if (template.isActive) {
+      return 'Active';
+    }
+    const approval = String(template.approvalStatus || template.jioStatus || '').trim();
+    return approval || 'Inactive';
   }
 
   toggleActive(template: SmsTemplate): void {
@@ -157,7 +164,6 @@ export class ManageSmsTemplatesComponent implements OnInit {
           return;
         }
         template.isActive = response.data.isActive;
-        this.applyFilter();
         this.toastr.success(
           `Template ${template.templateName || template.templateId} marked ${nextActive ? 'active' : 'inactive'}`,
         );
@@ -168,13 +174,6 @@ export class ManageSmsTemplatesComponent implements OnInit {
     });
   }
 
-  getPreviewContent(template: SmsTemplate | null): string {
-    if (!template) {
-      return '';
-    }
-    return template.sampleContent?.trim() || template.templateContent || '';
-  }
-
   trackById(_: number, item: SmsTemplate): string {
     return item._id;
   }
@@ -182,46 +181,25 @@ export class ManageSmsTemplatesComponent implements OnInit {
   private loadTemplates(): void {
     this.isLoading = true;
     this.smsTemplateService
-      .getTemplates({ includeInactive: true })
+      .getTemplates({
+        includeInactive: true,
+        search: this.searchTerm.trim() || undefined,
+        page: this.currentPage,
+        limit: this.pageSize,
+      })
       .pipe(finalize(() => {
         this.isLoading = false;
       }))
       .subscribe({
         next: (response) => {
           this.templates = response.success && Array.isArray(response.data) ? response.data : [];
-          this.applyFilter();
+          this.totalTemplates = response.meta?.total ?? this.templates.length;
         },
         error: () => {
           this.templates = [];
-          this.filteredTemplates = [];
+          this.totalTemplates = 0;
           this.toastr.error('Unable to load SMS templates');
         },
       });
-  }
-
-  private applyFilter(): void {
-    const term = this.searchTerm.trim().toLowerCase();
-    if (!term) {
-      this.filteredTemplates = [...this.templates];
-      return;
-    }
-
-    this.filteredTemplates = this.templates.filter((template) => {
-      const haystack = [
-        template.templateId,
-        template.messageId,
-        template.dltMessageId,
-        template.contentTemplateId,
-        template.entityId,
-        template.templateName,
-        template.templateContent,
-        template.sampleContent,
-        template.senderId,
-        template.category,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(term);
-    });
   }
 }

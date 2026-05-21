@@ -5,6 +5,7 @@ const {
   IMPORT_ACCEPTED_MIME_TYPES,
   importSmsTemplatesFromFile,
 } = require('../services/smsTemplateImportService');
+const { syncSmsTemplatesFromFast2Sms } = require('../services/smsTemplateSyncService');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -25,6 +26,24 @@ const upload = multer({
 
 exports.templateUpload = upload.single('file');
 
+exports.syncSmsTemplates = async (req, res, next) => {
+  try {
+    const summary = await syncSmsTemplatesFromFast2Sms();
+    return res.status(200).json({
+      success: true,
+      message: 'Templates synced successfully',
+      synced: summary.synced,
+      created: summary.created,
+      updated: summary.updated,
+      skipped: summary.skipped,
+      errors: summary.errors,
+      parsed: summary.parsed,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 exports.importSmsTemplates = async (req, res, next) => {
   try {
     if (!req.file) {
@@ -34,7 +53,7 @@ exports.importSmsTemplates = async (req, res, next) => {
     const summary = await importSmsTemplatesFromFile(req.file);
     return res.status(200).json({
       success: true,
-      message: 'SMS templates imported successfully.',
+      message: 'SMS templates imported successfully (Excel fallback).',
       data: summary,
     });
   } catch (error) {
@@ -47,6 +66,9 @@ exports.listSmsTemplates = async (req, res, next) => {
     const search = String(req.query.search || '').trim();
     const activeOnly = String(req.query.activeOnly || 'false').toLowerCase() === 'true';
     const includeInactive = String(req.query.includeInactive || 'false').toLowerCase() === 'true';
+    const page = Math.max(1, Number.parseInt(String(req.query.page || '1'), 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
+    const skip = (page - 1) * limit;
 
     const query = {};
     if (activeOnly) {
@@ -63,23 +85,35 @@ exports.listSmsTemplates = async (req, res, next) => {
         { dltMessageId: regex },
         { contentTemplateId: regex },
         { entityId: regex },
+        { entityName: regex },
         { templateName: regex },
         { templateContent: regex },
         { sampleContent: regex },
         { senderId: regex },
         { category: regex },
+        { provider: regex },
+        { approvalStatus: regex },
       ];
     }
 
-    const templates = await SmsTemplate.find(query)
-      .sort({ templateName: 1, templateId: 1 })
-      .lean();
+    const [templates, total] = await Promise.all([
+      SmsTemplate.find(query)
+        .sort({ templateName: 1, templateId: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      SmsTemplate.countDocuments(query),
+    ]);
 
     return res.status(200).json({
       success: true,
       data: templates,
       meta: {
         count: templates.length,
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit) || 1,
         activeOnly: activeOnly || (!includeInactive && !search),
       },
     });

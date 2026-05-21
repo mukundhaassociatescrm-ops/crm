@@ -55,7 +55,14 @@ exports.sendSingleSms = async (req, res) => {
     if (!template) {
       return res.status(404).json({
         success: false,
-        message: 'Active DLT template not found. Import or activate the template first.',
+        message: 'Active DLT template not found. Sync from Fast2SMS or activate the template first.',
+      });
+    }
+
+    if (!template.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'Template is not active.',
       });
     }
 
@@ -81,11 +88,11 @@ exports.sendSingleSms = async (req, res) => {
       source: template.messageId ? 'messageId' : 'dltMessageId',
     });
 
-    const senderId = resolveFast2smsSenderId(template);
+    const senderId = resolveFast2smsSenderId(template) || String(template.senderId || '').trim();
     if (!senderId) {
       return res.status(400).json({
         success: false,
-        message: 'Template is missing sender ID (HEADER). Configure sender in imported template.',
+        message: 'Sender ID not configured for this template',
       });
     }
 
