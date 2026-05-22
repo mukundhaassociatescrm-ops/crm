@@ -38,35 +38,6 @@ const buildSafeDltManagerUrlForLog = (type) => {
   return safeUrl.toString();
 };
 
-const logFast2smsTemplateFetchDebug = (response, body) => {
-  console.log('Status:', response.status, response.statusText || '');
-  console.log('RAW TEMPLATE RESPONSE:', JSON.stringify(body, null, 2));
-
-  const topLevelKeys = body && typeof body === 'object' ? Object.keys(body) : [];
-  console.log('Parsed JSON Top-Level Keys:', topLevelKeys);
-
-  if (Array.isArray(body?.data)) {
-    console.log('Template Group Count (data.length):', body.data.length);
-
-    if (body.data[0]) {
-      console.log('First Group Sample:', JSON.stringify(body.data[0], null, 2));
-
-      const nestedTemplates = Array.isArray(body.data[0].templates) ? body.data[0].templates : [];
-      console.log('First Group Nested templates.length:', nestedTemplates.length);
-
-      if (nestedTemplates[0]) {
-        console.log('First Nested Template Sample:', JSON.stringify(nestedTemplates[0], null, 2));
-        console.log('First Nested Template Keys:', Object.keys(nestedTemplates[0]));
-      }
-    }
-  } else {
-    console.log('Template Group Count (data.length):', 0);
-    console.log('Note: response.data is not an array — inspect RAW TEMPLATE RESPONSE above');
-  }
-
-  console.log('=== FAST2SMS TEMPLATE FETCH END ===');
-};
-
 async function fetchDltManagerRaw(type) {
   const apiKey = process.env.FAST2SMS_API_KEY;
   if (!apiKey) {
@@ -82,10 +53,14 @@ async function fetchDltManagerRaw(type) {
   url.searchParams.set('authorization', apiKey);
   url.searchParams.set('type', normalizedType);
 
-  if (normalizedType === 'template') {
-    console.log('=== FAST2SMS TEMPLATE SYNC START ===');
-    console.log('URL:', buildSafeDltManagerUrlForLog('template'));
-    console.log('Query Params:', { type: 'template', authorization: '[REDACTED]' });
+  const isTemplateFetch = normalizedType === 'template';
+
+  if (isTemplateFetch) {
+    console.log('\n==============================');
+    console.log('FAST2SMS TEMPLATE SYNC START');
+    console.log('==============================');
+    console.log('REQUEST URL:', buildSafeDltManagerUrlForLog('template'));
+    console.log('REQUEST TYPE:', normalizedType);
   } else {
     console.log('[FAST2SMS SENDER FETCH]', {
       URL: buildSafeDltManagerUrlForLog('sender'),
@@ -108,14 +83,33 @@ async function fetchDltManagerRaw(type) {
     });
   }
 
-  if (normalizedType === 'template') {
+  if (isTemplateFetch) {
+    console.log('FAST2SMS STATUS:', response.status);
+
     if (body) {
-      logFast2smsTemplateFetchDebug(response, body);
+      console.log(
+        'FAST2SMS RAW RESPONSE:',
+        JSON.stringify(body, null, 2)
+      );
+
+      if (Array.isArray(body?.data)) {
+        console.log(
+          'FAST2SMS TEMPLATE COUNT:',
+          body.data.length
+        );
+
+        console.log(
+          'FAST2SMS FIRST TEMPLATE SAMPLE:',
+          JSON.stringify(body.data[0], null, 2)
+        );
+      }
     } else {
-      console.log('Status:', response.status, response.statusText || '');
-      console.log('RAW TEMPLATE RESPONSE: null (failed to parse JSON body)');
-      console.log('=== FAST2SMS TEMPLATE FETCH END ===');
+      console.log('FAST2SMS RAW RESPONSE: null (failed to parse JSON body)');
     }
+
+    console.log('==============================');
+    console.log('FAST2SMS TEMPLATE SYNC END');
+    console.log('==============================\n');
   } else {
     console.log('[FAST2SMS SENDER FETCH RESPONSE]', {
       status: response.status,
