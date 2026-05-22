@@ -116,7 +116,9 @@ exports.sendBulkMessage = async (req, res, next) => {
 
     let sentCount = 0;
     let failedCount = 0;
+    let submittedCount = 0;
     let firstDeliveryError = '';
+    const bulkFailures = [];
 
     if (normalizedChannel === 'sms') {
       const allNumbers = contacts
@@ -144,30 +146,84 @@ exports.sendBulkMessage = async (req, res, next) => {
       }
     } else {
       const perMessageDelayMs = 300;
+      console.log('[BULK WHATSAPP TEMPLATE SEND START]', {
+        groupId,
+        templateId: whatsappTemplateId,
+        params: whatsappTemplateParams,
+        recipientCount: contacts.length,
+      });
+      console.log('[BULK WHATSAPP PAYLOAD SAMPLE]', {
+        channel: 'whatsapp',
+        template: {
+          id: whatsappTemplateId,
+          params: whatsappTemplateParams,
+        },
+        note: 'Same structure as single /api/chat/send-template',
+      });
+
       for (const contact of contacts) {
         const normalizedPhone = normalizeDestination(contact.mobile);
-        console.log('[WA TRY]', contact.mobile, { normalizedPhone, templateId: whatsappTemplateId });
+        submittedCount += 1;
+
+        const singleEquivalentPayload = {
+          to: normalizedPhone,
+          templateId: whatsappTemplateId,
+          params: whatsappTemplateParams,
+        };
+        console.log('[BULK WHATSAPP TRY]', singleEquivalentPayload);
+
         try {
+          if (!normalizedPhone) {
+            throw new Error('Invalid recipient number.');
+          }
+
           const providerResult = await sendGupshupTemplateMessage({
-            to: normalizedPhone || contact.mobile,
+            to: normalizedPhone,
             templateId: whatsappTemplateId,
             params: whatsappTemplateParams,
           });
+
+          if (!providerResult?.accepted) {
+            throw new Error('Provider did not accept the template message.');
+          }
+
           sentCount += 1;
-          console.log('[WA SUCCESS]', contact.mobile, providerResult);
-          console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'success' });
+          console.log('[BULK WHATSAPP PROVIDER ACCEPTED]', {
+            phone: normalizedPhone,
+            messageId: providerResult.messageId || null,
+            providerStatus: providerResult.providerStatus || null,
+          });
         } catch (err) {
           failedCount += 1;
-          console.error('[WA ERROR]', {
+          const errorMessage = err?.response?.data?.message
+            || err?.response?.data?.error
+            || err?.message
+            || String(err);
+          if (!firstDeliveryError) {
+            firstDeliveryError = errorMessage;
+          }
+          bulkFailures.push({
             phone: contact.mobile,
             normalizedPhone,
-            error: err?.response?.data || err?.message || String(err),
+            error: errorMessage,
+            providerBody: err?.response?.data || null,
           });
-          console.log('[BULK WHATSAPP]', { phone: contact.mobile, status: 'failed', error: err?.message || String(err) });
+          console.log('[BULK WHATSAPP PROVIDER REJECTED]', {
+            phone: contact.mobile,
+            normalizedPhone,
+            error: errorMessage,
+            providerBody: err?.response?.data || null,
+          });
         }
 
         await delay(perMessageDelayMs);
       }
+
+      console.log('[BULK WHATSAPP FINAL COUNTS]', {
+        submittedCount,
+        sentCount,
+        failedCount,
+      });
     }
 
     log.sentCount = sentCount;
@@ -192,6 +248,17 @@ exports.sendBulkMessage = async (req, res, next) => {
       }
     }
 
+    if (normalizedChannel === 'whatsapp' && sentCount === 0 && failedCount > 0) {
+      return res.status(502).json({
+        success: false,
+        message: firstDeliveryError || 'WhatsApp template was rejected for all recipients.',
+        submittedCount,
+        sentCount: 0,
+        failedCount,
+        failures: bulkFailures.slice(0, 20),
+      });
+    }
+
     if (sentCount === 0 && failedCount > 0) {
       const normalizedDeliveryError = String(firstDeliveryError || '').toLowerCase();
       const requiresFast2SmsActivation = normalizedDeliveryError.includes('complete one transaction of 100 inr')
@@ -209,7 +276,16 @@ exports.sendBulkMessage = async (req, res, next) => {
       });
     }
 
-    return res.status(200).json({ success: true, sentCount });
+    return res.status(200).json({
+      success: true,
+      sentCount,
+      failedCount,
+      submittedCount: normalizedChannel === 'whatsapp' ? submittedCount : sentCount,
+      partial: normalizedChannel === 'whatsapp' ? failedCount > 0 : false,
+      ...(normalizedChannel === 'whatsapp' && failedCount > 0
+        ? { failures: bulkFailures.slice(0, 20) }
+        : {}),
+    });
   } catch (error) {
     if (log) {
       try {

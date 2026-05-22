@@ -713,9 +713,12 @@ exports.sendChatTemplate = async (req, res, next) => {
 
     await ensureChatParticipant(normalizedTo);
 
+    console.log('TEMPLATE SEND START');
     console.log('[TEMPLATE SEND CONFIRM]', {
       type: 'template',
       templateId,
+      destination: normalizedTo,
+      paramCount: templateParams.length,
     });
 
     const result = await sendGupshupTemplateMessage({
@@ -725,6 +728,14 @@ exports.sendChatTemplate = async (req, res, next) => {
     });
 
     const messageId = result.messageId || `local-template-${Date.now()}`;
+    const providerStatus = result.providerStatus || 'submitted';
+
+    console.log('PROVIDER ACCEPTED', {
+      messageId,
+      providerStatus,
+      providerResponse: result.providerResponse,
+    });
+
     const displayText = buildTemplateDisplayText({
       templateBody,
       templateName,
@@ -732,34 +743,54 @@ exports.sendChatTemplate = async (req, res, next) => {
       params: templateParams,
     });
 
-    console.log(`[sendChatTemplate] Template "${templateName || templateId}" sent to ${normalizedTo}, messageId=${messageId}.`);
-    console.log('[TEMPLATE MESSAGE STORED]', {
-      templateId,
-      templateName,
-      displayText: displayText ? `${displayText.slice(0, 120)}...` : '',
-    });
+    let persistenceWarning = '';
+    try {
+      await saveMessage({
+        messageId,
+        phone: normalizedTo,
+        text: displayText,
+        type: 'text',
+        direction: 'out',
+        status: 'sent',
+        timestamp: new Date(),
+        destination: normalizedTo,
+        source: resolveGupshupSource(),
+        templateId,
+        templateName,
+        templateBody,
+        templateParams,
+      });
+      console.log('DB SAVE SUCCESS', { messageId, phone: normalizedTo });
+    } catch (persistError) {
+      persistenceWarning = persistError?.message || String(persistError);
+      console.error('[TEMPLATE PERSIST ERROR]', {
+        messageId,
+        phone: normalizedTo,
+        message: persistenceWarning,
+      });
+    }
 
-    await saveMessage({
-      messageId,
-      phone: normalizedTo,
-      text: displayText,
-      type: 'text',
-      direction: 'out',
-      status: 'sent',
-      timestamp: new Date(),
-      destination: normalizedTo,
-      source: resolveGupshupSource(),
-      templateId,
-      templateName,
-      templateBody,
-      templateParams,
-    });
+    try {
+      emitChatUpdate({
+        eventType: 'outgoing',
+        phone: normalizePhone(normalizedTo),
+        messageId,
+        status: 'sent',
+      });
+      console.log('SOCKET EMIT SUCCESS', { messageId, eventType: 'outgoing' });
+    } catch (socketError) {
+      const socketMessage = socketError?.message || String(socketError);
+      persistenceWarning = persistenceWarning
+        ? `${persistenceWarning}; socket: ${socketMessage}`
+        : `socket: ${socketMessage}`;
+      console.error('[TEMPLATE SOCKET ERROR]', { messageId, message: socketMessage });
+    }
 
-    emitChatUpdate({
-      eventType: 'outgoing',
-      phone: normalizePhone(normalizedTo),
+    console.log('FINAL MESSAGE STATUS', {
       messageId,
-      status: 'sent',
+      uiStatus: 'submitted',
+      providerStatus,
+      persistenceWarning: persistenceWarning || null,
     });
 
     return res.status(200).json({
@@ -768,11 +799,17 @@ exports.sendChatTemplate = async (req, res, next) => {
         messageId,
         type: 'template',
         templateId,
-        status: 'sent',
+        status: 'submitted',
+        providerStatus,
       },
+      ...(persistenceWarning ? { persistenceWarning } : {}),
     });
   } catch (error) {
-    console.error('[TEMPLATE ERROR]', error?.response?.data || error?.message || error);
+    console.error('[TEMPLATE SEND FAILED]', {
+      httpStatus: error?.response?.status || null,
+      message: error?.response?.data?.message || error?.message || String(error),
+      body: error?.response?.data || null,
+    });
     return res.status(400).json({
       success: false,
       message: error?.response?.data?.message || error?.message || 'Failed to send template message.',

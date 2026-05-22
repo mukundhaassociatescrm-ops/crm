@@ -20,6 +20,14 @@ export interface SendBulkMessagePayload {
 export interface SendBulkMessageResponse {
   success: boolean;
   sentCount: number;
+  failedCount?: number;
+  submittedCount?: number;
+  partial?: boolean;
+  failures?: Array<{
+    phone?: string;
+    normalizedPhone?: string;
+    error?: string;
+  }>;
   message?: string;
 }
 

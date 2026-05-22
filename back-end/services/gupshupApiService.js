@@ -70,11 +70,95 @@ const extractMessageId = (responseBody) => {
     responseBody.messageId
     || responseBody.id
     || responseBody.message_id
+    || responseBody.gsId
+    || responseBody.gsid
     || responseBody?.data?.messageId
     || responseBody?.data?.id
     || responseBody?.message?.id
     || ''
   );
+};
+
+const classifyGupshupProviderBody = (body) => {
+  const providerStatus = String(body?.status || body?.data?.status || '').toLowerCase();
+  const messageId = extractMessageId(body);
+  const detail = body?.message || body?.error || body?.reason || body?.description || '';
+  const statusCode = String(body?.statusCode || body?.code || '').toLowerCase();
+
+  const explicitRejected =
+    providerStatus === 'error'
+    || providerStatus === 'failed'
+    || providerStatus === 'rejected'
+    || statusCode === 'error'
+    || statusCode === 'failed';
+
+  const explicitAccepted =
+    providerStatus === 'submitted'
+    || providerStatus === 'success'
+    || providerStatus === 'accepted'
+    || providerStatus === 'enqueued'
+    || providerStatus === 'queued'
+    || providerStatus === 'sent'
+    || Boolean(messageId);
+
+  const accepted = !explicitRejected && explicitAccepted;
+  const rejected = explicitRejected || (!accepted && Boolean(detail));
+
+  return {
+    messageId: messageId ? String(messageId) : '',
+    providerStatus: providerStatus || (accepted ? 'submitted' : 'unknown'),
+    detail: detail ? String(detail) : '',
+    accepted,
+    rejected,
+  };
+};
+
+const logGupshupProviderResponse = (context, response, classification) => {
+  console.log('[GUPSHUP PROVIDER RESPONSE]', {
+    context,
+    httpStatus: response?.status,
+    httpStatusText: response?.statusText || '',
+    messageId: classification.messageId || null,
+    providerStatus: classification.providerStatus,
+    accepted: classification.accepted,
+    rejected: classification.rejected,
+    detail: classification.detail || null,
+    body: JSON.stringify(response?.data ?? null, null, 2),
+  });
+};
+
+const parseGupshupProviderResponse = (response, context = 'gupshup') => {
+  const classification = classifyGupshupProviderBody(response?.data);
+  logGupshupProviderResponse(context, response, classification);
+
+  if (response?.status >= 400) {
+    const httpMessage = classification.detail || `Gupshup HTTP ${response.status}`;
+    throw new Error(httpMessage);
+  }
+
+  if (classification.rejected) {
+    throw new Error(classification.detail || 'Gupshup rejected the request.');
+  }
+
+  if (!classification.accepted) {
+    throw new Error(classification.detail || 'Gupshup response did not confirm message acceptance.');
+  }
+
+  return {
+    messageId: classification.messageId,
+    providerStatus: classification.providerStatus,
+    providerResponse: response?.data,
+    accepted: true,
+  };
+};
+
+const logGupshupProviderError = (context, error) => {
+  console.log('[GUPSHUP PROVIDER ERROR]', {
+    context,
+    httpStatus: error?.response?.status || null,
+    message: error?.message || String(error),
+    body: JSON.stringify(error?.response?.data ?? null, null, 2),
+  });
 };
 
 const buildBaseForm = (destination) => {
@@ -265,26 +349,44 @@ const sendGupshupTemplateMessage = async ({ to, templateId, params = [] }) => {
     }),
   });
 
-  console.log('[TEMPLATE PARAMS]', normalizedParams);
-  console.log('[FINAL TEMPLATE PAYLOAD]', formData);
-
-  const response = await axios.post(templateSendUrl, formData, {
-    headers: {
-      apikey: apiKey,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    timeout: 15000,
+  console.log('[GUPSHUP TEMPLATE SEND PAYLOAD]', {
+    destination,
+    templateId: String(templateId),
+    params: normalizedParams,
+    source,
+    srcName,
+    url: templateSendUrl,
   });
+  console.log('[GUPSHUP TEMPLATE SEND FORM]', formData);
 
-  return {
-    messageId: extractMessageId(response.data),
-    providerResponse: response.data,
-  };
+  try {
+    const response = await axios.post(templateSendUrl, formData, {
+      headers: {
+        apikey: apiKey,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      timeout: 15000,
+      validateStatus: () => true,
+    });
+
+    const parsed = parseGupshupProviderResponse(response, 'template');
+    return {
+      messageId: parsed.messageId,
+      providerStatus: parsed.providerStatus,
+      providerResponse: parsed.providerResponse,
+      accepted: true,
+    };
+  } catch (error) {
+    logGupshupProviderError('template', error);
+    throw error;
+  }
 };
 
 module.exports = {
   normalizeDestination,
   resolveGupshupSource,
+  classifyGupshupProviderBody,
+  parseGupshupProviderResponse,
   sendGupshupTextMessage,
   sendWhatsAppMessage,
   sendGupshupFileMessage,

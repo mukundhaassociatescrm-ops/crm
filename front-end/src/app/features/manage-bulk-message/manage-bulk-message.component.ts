@@ -268,10 +268,25 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
           return;
         }
 
-        this.toastr.success(
-          `${response.sentCount} recipient(s) queued via WhatsApp template`,
-          'WhatsApp Campaign Sent'
-        );
+        const submitted = response.submittedCount ?? response.sentCount;
+        const failed = response.failedCount ?? 0;
+        const delivered = response.sentCount ?? 0;
+
+        if (response.partial || failed > 0) {
+          this.toastr.warning(
+            `Submitted ${submitted}, accepted ${delivered}, failed ${failed}`,
+            'WhatsApp Campaign Partial'
+          );
+        } else {
+          this.toastr.success(
+            `Submitted ${submitted}, accepted ${delivered}`,
+            'WhatsApp Campaign Sent'
+          );
+        }
+
+        if (failed > 0) {
+          console.log('[WHATSAPP CAMPAIGN FAILURES]', response.failures || []);
+        }
         this.campaignLabel = '';
         this.removeSelectedMedia();
       },

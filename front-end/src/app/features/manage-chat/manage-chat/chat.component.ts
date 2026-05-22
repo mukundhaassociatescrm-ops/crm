@@ -2262,8 +2262,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
             this.markPendingMessageFailed(localPendingId);
           }
           this.templateModalError = response?.message || 'Template failed to send';
+          console.log('FINAL MESSAGE STATUS', { localPendingId, status: 'failed', source: 'api_response' });
           return;
         }
+
+        console.log('PROVIDER ACCEPTED', {
+          messageId: response.data?.messageId,
+          providerStatus: response.data?.status,
+          persistenceWarning: (response as { persistenceWarning?: string }).persistenceWarning || null,
+        });
 
         if (!this.isMockConversation(selectedConversation._id)) {
           this.resolvePendingMessage(localPendingId, response.data?.messageId, {
@@ -2271,8 +2278,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
             templateId: templateDisplay.templateId,
             templateName: templateDisplay.templateName,
             templateBody: templateDisplay.templateBody,
+            status: 'sent',
           });
         }
+
+        console.log('FINAL MESSAGE STATUS', {
+          localPendingId,
+          messageId: response.data?.messageId,
+          status: 'submitted',
+        });
 
         this.clearTemplateModalSelection();
         this.showTemplateModal = false;
@@ -2978,6 +2992,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         destination: event.destination,
         timestamp: event.timestamp,
       });
+      this.applyLocalMessageStatus(event.messageId, event.status);
     }
     this.refreshConversationsFromApi();
 
@@ -3619,6 +3634,60 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       localPendingId,
       providerMessageId: resolvedId,
     });
+  }
+
+  private applyLocalMessageStatus(messageId: string, status: string): void {
+    const normalizedId = String(messageId || '').trim();
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    if (!normalizedId || !normalizedStatus) {
+      return;
+    }
+
+    const mapUiStatus = (incoming: string): string => {
+      if (incoming === 'failed') {
+        return 'failed';
+      }
+      if (incoming === 'delivered' || incoming === 'read') {
+        return incoming;
+      }
+      return 'sent';
+    };
+
+    const nextStatus = mapUiStatus(normalizedStatus);
+    let updated = false;
+
+    this.pendingMessages = this.pendingMessages.map((message) => {
+      if (message.messageId !== normalizedId) {
+        return message;
+      }
+      updated = true;
+      return {
+        ...message,
+        status: nextStatus,
+        isPending: false,
+      };
+    });
+
+    this.messages = this.messages.map((message) => {
+      if (message.messageId !== normalizedId) {
+        return message;
+      }
+      if (message.status === 'delivered' || message.status === 'read') {
+        if (nextStatus === 'failed') {
+          return message;
+        }
+      }
+      updated = true;
+      return {
+        ...message,
+        status: nextStatus,
+        isPending: false,
+      };
+    });
+
+    if (updated) {
+      console.log('[UI LOCAL STATUS PATCH]', { messageId: normalizedId, status: nextStatus });
+    }
   }
 
   private markPendingMessageFailed(localPendingId: string): void {

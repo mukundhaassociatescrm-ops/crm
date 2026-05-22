@@ -289,6 +289,30 @@ const normalizeStatus = (value, fallback = 'sent') => {
   return fallback;
 };
 
+const STATUS_PROGRESS_RANK = {
+  failed: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+};
+
+const shouldApplyIncomingStatus = (currentStatus, incomingStatus, hasExactMessageIdMatch) => {
+  const incoming = normalizeStatus(incomingStatus);
+  const current = normalizeStatus(currentStatus);
+
+  if (incoming === 'failed') {
+    if (hasExactMessageIdMatch) {
+      return true;
+    }
+    // Avoid marking the wrong recent bubble failed when webhook IDs differ.
+    return current === 'sent';
+  }
+
+  const incomingRank = STATUS_PROGRESS_RANK[incoming] ?? 1;
+  const currentRank = STATUS_PROGRESS_RANK[current] ?? 1;
+  return incomingRank >= currentRank;
+};
+
 const normalizeDirection = (value, fallback = 'out') => {
   const direction = String(value || '').toLowerCase();
   if (direction === 'in' || direction === 'incoming') {
@@ -558,6 +582,15 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
 
   const existing = await Message.findOne({ messageId: normalizedMessageId });
   if (existing) {
+    if (!shouldApplyIncomingStatus(existing.status, normalizedStatus, true)) {
+      chatDebug('status:update skipped (downgrade blocked)', {
+        messageId: normalizedMessageId,
+        currentStatus: existing.status,
+        incomingStatus: normalizedStatus,
+      });
+      return toMessageView(existing, targetPhone);
+    }
+
     existing.status = normalizedStatus;
     existing.timestamp = toDate(timestamp);
     existing.to = normalizedDestination || existing.to;
@@ -582,6 +615,16 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
     timestamp,
   });
   if (matchedOutgoing) {
+    if (!shouldApplyIncomingStatus(matchedOutgoing.status, normalizedStatus, false)) {
+      chatDebug('status:update skipped (fuzzy failed blocked)', {
+        incomingStatusMessageId: normalizedMessageId,
+        matchedMessageId: matchedOutgoing.messageId,
+        currentStatus: matchedOutgoing.status,
+        incomingStatus: normalizedStatus,
+      });
+      return toMessageView(matchedOutgoing, targetPhone);
+    }
+
     matchedOutgoing.status = normalizedStatus;
     matchedOutgoing.timestamp = toDate(timestamp);
     matchedOutgoing.to = normalizedDestination || matchedOutgoing.to;
