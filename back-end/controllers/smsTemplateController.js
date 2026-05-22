@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const multer = require('multer');
 const SmsTemplate = require('../models/SmsTemplate');
 const {
@@ -34,6 +35,7 @@ exports.syncSmsTemplates = async (req, res, next) => {
       success: true,
       message: 'Templates synced successfully',
       synced: summary.synced,
+      saved: summary.saved,
       created: summary.created,
       updated: summary.updated,
       skipped: summary.skipped,
@@ -62,11 +64,49 @@ exports.importSmsTemplates = async (req, res, next) => {
   }
 };
 
+exports.debugSmsTemplates = async (req, res, next) => {
+  try {
+    const [total, active, fast2sms, excel, samples] = await Promise.all([
+      SmsTemplate.countDocuments({}),
+      SmsTemplate.countDocuments({ isActive: true }),
+      SmsTemplate.countDocuments({ provider: 'fast2sms' }),
+      SmsTemplate.countDocuments({ provider: 'excel' }),
+      SmsTemplate.find({})
+        .sort({ updatedAt: -1 })
+        .limit(10)
+        .select('_id templateId templateName messageId senderId entityId provider isActive syncedAt approvalStatus')
+        .lean(),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      mongo: {
+        readyState: mongoose.connection.readyState,
+        host: mongoose.connection.host || null,
+      },
+      counts: {
+        total,
+        active,
+        fast2sms,
+        excel,
+      },
+      samples: samples.map((row) => ({
+        ...row,
+        _id: String(row._id),
+        hasMessageId: Boolean(String(row.messageId || '').trim()),
+      })),
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 exports.listSmsTemplates = async (req, res, next) => {
   try {
     const search = String(req.query.search || '').trim();
     const activeOnly = String(req.query.activeOnly || 'false').toLowerCase() === 'true';
     const includeInactive = String(req.query.includeInactive || 'false').toLowerCase() === 'true';
+    const provider = String(req.query.provider || '').trim().toLowerCase();
     const page = Math.max(1, Number.parseInt(String(req.query.page || '1'), 10) || 1);
     const limit = Math.min(100, Math.max(1, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
     const skip = (page - 1) * limit;
@@ -76,6 +116,10 @@ exports.listSmsTemplates = async (req, res, next) => {
       query.isActive = true;
     } else if (!includeInactive) {
       query.isActive = true;
+    }
+
+    if (provider === 'fast2sms' || provider === 'excel') {
+      query.provider = provider;
     }
 
     if (search) {

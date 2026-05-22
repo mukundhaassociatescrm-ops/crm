@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const SmsTemplate = require('../models/SmsTemplate');
 const { fetchDltTemplates, fetchDltSenders } = require('./fast2smsService');
 const {
@@ -189,21 +190,53 @@ const backfillMissingMessageIds = async () => {
   };
 };
 
-const logSavingTemplate = (action, payload) => {
-  const forLog = { ...payload };
-  if (forLog.syncedAt instanceof Date) {
-    forLog.syncedAt = forLog.syncedAt.toISOString();
+const serializeForLog = (value) => {
+  if (!value || typeof value !== 'object') {
+    return value;
   }
-  console.log('SAVING TEMPLATE:', JSON.stringify({ action, ...forLog }, null, 2));
+  const clone = { ...value };
+  if (clone.syncedAt instanceof Date) {
+    clone.syncedAt = clone.syncedAt.toISOString();
+  }
+  return clone;
+};
+
+const logMongoSaveError = (payload, error) => {
+  console.log('[FAST2SMS TEMPLATE SAVE ERROR]', {
+    templateId: payload?.templateId,
+    messageId: payload?.messageId,
+    name: error?.name,
+    code: error?.code,
+    message: error?.message || String(error),
+    keyPattern: error?.keyPattern,
+    keyValue: error?.keyValue,
+  });
+};
+
+const assertMongoConnected = () => {
+  const state = mongoose.connection.readyState;
+  if (state !== 1) {
+    const labels = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+    throw new Error(
+      `MongoDB not connected (state=${labels[state] || state}). Cannot sync templates until database is ready.`,
+    );
+  }
 };
 
 const syncSmsTemplatesFromFast2Sms = async () => {
   console.log('=== FAST2SMS TEMPLATE SYNC RUN START ===');
+  assertMongoConnected();
+  console.log('[SYNC STAGE] MongoDB connected — starting Fast2SMS fetch');
 
   const [flatTemplates, senderRows] = await Promise.all([
     fetchDltTemplates(),
     fetchDltSenders(),
   ]);
+
+  console.log('[SYNC STAGE] Fast2SMS API + parse complete', {
+    flatTemplateCount: flatTemplates.length,
+    senderRowCount: senderRows.length,
+  });
 
   const parsedSenders = senderRows.map((row) => ({
     senderId: String(row.sender_id || row.senderId || '').trim(),
@@ -215,6 +248,7 @@ const syncSmsTemplatesFromFast2Sms = async () => {
 
   const summary = {
     synced: 0,
+    saved: 0,
     created: 0,
     updated: 0,
     skipped: 0,
@@ -253,78 +287,91 @@ const syncSmsTemplatesFromFast2Sms = async () => {
       });
     }
 
-    const normalized = normalizeSmsTemplateForApi(payload);
-    console.log('[FAST2SMS TEMPLATE NORMALIZED]', {
-      templateName: normalized.templateName,
-      templateId: normalized.templateId,
-      messageId: normalized.messageId,
-      dltTemplateId: normalized.dltTemplateId,
-      senderId: normalized.senderId,
-      contentLength: normalized.content.length,
-      ready: normalized.ready,
-    });
+    const savePayload = { ...payload };
+    delete savePayload.missingFields;
+    delete savePayload.varCount;
+    savePayload.provider = 'fast2sms';
+    savePayload.isActive = savePayload.isActive !== false;
+
+    const normalizedTemplate = normalizeSmsTemplateForApi(savePayload);
+    console.log(
+      'NORMALIZED TEMPLATE:',
+      JSON.stringify(serializeForLog(normalizedTemplate), null, 2),
+    );
 
     try {
-      const existing = await findExistingTemplate(payload);
-      const savePayload = { ...payload };
-      delete savePayload.missingFields;
-      delete savePayload.varCount;
-
-      if (!existing) {
-        logSavingTemplate('create', savePayload);
-        await SmsTemplate.create(savePayload);
-        summary.created += 1;
-        summary.synced += 1;
-        console.log('[FAST2SMS TEMPLATE UPSERT]', { action: 'created', templateId: savePayload.templateId });
-        continue;
-      }
-
-      console.log('[FAST2SMS TEMPLATE MERGE]', {
-        action: 'matched_existing',
-        existingTemplateId: existing.templateId,
-        existingMessageId: existing.messageId || null,
-        incomingMessageId: savePayload.messageId,
-        wasMissingMessageId: isMissingMessageId(existing),
-      });
-
+      const existing = await findExistingTemplate(savePayload);
       const nextPayload = { ...savePayload };
-      if (String(existing.templateId || '').trim() && !String(existing.templateId).startsWith('f2sms:')) {
-        nextPayload.templateId = existing.templateId;
-        nextPayload.contentTemplateId = existing.contentTemplateId || existing.templateId;
-      }
 
-      if (!hasTemplateChanged(existing, nextPayload)) {
-        if (isMissingMessageId(existing) && savePayload.messageId) {
-          applySyncToExisting(existing, nextPayload);
-          logSavingTemplate('backfill_message_id', existing.toObject ? existing.toObject() : existing);
-          await existing.save();
-          summary.updated += 1;
-          summary.synced += 1;
-          console.log('[FAST2SMS TEMPLATE UPSERT]', {
-            action: 'backfilled_message_id',
-            templateId: existing.templateId,
-            messageId: existing.messageId,
-          });
-        } else {
-          summary.skipped += 1;
+      if (existing) {
+        console.log('[FAST2SMS TEMPLATE MERGE]', {
+          action: 'matched_existing',
+          existingId: String(existing._id),
+          existingTemplateId: existing.templateId,
+          existingMessageId: existing.messageId || null,
+          incomingMessageId: savePayload.messageId,
+          wasMissingMessageId: isMissingMessageId(existing),
+        });
+
+        if (String(existing.templateId || '').trim() && !String(existing.templateId).startsWith('f2sms:')) {
+          nextPayload.templateId = existing.templateId;
+          nextPayload.contentTemplateId = existing.contentTemplateId || existing.templateId;
         }
+
+        if (!hasTemplateChanged(existing, nextPayload)) {
+          if (isMissingMessageId(existing) && savePayload.messageId) {
+            applySyncToExisting(existing, nextPayload);
+            const savedTemplate = await existing.save();
+            summary.updated += 1;
+            summary.synced += 1;
+            summary.saved += 1;
+            console.log(
+              'TEMPLATE SAVED:',
+              savedTemplate._id,
+              savedTemplate.templateName,
+            );
+          } else {
+            summary.skipped += 1;
+            console.log('[FAST2SMS TEMPLATE SKIPPED]', {
+              templateId: existing.templateId,
+              reason: 'unchanged',
+            });
+          }
+          continue;
+        }
+
+        applySyncToExisting(existing, nextPayload);
+        const savedTemplate = await existing.save();
+        summary.updated += 1;
+        summary.synced += 1;
+        summary.saved += 1;
+        console.log(
+          'TEMPLATE SAVED:',
+          savedTemplate._id,
+          savedTemplate.templateName,
+        );
         continue;
       }
 
-      applySyncToExisting(existing, nextPayload);
-      logSavingTemplate('update', existing.toObject ? existing.toObject() : { ...nextPayload, templateId: existing.templateId });
-      await existing.save();
-      summary.updated += 1;
-      summary.synced += 1;
-      console.log('[FAST2SMS TEMPLATE UPSERT]', {
-        action: 'updated',
-        templateId: existing.templateId,
-        messageId: existing.messageId,
+      console.log('[SYNC STAGE] DB operation: SmsTemplate.create()', {
+        templateId: nextPayload.templateId,
+        messageId: nextPayload.messageId,
       });
+
+      const savedTemplate = await SmsTemplate.create(nextPayload);
+      summary.created += 1;
+      summary.synced += 1;
+      summary.saved += 1;
+      console.log(
+        'TEMPLATE SAVED:',
+        savedTemplate._id,
+        savedTemplate.templateName,
+      );
     } catch (error) {
       summary.errors += 1;
+      logMongoSaveError(savePayload, error);
       console.log('[FAST2SMS TEMPLATE SKIPPED]', {
-        templateId: payload.templateId,
+        templateId: savePayload.templateId,
         reason: 'save_error',
         message: error?.message || String(error),
       });
@@ -333,6 +380,9 @@ const syncSmsTemplatesFromFast2Sms = async () => {
 
   summary.backfill = await backfillMissingMessageIds();
 
+  const dbCount = await SmsTemplate.countDocuments({ provider: 'fast2sms' });
+  console.log('TOTAL SAVED:', summary.saved);
+  console.log('[SYNC STAGE] MongoDB fast2sms template count after sync:', dbCount);
   console.log('=== FAST2SMS TEMPLATE SYNC END ===');
   console.log('[FAST2SMS TEMPLATE SYNC COMPLETE]', summary);
   return summary;

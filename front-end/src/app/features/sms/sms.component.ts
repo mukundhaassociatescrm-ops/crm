@@ -282,7 +282,7 @@ export class SmsComponent implements OnInit, OnDestroy {
 
   private loadSmsTemplates(): void {
     this.isLoadingTemplates = true;
-    this.smsTemplateService.getTemplates({ activeOnly: true, limit: 200 }).subscribe({
+    this.smsTemplateService.getTemplates({ activeOnly: true, provider: 'fast2sms', limit: 200 }).subscribe({
       next: (response) => {
         this.isLoadingTemplates = false;
         this.smsTemplates = response.success && Array.isArray(response.data) ? response.data : [];

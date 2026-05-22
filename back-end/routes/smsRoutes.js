@@ -5,6 +5,7 @@ const { sendSingleSms } = require('../controllers/smsController');
 const {
   templateUpload,
   importSmsTemplates,
+  debugSmsTemplates,
   listSmsTemplates,
   patchSmsTemplateActive,
   syncSmsTemplates,
@@ -16,6 +17,7 @@ const router = express.Router();
 router.post('/send-single', protect, sendSingleSms);
 router.post('/send', protect, sendSingleSms);
 router.get('/templates', protect, listSmsTemplates);
+router.get('/templates/debug', protect, authorizeRole('admin'), debugSmsTemplates);
 router.post('/templates/sync', protect, authorizeRole('admin'), syncSmsTemplates);
 router.post('/templates/import', protect, authorizeRole('admin'), templateUpload, importSmsTemplates);
 router.put('/templates/:id/message-id', protect, authorizeRole('admin'), updateSmsTemplateMessageId);

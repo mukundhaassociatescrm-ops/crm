@@ -217,6 +217,7 @@ export class SmsTemplateService {
     search?: string;
     activeOnly?: boolean;
     includeInactive?: boolean;
+    provider?: 'fast2sms' | 'excel';
     page?: number;
     limit?: number;
   } = {}): Observable<SmsTemplateListResponse> {
@@ -229,6 +230,9 @@ export class SmsTemplateService {
     }
     if (options.includeInactive) {
       params = params.set('includeInactive', 'true');
+    }
+    if (options.provider) {
+      params = params.set('provider', options.provider);
     }
     if (options.page) {
       params = params.set('page', String(options.page));
