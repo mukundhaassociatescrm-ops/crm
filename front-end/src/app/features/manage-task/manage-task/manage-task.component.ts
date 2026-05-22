@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angul
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { TaskService, Task } from '../task.service';
+import { isValidMongoObjectId } from '../../manage-chat/manage-chat/chat.service';
 import { EmployeeService, Employee } from '../../manage-employee/employee.service';
 import { AuthService } from '../../auth/auth.service';
 import { DateTimePickerComponent } from '../../../shared/components/date-time-picker/date-time-picker.component';
@@ -177,7 +178,9 @@ export class ManageTaskComponent {
     this.openAddTask();
     this.chatTaskOrigin = {
       createdFromChat: Boolean(prefill.createdFromChat),
-      conversationId: prefill.conversationId || '',
+      conversationId: isValidMongoObjectId(prefill.conversationId)
+        ? String(prefill.conversationId).trim()
+        : '',
       chatMessageId: prefill.chatMessageId || '',
       chatPhone: prefill.chatPhone || prefill.customerPhone || '',
       messageText: prefill.messageText || prefill.description || '',
@@ -506,7 +509,9 @@ export class ManageTaskComponent {
       ...(this.chatTaskOrigin?.createdFromChat && !this.isEditMode
         ? {
           createdFromChat: true,
-          conversationId: this.chatTaskOrigin.conversationId,
+          ...(isValidMongoObjectId(this.chatTaskOrigin.conversationId)
+            ? { conversationId: String(this.chatTaskOrigin.conversationId).trim() }
+            : {}),
           chatMessageId: this.chatTaskOrigin.chatMessageId,
           chatPhone: this.chatTaskOrigin.chatPhone || formValue.customerPhone || '',
           messageText: this.chatTaskOrigin.messageText || formValue.description || '',

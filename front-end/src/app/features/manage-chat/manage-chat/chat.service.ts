@@ -5,8 +5,16 @@ import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../../environments/environment';
 import { Customer } from '../../../shared/models/customer.model';
 
+export const isValidMongoObjectId = (value: unknown): boolean => {
+  const raw = String(value ?? '').trim();
+  return /^[a-fA-F0-9]{24}$/.test(raw);
+};
+
 export interface ChatConversation {
+  /** Canonical chat key (phone) used for routing and message APIs. */
   _id: string;
+  /** MongoDB Conversation document _id — required for task linkage. */
+  conversationMongoId?: string;
   phoneNumber: string;
   clientName?: string;
   lastMessage: string;

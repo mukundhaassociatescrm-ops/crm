@@ -854,15 +854,19 @@ const getConversationSummaries = async () => {
   const mergedConversations = await Conversation.find({}).sort({ unreadCount: -1, updatedAt: -1 }).lean();
   return mergedConversations
     .filter(shouldShowInChatList)
-    .map((item) => ({
-    _id: normalizePhone(item.phoneNumber) || item.phoneNumber,
-    phoneNumber: normalizePhone(item.phoneNumber) || item.phoneNumber,
-    lastMessage: item.lastMessage || '',
-    unreadCount: Number(item.unreadCount || 0),
-    lastReadAt: item.lastReadAt || null,
-    updatedAt: item.updatedAt,
-    createdAt: item.createdAt,
-  }));
+    .map((item) => {
+      const phoneNumber = normalizePhone(item.phoneNumber) || item.phoneNumber;
+      return {
+        _id: phoneNumber,
+        conversationMongoId: String(item._id),
+        phoneNumber,
+        lastMessage: item.lastMessage || '',
+        unreadCount: Number(item.unreadCount || 0),
+        lastReadAt: item.lastReadAt || null,
+        updatedAt: item.updatedAt,
+        createdAt: item.createdAt,
+      };
+    });
 };
 
 const markConversationAsRead = async (phone) => {

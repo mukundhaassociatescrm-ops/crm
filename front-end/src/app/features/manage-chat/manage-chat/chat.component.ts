@@ -16,6 +16,7 @@ import {
   ChatLinkedTask,
   ChatMessageMetadata,
   ChatService,
+  isValidMongoObjectId,
   RealtimeChatEvent,
   resolveTemplateDisplayText,
   SendFileRequest,
@@ -1851,6 +1852,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.messageMenuAnchor = null;
   }
 
+  private resolveConversationMongoId(conversation: ChatConversation | null | undefined): string | undefined {
+    const mongoId = String(conversation?.conversationMongoId || '').trim();
+    if (isValidMongoObjectId(mongoId)) {
+      return mongoId;
+    }
+
+    return undefined;
+  }
+
   createTaskFromMessage(message: PendingMessage, event: Event): void {
     event.stopPropagation();
     this.closeMessageMenu();
@@ -1875,7 +1885,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
           customerName,
           customerPhone,
           createdFromChat: true,
-          conversationId: conversation._id,
+          conversationId: this.resolveConversationMongoId(conversation),
           chatMessageId: messageId,
           chatPhone: customerPhone,
           messageText: description,

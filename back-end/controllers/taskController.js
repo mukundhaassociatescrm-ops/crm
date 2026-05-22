@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const Message = require('../models/Message');
 const Employee = require('../models/Employee');
@@ -8,6 +9,15 @@ const ReminderLog = require('../models/ReminderLog');
 const { logActivity, resolveClientIdByPhone } = require('../services/activityHistoryService');
 
 const isAdminUser = (user) => String(user?.role || '').toLowerCase() === 'admin';
+
+const resolveConversationObjectId = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw || !mongoose.Types.ObjectId.isValid(raw)) {
+    return undefined;
+  }
+
+  return raw;
+};
 
 const isLegacyPrimaryAdmin = async (user) => {
   if (!isAdminUser(user)) {
@@ -130,7 +140,7 @@ exports.createTask = async (req, res, next) => {
       reminderEnabled: reminderEnabled ?? false,
       reminderBefore: reminderBefore || 15,
       createdFromChat: isFromChat,
-      conversationId: conversationId || undefined,
+      conversationId: resolveConversationObjectId(conversationId),
       chatMessageId: resolvedChatMessageId || undefined,
       chatPhone: resolvedChatPhone,
       messageText: resolvedMessageText,
