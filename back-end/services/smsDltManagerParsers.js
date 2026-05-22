@@ -179,6 +179,29 @@ const mapFlatTemplateToDbPayload = (flat, senderLookup = new Map()) => {
     missingFields.push('content');
   }
 
+  console.log('NORMALIZING TEMPLATE:', {
+    raw: {
+      messageId: flat.messageId,
+      dltTemplateId: flat.dltTemplateId,
+      senderId: flat.senderId,
+      entityId: flat.entityId,
+      entityName: flat.entityName,
+      templateName: flat.templateName,
+      approvalStatus: flat.approvalStatus,
+      contentPreview: content ? `${content.slice(0, 80)}${content.length > 80 ? '...' : ''}` : '',
+      rawTemplateKeys: flat.rawTemplate ? Object.keys(flat.rawTemplate) : [],
+      rawGroupKeys: flat.rawGroup ? Object.keys(flat.rawGroup) : [],
+    },
+    mapped: {
+      templateName,
+      senderId,
+      messageId,
+      entityId,
+      templateId: crmTemplateId,
+      contentTemplateId: dltTemplateId || crmTemplateId,
+    },
+  });
+
   return {
     templateId: crmTemplateId,
     templateName,

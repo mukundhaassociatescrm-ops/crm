@@ -189,8 +189,16 @@ const backfillMissingMessageIds = async () => {
   };
 };
 
+const logSavingTemplate = (action, payload) => {
+  const forLog = { ...payload };
+  if (forLog.syncedAt instanceof Date) {
+    forLog.syncedAt = forLog.syncedAt.toISOString();
+  }
+  console.log('SAVING TEMPLATE:', JSON.stringify({ action, ...forLog }, null, 2));
+};
+
 const syncSmsTemplatesFromFast2Sms = async () => {
-  console.log('[FAST2SMS TEMPLATE SYNC START]');
+  console.log('=== FAST2SMS TEMPLATE SYNC RUN START ===');
 
   const [flatTemplates, senderRows] = await Promise.all([
     fetchDltTemplates(),
@@ -263,6 +271,7 @@ const syncSmsTemplatesFromFast2Sms = async () => {
       delete savePayload.varCount;
 
       if (!existing) {
+        logSavingTemplate('create', savePayload);
         await SmsTemplate.create(savePayload);
         summary.created += 1;
         summary.synced += 1;
@@ -287,6 +296,7 @@ const syncSmsTemplatesFromFast2Sms = async () => {
       if (!hasTemplateChanged(existing, nextPayload)) {
         if (isMissingMessageId(existing) && savePayload.messageId) {
           applySyncToExisting(existing, nextPayload);
+          logSavingTemplate('backfill_message_id', existing.toObject ? existing.toObject() : existing);
           await existing.save();
           summary.updated += 1;
           summary.synced += 1;
@@ -302,6 +312,7 @@ const syncSmsTemplatesFromFast2Sms = async () => {
       }
 
       applySyncToExisting(existing, nextPayload);
+      logSavingTemplate('update', existing.toObject ? existing.toObject() : { ...nextPayload, templateId: existing.templateId });
       await existing.save();
       summary.updated += 1;
       summary.synced += 1;
@@ -322,6 +333,7 @@ const syncSmsTemplatesFromFast2Sms = async () => {
 
   summary.backfill = await backfillMissingMessageIds();
 
+  console.log('=== FAST2SMS TEMPLATE SYNC END ===');
   console.log('[FAST2SMS TEMPLATE SYNC COMPLETE]', summary);
   return summary;
 };

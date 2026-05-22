@@ -89,22 +89,22 @@ exports.sendSingleSms = async (req, res) => {
 
     const dltContentTemplateId = resolveDltContentTemplateIdFromRecord(template);
     const storedMessageId = asTrimmed(template.messageId || template.dltMessageId);
+    const templateRecord = template.toObject ? template.toObject() : template;
 
-    console.log('[SMS SEND TEMPLATE RECORD]', {
-      _id: String(template._id),
-      crmTemplateId: template.templateId,
-      templateId: template.templateId,
-      messageId: template.messageId || null,
-      fast2smsMessageId: resolveFast2smsMessageIdFromRecord(template) || null,
+    console.log('SELECTED TEMPLATE:', JSON.stringify({
+      _id: String(templateRecord._id),
+      templateId: templateRecord.templateId,
+      messageId: templateRecord.messageId || null,
+      dltMessageId: templateRecord.dltMessageId || null,
+      senderId: templateRecord.senderId || null,
+      entityId: templateRecord.entityId || null,
+      contentTemplateId: templateRecord.contentTemplateId || null,
       dltTemplateId: dltContentTemplateId || null,
-      contentTemplateId: template.contentTemplateId || null,
-      senderId: template.senderId || null,
-      entityId: template.entityId || null,
-      templateName: template.templateName || null,
-      provider: template.provider || null,
-      contentLength: String(template.templateContent || '').length,
+      templateName: templateRecord.templateName || null,
+      provider: templateRecord.provider || null,
+      contentPreview: String(templateRecord.templateContent || '').slice(0, 120),
       requestedTemplateKey,
-    });
+    }, null, 2));
 
     if (storedMessageId && isDltContentTemplateId(storedMessageId)) {
       return res.status(400).json({
@@ -153,6 +153,16 @@ exports.sendSingleSms = async (req, res) => {
     }
 
     const variablesValues = buildVariablesValues(slots, variables);
+
+    console.log('FINAL FAST2SMS PAYLOAD:', {
+      route: 'dlt',
+      sender_id: senderId,
+      message_id: fast2smsMessageId,
+      message: fast2smsMessageId,
+      entity_id: entityId || null,
+      numbers: normalizedPhone,
+      variables_values: variablesValues || null,
+    });
 
     const result = await sendDltSms({
       phone: normalizedPhone,

@@ -31,6 +31,42 @@ const {
   parseTemplateResponse,
 } = require('./smsDltManagerParsers');
 
+const buildSafeDltManagerUrlForLog = (type) => {
+  const safeUrl = new URL(DLT_MANAGER_BASE_URL);
+  safeUrl.searchParams.set('authorization', '[REDACTED]');
+  safeUrl.searchParams.set('type', type);
+  return safeUrl.toString();
+};
+
+const logFast2smsTemplateFetchDebug = (response, body) => {
+  console.log('Status:', response.status, response.statusText || '');
+  console.log('RAW TEMPLATE RESPONSE:', JSON.stringify(body, null, 2));
+
+  const topLevelKeys = body && typeof body === 'object' ? Object.keys(body) : [];
+  console.log('Parsed JSON Top-Level Keys:', topLevelKeys);
+
+  if (Array.isArray(body?.data)) {
+    console.log('Template Group Count (data.length):', body.data.length);
+
+    if (body.data[0]) {
+      console.log('First Group Sample:', JSON.stringify(body.data[0], null, 2));
+
+      const nestedTemplates = Array.isArray(body.data[0].templates) ? body.data[0].templates : [];
+      console.log('First Group Nested templates.length:', nestedTemplates.length);
+
+      if (nestedTemplates[0]) {
+        console.log('First Nested Template Sample:', JSON.stringify(nestedTemplates[0], null, 2));
+        console.log('First Nested Template Keys:', Object.keys(nestedTemplates[0]));
+      }
+    }
+  } else {
+    console.log('Template Group Count (data.length):', 0);
+    console.log('Note: response.data is not an array — inspect RAW TEMPLATE RESPONSE above');
+  }
+
+  console.log('=== FAST2SMS TEMPLATE FETCH END ===');
+};
+
 async function fetchDltManagerRaw(type) {
   const apiKey = process.env.FAST2SMS_API_KEY;
   if (!apiKey) {
@@ -46,14 +82,46 @@ async function fetchDltManagerRaw(type) {
   url.searchParams.set('authorization', apiKey);
   url.searchParams.set('type', normalizedType);
 
+  if (normalizedType === 'template') {
+    console.log('=== FAST2SMS TEMPLATE SYNC START ===');
+    console.log('URL:', buildSafeDltManagerUrlForLog('template'));
+    console.log('Query Params:', { type: 'template', authorization: '[REDACTED]' });
+  } else {
+    console.log('[FAST2SMS SENDER FETCH]', {
+      URL: buildSafeDltManagerUrlForLog('sender'),
+      queryParams: { type: 'sender', authorization: '[REDACTED]' },
+    });
+  }
+
   const fetch = await getFetch();
   const response = await fetch(url.toString(), { method: 'GET' });
 
   let body = null;
   try {
     body = await response.json();
-  } catch {
+  } catch (parseError) {
     body = null;
+    console.log('[FAST2SMS DLT MANAGER PARSE ERROR]', {
+      type: normalizedType,
+      status: response.status,
+      message: parseError?.message || String(parseError),
+    });
+  }
+
+  if (normalizedType === 'template') {
+    if (body) {
+      logFast2smsTemplateFetchDebug(response, body);
+    } else {
+      console.log('Status:', response.status, response.statusText || '');
+      console.log('RAW TEMPLATE RESPONSE: null (failed to parse JSON body)');
+      console.log('=== FAST2SMS TEMPLATE FETCH END ===');
+    }
+  } else {
+    console.log('[FAST2SMS SENDER FETCH RESPONSE]', {
+      status: response.status,
+      topLevelKeys: body && typeof body === 'object' ? Object.keys(body) : [],
+      dataLength: Array.isArray(body?.data) ? body.data.length : 0,
+    });
   }
 
   if (!response.ok) {
@@ -82,7 +150,6 @@ async function fetchDltManagerRaw(type) {
 }
 
 async function fetchDltTemplates() {
-  console.log('[FAST2SMS API CALL]', { endpoint: DLT_MANAGER_BASE_URL, type: 'template' });
   return fetchDltManagerRaw('template');
 }
 
@@ -237,11 +304,11 @@ async function sendDltSms({
     payload.entity_id = normalizedEntityId;
   }
 
-  console.log('[FAST2SMS OUTGOING PAYLOAD]', {
+  console.log('FINAL FAST2SMS PAYLOAD:', {
     route: payload.route,
     sender_id: payload.sender_id,
-    message: payload.message,
     message_id: payload.message,
+    message: payload.message,
     entity_id: payload.entity_id || null,
     numbers: payload.numbers,
     variables_values: payload.variables_values || null,
