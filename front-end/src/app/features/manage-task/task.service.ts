@@ -29,6 +29,11 @@ export interface Task {
   reminderTime?: string;
   reminderSent?: boolean;
   attachments?: TaskAttachment[];
+  createdFromChat?: boolean;
+  conversationId?: string;
+  chatMessageId?: string;
+  chatPhone?: string;
+  messageText?: string;
 }
 
 export interface UploadFileResponse {
@@ -74,6 +79,10 @@ export class TaskService {
 
   getTasks(): Observable<TaskResponse> {
     return this.http.get<TaskResponse>('/api/tasks');
+  }
+
+  getTaskById(id: string): Observable<TaskResponse> {
+    return this.http.get<TaskResponse>(`/api/tasks/${id}`);
   }
 
   createTask(task: Task): Observable<TaskResponse> {

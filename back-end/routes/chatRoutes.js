@@ -10,7 +10,10 @@ const {
 	getChatByPhone,
 	getChatConversations,
 	markConversationRead,
+	softDeleteChatMessage,
+	toggleChatMessageImportant,
 } = require('../controllers/chatController');
+const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -203,6 +206,9 @@ router.get('/conversations', getChatConversations);
  *         description: Conversation unread count reset
  */
 router.post('/:phone/read', markConversationRead);
+
+router.patch('/messages/:messageId/delete', protect, softDeleteChatMessage);
+router.patch('/messages/:messageId/important', protect, toggleChatMessageImportant);
 
 // Fetches chat history for one phone number.
 router.get('/:phone', getChatByPhone);

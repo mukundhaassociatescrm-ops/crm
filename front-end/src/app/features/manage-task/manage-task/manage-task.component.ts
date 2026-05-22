@@ -1,7 +1,7 @@
 import { Component, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { TaskService, Task } from '../task.service';
 import { EmployeeService, Employee } from '../../manage-employee/employee.service';
@@ -61,6 +61,13 @@ export class ManageTaskComponent {
 
   editingTaskId: string | null = null;
   openActionMenuTaskId: string | null = null;
+  chatTaskOrigin: {
+    createdFromChat?: boolean;
+    conversationId?: string;
+    chatMessageId?: string;
+    chatPhone?: string;
+    messageText?: string;
+  } | null = null;
 
   constructor(
     private taskService: TaskService,
@@ -68,7 +75,8 @@ export class ManageTaskComponent {
     private authService: AuthService,
     private toastr: ToastrService,
     private fb: FormBuilder,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private router: Router,
   ) {
     this.filterForm = this.fb.group({
       searchTerm: [''],
@@ -130,7 +138,20 @@ export class ManageTaskComponent {
           customerPhone: params['customerPhone'] || ''
         });
       }
+
+      const linkedTaskId = String(params['taskId'] || '').trim();
+      if (linkedTaskId) {
+        this.openTaskById(linkedTaskId);
+      }
     });
+  }
+
+  get hasChatOrigin(): boolean {
+    return Boolean(
+      this.chatTaskOrigin?.createdFromChat
+      && this.chatTaskOrigin?.chatMessageId
+      && (this.chatTaskOrigin?.chatPhone || this.taskForm.get('customerPhone')?.value),
+    );
   }
 
   private resolveDefaultAssigneeId(): string {
@@ -154,11 +175,48 @@ export class ManageTaskComponent {
     }
 
     this.openAddTask();
+    this.chatTaskOrigin = {
+      createdFromChat: Boolean(prefill.createdFromChat),
+      conversationId: prefill.conversationId || '',
+      chatMessageId: prefill.chatMessageId || '',
+      chatPhone: prefill.chatPhone || prefill.customerPhone || '',
+      messageText: prefill.messageText || prefill.description || '',
+    };
     this.taskForm.patchValue({
       title: prefill.title || '',
       description: prefill.description || '',
       customerName: prefill.customerName || '',
       customerPhone: prefill.customerPhone || '',
+    });
+  }
+
+  private openTaskById(taskId: string): void {
+    this.taskService.getTaskById(taskId).subscribe({
+      next: (response) => {
+        if (!response.success || Array.isArray(response.data) || !response.data) {
+          return;
+        }
+
+        this.openEditTask(response.data as Task);
+      },
+      error: () => {
+        this.showMessage('Unable to open linked task', 'error');
+      },
+    });
+  }
+
+  viewOriginalMessage(): void {
+    const phone = String(this.chatTaskOrigin?.chatPhone || this.taskForm.get('customerPhone')?.value || '').trim();
+    const messageId = String(this.chatTaskOrigin?.chatMessageId || '').trim();
+    if (!phone || !messageId) {
+      return;
+    }
+
+    this.router.navigate(['/manage-chat'], {
+      queryParams: {
+        phone,
+        highlightMessage: messageId,
+      },
     });
   }
 
@@ -265,6 +323,7 @@ export class ManageTaskComponent {
 
     this.isEditMode = false;
     this.editingTaskId = null;
+    this.chatTaskOrigin = null;
     this.taskForm.reset({
       title: '',
       description: '',
@@ -286,6 +345,15 @@ export class ManageTaskComponent {
   openEditTask(task: Task) {
     this.isEditMode = true;
     this.editingTaskId = task._id || null;
+    this.chatTaskOrigin = task.createdFromChat && task.chatMessageId
+      ? {
+        createdFromChat: true,
+        conversationId: task.conversationId || '',
+        chatMessageId: task.chatMessageId || '',
+        chatPhone: task.chatPhone || task.customerPhone || '',
+        messageText: task.messageText || task.description || '',
+      }
+      : null;
     this.taskForm.reset({
       title: task.title,
       description: task.description,
@@ -434,7 +502,16 @@ export class ManageTaskComponent {
       status: formValue.status,
       dueDate: formValue.dueDate,
       reminderEnabled: formValue.reminderEnabled,
-      reminderBefore: formValue.reminderBefore
+      reminderBefore: formValue.reminderBefore,
+      ...(this.chatTaskOrigin?.createdFromChat && !this.isEditMode
+        ? {
+          createdFromChat: true,
+          conversationId: this.chatTaskOrigin.conversationId,
+          chatMessageId: this.chatTaskOrigin.chatMessageId,
+          chatPhone: this.chatTaskOrigin.chatPhone || formValue.customerPhone || '',
+          messageText: this.chatTaskOrigin.messageText || formValue.description || '',
+        }
+        : {}),
     };
 
     const saveRequest$ = this.isEditMode && this.editingTaskId

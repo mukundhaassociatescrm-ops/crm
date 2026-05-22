@@ -16,6 +16,14 @@ export interface ChatConversation {
   createdAt?: string;
 }
 
+export interface ChatLinkedTask {
+  taskId: string;
+  title: string;
+  status: string;
+  dueDate?: string | null;
+  assigneeName?: string;
+}
+
 export interface ChatMessage {
   _id?: string;
   messageId: string;
@@ -39,6 +47,10 @@ export interface ChatMessage {
   metadata?: ChatMessageMetadata;
   createdAt?: string;
   updatedAt?: string;
+  deleted?: boolean;
+  deletedAt?: string | null;
+  important?: boolean;
+  linkedTask?: ChatLinkedTask | null;
 }
 
 export interface TemplateDisplayFields {
@@ -312,7 +324,7 @@ export class ChatService {
           const looksLikeMediaText = ['image', 'document', 'video', 'audio', 'file', 'sticker'].includes(normalizedText.toLowerCase());
           const isFileMessage = rawType === 'file' || Boolean(fileUrl || filename || looksLikeMediaText || mediaType);
 
-          if (!normalizedText && !isFileMessage) {
+          if (!normalizedText && !isFileMessage && !item.deleted) {
             return acc;
           }
 
@@ -343,6 +355,10 @@ export class ChatService {
             templateId: templateId || undefined,
             templateName: templateName || undefined,
             templateBody: templateBody || undefined,
+            deleted: Boolean(item.deleted),
+            deletedAt: item.deletedAt || null,
+            important: Boolean(item.important),
+            linkedTask: item.linkedTask || null,
           };
 
           if (!isFileMessage && (templateId || templateName || templateBody)) {
@@ -354,6 +370,20 @@ export class ChatService {
           return acc;
         }, []),
       }))
+    );
+  }
+
+  softDeleteMessage(messageId: string, restore = false): Observable<ApiListResponse<ChatMessage>> {
+    return this.http.patch<ApiListResponse<ChatMessage>>(
+      `/api/chat/messages/${encodeURIComponent(messageId)}/delete`,
+      { restore },
+    );
+  }
+
+  toggleMessageImportant(messageId: string, important: boolean): Observable<ApiListResponse<ChatMessage>> {
+    return this.http.patch<ApiListResponse<ChatMessage>>(
+      `/api/chat/messages/${encodeURIComponent(messageId)}/important`,
+      { important },
     );
   }
 

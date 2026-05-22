@@ -20,6 +20,38 @@ $bp-compact: 1400px;
   background: $bg-page;
 }
 
+.chat-origin-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #cde9df;
+  background: #ecfdf5;
+  color: #14532d;
+
+  p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: #166534;
+    line-height: 1.35;
+  }
+}
+
+.btn-link-chat {
+  border: 0;
+  background: #00a884;
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;

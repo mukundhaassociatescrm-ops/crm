@@ -172,6 +172,14 @@
 
   <div class="drawer-body" [formGroup]="taskForm">
 
+      <div class="chat-origin-banner" *ngIf="hasChatOrigin">
+        <div>
+          <strong>Created from WhatsApp message</strong>
+          <p *ngIf="chatTaskOrigin?.messageText">{{ chatTaskOrigin?.messageText }}</p>
+        </div>
+        <button type="button" class="btn-link-chat" (click)="viewOriginalMessage()">View original message</button>
+      </div>
+
       <div class="form-group">
         <label>Task Title</label>
         <input type="text" placeholder="Enter task title" formControlName="title" />

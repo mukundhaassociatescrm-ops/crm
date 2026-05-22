@@ -114,85 +114,115 @@
         </div>
       </header>
 
-      <div class="attachment-compose-overlay" *ngIf="selectedAttachment as attachment">
-        <div class="compose-stage-header">
-          <button type="button" class="compose-close" (click)="removeSelectedAttachment()" aria-label="Close preview">
+      <div
+        class="wa-media-composer"
+        *ngIf="selectedAttachment as attachment"
+        [class.wa-media-composer--drag]="composerDragActive"
+        (dragover)="onComposerDragOver($event)"
+        (dragleave)="onComposerDragLeave($event)"
+        (drop)="onComposerDrop($event)"
+      >
+        <header class="wa-composer-top">
+          <button type="button" class="wa-composer-close" (click)="clearAllAttachmentDrafts()" aria-label="Remove attachment">
             <i class="fa-solid fa-xmark"></i>
           </button>
-          <div class="compose-title">Media preview</div>
-          <div class="compose-spacer"></div>
-        </div>
+          <p class="wa-composer-filename" [title]="attachment.name">{{ getAttachmentHeaderLabel(attachment) }}</p>
+        </header>
 
-        <div class="compose-stage-body">
-          <ng-container *ngIf="attachment.isImage && attachment.previewUrl; else fullNonImagePreviewTpl">
-            <img class="compose-stage-image" [src]="attachment.previewUrl" [alt]="attachment.name || 'Image preview'">
-          </ng-container>
-          <ng-template #fullNonImagePreviewTpl>
-            <video
-              *ngIf="attachment.isVideo && attachment.previewUrl; else fullPdfPreviewTpl"
-              class="compose-stage-video"
-              controls
-              preload="metadata"
-              [src]="attachment.previewUrl"
-            >
-              Your browser does not support video playback.
-            </video>
-            <ng-template #fullPdfPreviewTpl>
-            <div class="compose-stage-pdf" *ngIf="attachment.isPdf && attachment.previewResourceUrl; else fullGenericFilePreviewTpl">
-              <iframe [src]="attachment.previewResourceUrl" title="PDF preview"></iframe>
-            </div>
-            </ng-template>
-            <ng-template #fullGenericFilePreviewTpl>
-              <div class="compose-stage-file-card">
+        <div class="wa-composer-preview">
+          <img
+            *ngIf="attachment.isImage && attachment.previewUrl; else waComposerDocCardTpl"
+            class="wa-composer-image"
+            [src]="attachment.previewUrl"
+            [alt]="attachment.name || 'Image preview'"
+          >
+          <ng-template #waComposerDocCardTpl>
+            <article class="wa-doc-card" [ngClass]="getAttachmentDocumentCardClass(attachment)">
+              <div class="wa-doc-card-icon">
+                <span class="wa-doc-badge">{{ getAttachmentDocumentBadge(attachment) }}</span>
                 <i class="fa-solid" [ngClass]="getSelectedAttachmentIconClass()"></i>
-                <span>{{ attachment.name }}</span>
               </div>
-            </ng-template>
+              <div class="wa-doc-card-meta">
+                <strong class="wa-doc-card-name">{{ attachment.name }}</strong>
+                <span class="wa-doc-card-detail">
+                  {{ getAttachmentDocumentBadge(attachment) }}
+                  <ng-container *ngIf="attachment.sizeLabel"> · {{ attachment.sizeLabel }}</ng-container>
+                </span>
+              </div>
+            </article>
           </ng-template>
         </div>
 
-        <div class="compose-stage-footer">
-          <div class="preview-strip">
-            <button
-              type="button"
-              class="preview-strip-item"
-              *ngFor="let item of attachmentQueue; let idx = index"
-              [class.active]="isActiveAttachmentDraft(idx)"
-              (click)="selectAttachmentDraft(idx)"
-              [attr.aria-label]="'Select attachment ' + (idx + 1)"
-            >
-              <ng-container *ngIf="item.isImage && item.previewUrl; else composePreviewStripFileTpl">
-                <img [src]="item.previewUrl" [alt]="getAttachmentPreviewLabel(idx)">
-              </ng-container>
-              <ng-template #composePreviewStripFileTpl>
-                <i class="fa-solid" [ngClass]="getFileIconClassByNameAndMimeType(item.name, item.mimeType)"></i>
-              </ng-template>
-            </button>
-            <button type="button" class="preview-strip-item add-more" (click)="addAnotherAttachment('image')" aria-label="Add image">
-              <i class="fa-solid fa-image"></i>
-            </button>
-            <button type="button" class="preview-strip-item add-more" (click)="addAnotherAttachment('video')" aria-label="Add video">
-              <i class="fa-solid fa-file-video"></i>
-            </button>
-            <button type="button" class="preview-strip-item add-more" (click)="addAnotherAttachment('document')" aria-label="Add document">
-              <i class="fa-regular fa-file-lines"></i>
-            </button>
-          </div>
-
-          <div class="compose-caption-row">
+        <footer class="wa-composer-bottom">
+          <div class="wa-composer-caption">
             <textarea
-              class="preview-caption-input full"
+              class="wa-composer-input"
               [(ngModel)]="attachmentCaption"
               rows="1"
               placeholder="Type a message"
               (keydown)="onAttachmentCaptionKeydown($event)"
             ></textarea>
-            <button type="button" class="preview-send" [disabled]="!canSendAttachmentPreview" (click)="sendMessage()">
-              <i class="fa-solid fa-paper-plane"></i>
-              <span>{{ isUploadingAttachment ? 'Uploading...' : (isSending ? 'Sending...' : 'Send') }}</span>
-            </button>
           </div>
-        </div>
+
+          <div class="wa-composer-toolbar">
+            <div class="wa-composer-tools">
+              <label class="wa-type-chip" [class.active]="attachment.isImage" aria-label="Replace with image">
+                <input
+                  type="file"
+                  class="wa-file-input-native"
+                  accept="image/*"
+                  (change)="onAttachmentFileChange($event)"
+                >
+                <span>JPG</span>
+              </label>
+              <label class="wa-type-chip wa-type-chip--pdf" [class.active]="attachment.isPdf" aria-label="Replace with PDF">
+                <input
+                  type="file"
+                  class="wa-file-input-native"
+                  accept=".pdf,application/pdf"
+                  (change)="onAttachmentFileChange($event)"
+                >
+                <span>PDF</span>
+              </label>
+              <label class="wa-type-chip wa-type-chip--sheet" [class.active]="attachment.isSpreadsheet" aria-label="Replace with spreadsheet">
+                <input
+                  type="file"
+                  class="wa-file-input-native"
+                  accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  (change)="onAttachmentFileChange($event)"
+                >
+                <span>XLSX</span>
+              </label>
+              <label class="wa-type-chip wa-type-chip--more" aria-label="Replace with document">
+                <input
+                  type="file"
+                  class="wa-file-input-native"
+                  accept=".pdf,.doc,.docx,.xlsx,.xls,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  (change)="onAttachmentFileChange($event)"
+                >
+                <i class="fa-solid fa-plus"></i>
+              </label>
+            </div>
+
+            <div class="wa-composer-send-wrap">
+              <div class="wa-composer-upload" *ngIf="isUploadingAttachment">
+                <span class="wa-composer-upload-track">
+                  <span class="wa-composer-upload-bar" [style.width.%]="uploadProgress"></span>
+                </span>
+                <span class="wa-composer-upload-label">{{ uploadProgress }}%</span>
+              </div>
+              <button
+                type="button"
+                class="wa-composer-send"
+                [disabled]="!canSendAttachmentPreview"
+                (click)="sendMessage()"
+                aria-label="Send attachment"
+              >
+                <i class="fa-solid fa-paper-plane"></i>
+              </button>
+            </div>
+          </div>
+        </footer>
       </div>
 
       <div class="message-stream" *ngIf="!hasAttachmentDrafts" #messageScroller (scroll)="onMessageStreamScroll()">
@@ -207,33 +237,60 @@
         <div
           class="message-row"
           *ngFor="let message of messages; let i = index; trackBy: trackMessage"
+          [id]="getMessageDomId(message)"
           [class.outgoing]="message.direction === 'outgoing'"
-          [class.image-row]="isImageFileMessage(message)"
+          [class.image-row]="isImageFileMessage(message) && !isMessageDeleted(message)"
+          [class.message-row--highlighted]="highlightedMessageId === message.messageId"
         >
           <div class="date-separator" *ngIf="shouldShowDateSeparator(i)">
             <span>{{ getDateSeparatorLabel(message.timestamp) }}</span>
           </div>
-          <article class="bubble" [class.pending]="message.isPending">
-            <div class="message-actions">
+          <article
+            class="bubble"
+            [class.pending]="message.isPending"
+            [class.bubble--important]="message.important && !isMessageDeleted(message)"
+            [class.bubble--deleted]="isMessageDeleted(message)"
+          >
+            <div class="message-actions" *ngIf="!isMessageDeleted(message)">
               <button
                 type="button"
                 class="message-menu-trigger"
+                [class.is-open]="activeMessageMenuId === getMessageMenuId(message)"
                 (click)="toggleMessageMenu(message, $event)"
                 aria-label="Message options"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="activeMessageMenuId === getMessageMenuId(message)"
               >
                 <i class="fa-solid fa-ellipsis-vertical"></i>
               </button>
-              <div class="message-menu" *ngIf="activeMessageMenuId === getMessageMenuId(message)">
+            </div>
+
+            <button
+              type="button"
+              class="message-task-badge"
+              *ngIf="message.linkedTask && !isMessageDeleted(message)"
+              [title]="getLinkedTaskTooltip(message)"
+              (click)="openLinkedTask(message, $event)"
+            >
+              <i class="fa-solid fa-thumbtack" aria-hidden="true"></i>
+              <span>Task Linked</span>
+            </button>
+
+            <ng-container *ngIf="isMessageDeleted(message); else activeMessageContentTpl">
+              <div class="message-removed-placeholder">
+                <i class="fa-solid fa-ban"></i>
+                <span>This message was removed</span>
                 <button
                   type="button"
-                  class="message-menu-item"
-                  (click)="createTaskFromMessage(message, $event)"
+                  class="message-restore-btn"
+                  *ngIf="isChatAdmin"
+                  (click)="restoreDeletedMessage(message, $event)"
                 >
-                  <i class="fa-solid fa-list-check"></i>
-                  <span>Create Task</span>
+                  Restore
                 </button>
               </div>
-            </div>
+            </ng-container>
+            <ng-template #activeMessageContentTpl>
             <ng-container *ngIf="isFileMessage(message); else textMessageTpl">
               <div class="file-message-card">
                 <ng-container *ngIf="isVideoFileMessage(message); else nonVideoFileTpl">
@@ -350,6 +407,7 @@
             <ng-template #textMessageTpl>
               <p>{{ getMessageDisplayText(message) }}</p>
             </ng-template>
+            </ng-template>
             <div class="meta-row">
               <time>{{ message.timestamp | date:'shortTime' }}</time>
               <ng-container *ngIf="message.direction === 'outgoing'">
@@ -396,27 +454,6 @@
       </div>
 
       <footer class="composer" *ngIf="!hasAttachmentDrafts">
-        <input
-          #imageAttachmentInput
-          type="file"
-          class="hidden-file-input"
-          accept="image/*"
-          (change)="onAttachmentSelected($event)"
-        >
-        <input
-          #videoAttachmentInput
-          type="file"
-          class="hidden-file-input"
-          accept="video/mp4,video/webm,video/ogg,video/quicktime,.mp4,.webm,.ogv,.mov,.m4v"
-          (change)="onAttachmentSelected($event)"
-        >
-        <input
-          #documentAttachmentInput
-          type="file"
-          class="hidden-file-input"
-          accept=".pdf,.doc,.docx,.xlsx,.xls"
-          (change)="onAttachmentSelected($event)"
-        >
         <div class="composer-input">
           <div class="composer-row">
             <div class="composer-tools" *ngIf="!hasAttachmentDrafts">
@@ -443,18 +480,26 @@
                 </button>
 
                 <div class="attachment-menu" *ngIf="showAttachmentMenu && !hasAttachmentDrafts">
-                  <button type="button" class="attachment-option" (click)="openAttachmentType('image')">
+                  <label class="attachment-option">
+                    <input
+                      type="file"
+                      class="wa-file-input-native"
+                      accept="image/*"
+                      (change)="onAttachmentFileChange($event)"
+                    >
                     <i class="fa-regular fa-image"></i>
-                    <span>Image</span>
-                  </button>
-                  <button type="button" class="attachment-option" (click)="openAttachmentType('video')">
-                    <i class="fa-solid fa-file-video"></i>
-                    <span>Video</span>
-                  </button>
-                  <button type="button" class="attachment-option" (click)="openAttachmentType('document')">
+                    <span>Photo</span>
+                  </label>
+                  <label class="attachment-option">
+                    <input
+                      type="file"
+                      class="wa-file-input-native"
+                      accept=".pdf,.doc,.docx,.xlsx,.xls,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      (change)="onAttachmentFileChange($event)"
+                    >
                     <i class="fa-regular fa-file-lines"></i>
                     <span>Document</span>
-                  </button>
+                  </label>
                 </div>
               </div>
             </div>
@@ -503,6 +548,57 @@
           <span>{{ isSending ? 'Sending...' : 'Send' }}</span>
         </button>
       </footer>
+
+      <div
+        class="message-menu-floating"
+        *ngIf="activeMenuMessage && messageMenuAnchor as anchor"
+        [class.message-menu-floating--below]="anchor.placement === 'below'"
+        [class.message-menu-floating--above]="anchor.placement === 'above'"
+        [class.message-menu-floating--align-start]="anchor.align === 'start'"
+        [class.message-menu-floating--align-end]="anchor.align === 'end'"
+        [style.top.px]="anchor.top"
+        [style.left.px]="anchor.left"
+        role="menu"
+        (click)="$event.stopPropagation()"
+      >
+        <button
+          type="button"
+          class="message-menu-item message-menu-item--primary"
+          (click)="createTaskFromMessage(activeMenuMessage, $event)"
+          [disabled]="!!activeMenuMessage.linkedTask"
+        >
+          <span class="message-menu-icon" aria-hidden="true"><i class="fa-solid fa-thumbtack"></i></span>
+          <span>{{ activeMenuMessage.linkedTask ? 'Task Linked' : 'Create Task' }}</span>
+        </button>
+        <button
+          type="button"
+          class="message-menu-item message-menu-item--secondary"
+          (click)="toggleMessageImportant(activeMenuMessage, $event)"
+        >
+          <span class="message-menu-icon" aria-hidden="true">
+            <i [ngClass]="activeMenuMessage.important ? 'fa-solid fa-star' : 'fa-regular fa-star'"></i>
+          </span>
+          <span>{{ activeMenuMessage.important ? 'Unmark Important' : 'Mark Important' }}</span>
+        </button>
+        <button
+          type="button"
+          class="message-menu-item message-menu-item--utility"
+          (click)="copyMessageText(activeMenuMessage, $event)"
+        >
+          <span class="message-menu-icon" aria-hidden="true"><i class="fa-regular fa-copy"></i></span>
+          <span>Copy Message</span>
+        </button>
+        <div class="message-menu-divider" *ngIf="canSoftDeleteMessage(activeMenuMessage)" role="separator"></div>
+        <button
+          type="button"
+          class="message-menu-item message-menu-item--destructive"
+          *ngIf="canSoftDeleteMessage(activeMenuMessage)"
+          (click)="softDeleteMessage(activeMenuMessage, $event)"
+        >
+          <span class="message-menu-icon" aria-hidden="true"><i class="fa-regular fa-eye-slash"></i></span>
+          <span>Hide from CRM</span>
+        </button>
+      </div>
 
       <div class="template-modal-backdrop" *ngIf="showTemplateModal" (click)="closeTemplateModal()">
         <div class="template-modal template-picker-modal" (click)="$event.stopPropagation()">

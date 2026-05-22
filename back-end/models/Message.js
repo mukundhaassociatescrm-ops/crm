@@ -91,6 +91,29 @@ const messageSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    linkedTaskId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Task',
+      default: null,
+    },
+    important: {
+      type: Boolean,
+      default: false,
+    },
+    deleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -24,6 +24,8 @@ const {
   findOrCreateConversation,
   normalizeStatus,
   markConversationAsRead,
+  softDeleteMessage,
+  toggleMessageImportant,
 } = require('../services/chatMessageStore');
 const { emitChatUpdate } = require('../services/socketService');
 const { resolveClientIdByPhone } = require('../services/activityHistoryService');
@@ -1324,12 +1326,54 @@ exports.getChatByPhone = async (req, res, next) => {
       templateId: item.templateId || '',
       templateName: item.templateName || '',
       templateBody: item.templateBody || '',
+      deleted: Boolean(item.deleted),
+      deletedAt: item.deletedAt || null,
+      important: Boolean(item.important),
+      linkedTask: item.linkedTask || null,
     }));
 
     return res.status(200).json({
       success: true,
       data: messages,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PATCH /api/chat/messages/:messageId/delete
+exports.softDeleteChatMessage = async (req, res, next) => {
+  try {
+    const restore = String(req.body?.restore || req.query?.restore || '').toLowerCase() === 'true';
+    const result = await softDeleteMessage({
+      messageId: req.params.messageId,
+      user: req.user,
+      restore,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status || 400).json({ success: false, message: result.message });
+    }
+
+    return res.status(200).json({ success: true, data: result.data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PATCH /api/chat/messages/:messageId/important
+exports.toggleChatMessageImportant = async (req, res, next) => {
+  try {
+    const result = await toggleMessageImportant({
+      messageId: req.params.messageId,
+      important: req.body?.important,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status || 400).json({ success: false, message: result.message });
+    }
+
+    return res.status(200).json({ success: true, data: result.data });
   } catch (error) {
     next(error);
   }

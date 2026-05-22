@@ -1,4 +1,5 @@
 const Task = require('../models/Task');
+const Message = require('../models/Message');
 const Employee = require('../models/Employee');
 const Enquiry = require('../models/Enquiry');
 const User = require('../models/User');
@@ -91,6 +92,13 @@ exports.createTask = async (req, res, next) => {
       dueDate,
       reminderEnabled,
       reminderBefore,
+      createdFromChat,
+      conversationId,
+      chatMessageId,
+      chatPhone,
+      chatId,
+      messageText,
+      messageId,
     } = req.body;
     if (!title || !assignedTo) {
       return res.status(400).json({ success: false, message: 'Title and assignedTo are required.' });
@@ -102,6 +110,11 @@ exports.createTask = async (req, res, next) => {
         return res.status(403).json({ success: false, message: 'Cannot assign task to another admin\'s employee.' });
       }
     }
+
+    const resolvedChatMessageId = String(chatMessageId || messageId || '').trim();
+    const resolvedChatPhone = String(chatPhone || chatId || customerPhone || '').trim();
+    const resolvedMessageText = String(messageText || description || '').trim();
+    const isFromChat = Boolean(createdFromChat && resolvedChatMessageId);
 
     const task = await Task.create({
       title,
@@ -116,8 +129,24 @@ exports.createTask = async (req, res, next) => {
       dueDate,
       reminderEnabled: reminderEnabled ?? false,
       reminderBefore: reminderBefore || 15,
+      createdFromChat: isFromChat,
+      conversationId: conversationId || undefined,
+      chatMessageId: resolvedChatMessageId || undefined,
+      chatPhone: resolvedChatPhone,
+      messageText: resolvedMessageText,
       ...(isAdminUser(req.user) ? { adminOwner: req.user._id } : {}),
     });
+
+    if (isFromChat && resolvedChatMessageId) {
+      try {
+        await Message.findOneAndUpdate(
+          { messageId: resolvedChatMessageId },
+          { $set: { linkedTaskId: task._id } },
+        );
+      } catch (_) {
+        // Keep task creation resilient if message link update fails.
+      }
+    }
 
     const populated = await Task.findById(task._id).populate('assignedTo', 'fullName email phone');
 

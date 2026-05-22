@@ -428,23 +428,98 @@ const buildDirectionalEndpoints = (normalized) => {
   };
 };
 
-const toMessageView = (messageDoc, phoneNumber) => ({
-  messageId: messageDoc.messageId,
-  phone: phoneNumber,
-  text: messageDoc.text || '',
-  type: messageDoc.type || 'text',
-  fileUrl: messageDoc.fileUrl || '',
-  filename: messageDoc.filename || '',
-  mimeType: messageDoc.mimeType || '',
-  mediaType: messageDoc.mediaType || '',
-  mediaUrl: messageDoc.mediaUrl || messageDoc.fileUrl || '',
-  direction: messageDoc.direction || 'out',
-  status: messageDoc.status || 'sent',
-  timestamp: messageDoc.timestamp || messageDoc.createdAt,
-  templateId: messageDoc.templateId || '',
-  templateName: messageDoc.templateName || '',
-  templateBody: messageDoc.templateBody || '',
-});
+const Task = require('../models/Task');
+
+const toLinkedTaskView = (taskDoc) => {
+  if (!taskDoc) {
+    return null;
+  }
+
+  const assignee = taskDoc.assignedTo && typeof taskDoc.assignedTo === 'object'
+    ? taskDoc.assignedTo
+    : null;
+
+  return {
+    taskId: String(taskDoc._id),
+    title: taskDoc.title || '',
+    status: taskDoc.status || '',
+    dueDate: taskDoc.dueDate || null,
+    assigneeName: assignee?.fullName || '',
+  };
+};
+
+const toMessageView = (messageDoc, phoneNumber, linkedTask = null) => {
+  if (messageDoc.deleted) {
+    return {
+      messageId: messageDoc.messageId,
+      phone: phoneNumber,
+      text: '',
+      type: 'text',
+      direction: messageDoc.direction || 'out',
+      status: messageDoc.status || 'sent',
+      timestamp: messageDoc.timestamp || messageDoc.createdAt,
+      deleted: true,
+      deletedAt: messageDoc.deletedAt || null,
+      important: Boolean(messageDoc.important),
+      linkedTask: linkedTask || null,
+    };
+  }
+
+  return {
+    messageId: messageDoc.messageId,
+    phone: phoneNumber,
+    text: messageDoc.text || '',
+    type: messageDoc.type || 'text',
+    fileUrl: messageDoc.fileUrl || '',
+    filename: messageDoc.filename || '',
+    mimeType: messageDoc.mimeType || '',
+    mediaType: messageDoc.mediaType || '',
+    mediaUrl: messageDoc.mediaUrl || messageDoc.fileUrl || '',
+    direction: messageDoc.direction || 'out',
+    status: messageDoc.status || 'sent',
+    timestamp: messageDoc.timestamp || messageDoc.createdAt,
+    templateId: messageDoc.templateId || '',
+    templateName: messageDoc.templateName || '',
+    templateBody: messageDoc.templateBody || '',
+    deleted: false,
+    important: Boolean(messageDoc.important),
+    linkedTask: linkedTask || null,
+  };
+};
+
+const buildLinkedTaskMap = async (messages) => {
+  const messageIds = messages.map((item) => item.messageId).filter(Boolean);
+  const linkedTaskIds = messages.map((item) => item.linkedTaskId).filter(Boolean);
+
+  const [tasksByMessage, tasksById] = await Promise.all([
+    messageIds.length
+      ? Task.find({ createdFromChat: true, chatMessageId: { $in: messageIds } })
+        .select('_id title status dueDate assignedTo chatMessageId')
+        .populate('assignedTo', 'fullName')
+        .lean()
+      : [],
+    linkedTaskIds.length
+      ? Task.find({ _id: { $in: linkedTaskIds } })
+        .select('_id title status dueDate assignedTo chatMessageId')
+        .populate('assignedTo', 'fullName')
+        .lean()
+      : [],
+  ]);
+
+  const map = new Map();
+  for (const task of tasksByMessage) {
+    if (task.chatMessageId) {
+      map.set(task.chatMessageId, toLinkedTaskView(task));
+    }
+  }
+  for (const task of tasksById) {
+    if (task.chatMessageId && !map.has(task.chatMessageId)) {
+      map.set(task.chatMessageId, toLinkedTaskView(task));
+    }
+  }
+
+  return map;
+};
 
 const findBestOutgoingMatch = async ({ phone, timestamp }) => {
   const { conversation } = await resolveConversationByPhone(phone);
@@ -675,8 +750,78 @@ const getMessagesByPhone = async (phone) => {
     return [];
   }
 
-  const messages = await Message.find({ conversationId: conversation._id }).sort({ timestamp: 1 });
-  return messages.map((item) => toMessageView(item, conversation.phoneNumber || canonicalPhone));
+  const messages = await Message.find({ conversationId: conversation._id }).sort({ timestamp: 1 }).lean();
+  const linkedTaskMap = await buildLinkedTaskMap(messages);
+  return messages.map((item) => toMessageView(
+    item,
+    conversation.phoneNumber || canonicalPhone,
+    linkedTaskMap.get(item.messageId) || null,
+  ));
+};
+
+const isOutgoingMessage = (messageDoc) => OUTBOUND_DIRECTIONS.includes(String(messageDoc?.direction || '').toLowerCase());
+
+const softDeleteMessage = async ({ messageId, user, restore = false }) => {
+  const normalizedMessageId = String(messageId || '').trim();
+  if (!normalizedMessageId || !user?._id) {
+    return { ok: false, status: 400, message: 'messageId and authenticated user are required.' };
+  }
+
+  const message = await Message.findOne({ messageId: normalizedMessageId });
+  if (!message) {
+    return { ok: false, status: 404, message: 'Message not found.' };
+  }
+
+  const isAdmin = String(user.role || '').toLowerCase() === 'admin';
+  if (!restore && !isAdmin && !isOutgoingMessage(message)) {
+    return { ok: false, status: 403, message: 'You can only remove messages sent from this CRM.' };
+  }
+
+  if (restore) {
+    message.deleted = false;
+    message.deletedAt = null;
+    message.deletedBy = null;
+  } else {
+    message.deleted = true;
+    message.deletedAt = new Date();
+    message.deletedBy = user._id;
+  }
+
+  await message.save();
+
+  const conversation = await Conversation.findById(message.conversationId).lean();
+  const phoneNumber = conversation?.phoneNumber || message.to || message.from || '';
+  const messageLean = message.toObject ? message.toObject() : message;
+  const linkedTaskMap = await buildLinkedTaskMap([messageLean]);
+  return {
+    ok: true,
+    data: toMessageView(message, phoneNumber, linkedTaskMap.get(message.messageId) || null),
+  };
+};
+
+const toggleMessageImportant = async ({ messageId, important }) => {
+  const normalizedMessageId = String(messageId || '').trim();
+  if (!normalizedMessageId) {
+    return { ok: false, status: 400, message: 'messageId is required.' };
+  }
+
+  const message = await Message.findOneAndUpdate(
+    { messageId: normalizedMessageId },
+    { $set: { important: Boolean(important) } },
+    { new: true },
+  );
+
+  if (!message) {
+    return { ok: false, status: 404, message: 'Message not found.' };
+  }
+
+  const conversation = await Conversation.findById(message.conversationId).lean();
+  const phoneNumber = conversation?.phoneNumber || message.to || message.from || '';
+  const linkedTaskMap = await buildLinkedTaskMap([message.toObject()]);
+  return {
+    ok: true,
+    data: toMessageView(message, phoneNumber, linkedTaskMap.get(message.messageId) || null),
+  };
 };
 
 const getConversationSummaries = async () => {
@@ -754,4 +899,6 @@ module.exports = {
   getMessagesByPhone,
   getConversationSummaries,
   markConversationAsRead,
+  softDeleteMessage,
+  toggleMessageImportant,
 };

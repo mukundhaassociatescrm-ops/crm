@@ -13,6 +13,7 @@ import {
   ChatSessionStatusResponse,
   ChatStartResponse,
   ChatMessage,
+  ChatLinkedTask,
   ChatMessageMetadata,
   ChatService,
   RealtimeChatEvent,
@@ -22,6 +23,7 @@ import {
 } from './chat.service';
 import { Customer } from '../../../shared/models/customer.model';
 import { FullscreenToggleComponent } from '../../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
+import { AuthService } from '../../auth/auth.service';
 import {
   getTemplateVariableCount,
   resolveTemplateVariableIndexes,
@@ -38,6 +40,10 @@ interface SelectedAttachment {
   isImage: boolean;
   isVideo: boolean;
   isPdf: boolean;
+  isSpreadsheet: boolean;
+  extension: string;
+  sizeBytes: number;
+  sizeLabel: string;
   previewUrl?: string;
   previewResourceUrl?: SafeResourceUrl | null;
 }
@@ -60,9 +66,6 @@ interface ActiveFileViewer {
 })
 export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('messageScroller') private messageScroller?: ElementRef<HTMLDivElement>;
-  @ViewChild('imageAttachmentInput') private imageAttachmentInput?: ElementRef<HTMLInputElement>;
-  @ViewChild('videoAttachmentInput') private videoAttachmentInput?: ElementRef<HTMLInputElement>;
-  @ViewChild('documentAttachmentInput') private documentAttachmentInput?: ElementRef<HTMLInputElement>;
 
   conversations: ChatConversation[] = [];
   selectedConversation: ChatConversation | null = null;
@@ -112,6 +115,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   selectedAttachment: SelectedAttachment | null = null;
   attachmentQueue: SelectedAttachment[] = [];
   activeAttachmentIndex = -1;
+  private attachmentPickMode: 'append' | 'replace-active' = 'append';
+  composerDragActive = false;
   retryingMessageId: string | null = null;
   activeFileViewer: ActiveFileViewer | null = null;
   activeFileViewerResourceUrl: SafeResourceUrl | null = null;
@@ -122,6 +127,18 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   showAttachmentMenu = false;
   showEmojiPicker = false;
   activeMessageMenuId: string | null = null;
+  activeMenuMessage: PendingMessage | null = null;
+  messageMenuAnchor: {
+    top: number;
+    left: number;
+    placement: 'above' | 'below';
+    align: 'start' | 'end';
+  } | null = null;
+  private readonly messageMenuWidth = 156;
+  private readonly messageMenuEstimatedHeight = 156;
+  highlightedMessageId: string | null = null;
+  private pendingHighlightMessageId: string | null = null;
+  readonly isChatAdmin: boolean;
   socketConnected = false;
   readonly quickEmojis = ['😀', '😂', '😊', '😍', '👍', '🙏', '🔥', '🎉', '❤️', '✅', '📌', '👋'];
   private readonly draftStorageKey = 'manage-chat-drafts-v1';
@@ -302,7 +319,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly toastr: ToastrService,
-  ) {}
+    private readonly authService: AuthService,
+  ) {
+    this.isChatAdmin = String(this.authService.getUser()?.role || '').toLowerCase() === 'admin';
+  }
 
   ngOnInit(): void {
     this.loadDraftCache();
@@ -333,9 +353,13 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       .pipe(takeUntil(this.destroy$))
       .subscribe((params) => {
         const queryPhone = this.normalizePhone(params.get('phone') || '');
+        const highlightMessage = String(params.get('highlightMessage') || '').trim();
         if (queryPhone) {
           this.targetConversationPhone = queryPhone;
           console.log('[Chat] query param phone received', queryPhone);
+        }
+        if (highlightMessage) {
+          this.pendingHighlightMessageId = highlightMessage;
         }
 
         if (params.has('phone') && !this.hasSanitizedPhoneQueryParam) {
@@ -1319,20 +1343,38 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  openAttachmentType(type: 'image' | 'video' | 'document'): void {
-    this.showAttachmentMenu = false;
-
-    if (type === 'image') {
-      this.imageAttachmentInput?.nativeElement.click();
+  private resetNativeFileInput(input: HTMLInputElement | null | undefined): void {
+    if (!input) {
       return;
     }
 
-    if (type === 'video') {
-      this.videoAttachmentInput?.nativeElement.click();
+    input.value = '';
+  }
+
+  onComposerDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.composerDragActive = true;
+  }
+
+  onComposerDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.composerDragActive = false;
+  }
+
+  onComposerDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.composerDragActive = false;
+
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) {
       return;
     }
 
-    this.documentAttachmentInput?.nativeElement.click();
+    this.attachmentPickMode = this.hasAttachmentDrafts ? 'replace-active' : 'append';
+    this.applyAttachmentFile(file);
   }
 
   toggleEmojiPicker(): void {
@@ -1347,41 +1389,233 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.showEmojiPicker = false;
   }
 
-  onAttachmentSelected(event: Event): void {
+  onAttachmentFileChange(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
+
     if (!file) {
+      this.resetNativeFileInput(input);
       return;
     }
 
-    const normalizedMimeType = String(file.type || '').toLowerCase();
-    const normalizedName = String(file.name || '').toLowerCase();
-    const isImage = normalizedMimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(normalizedName);
-    const isVideo = normalizedMimeType.startsWith('video/') || /\.(mp4|webm|ogv|mov|m4v)$/i.test(normalizedName);
-    const isPdf = normalizedMimeType.includes('pdf') || normalizedName.endsWith('.pdf');
-    const previewUrl = (isImage || isVideo || isPdf) ? URL.createObjectURL(file) : undefined;
-    const previewResourceUrl = (isPdf && previewUrl)
-      ? this.sanitizer.bypassSecurityTrustResourceUrl(previewUrl)
-      : null;
+    this.attachmentPickMode = this.hasAttachmentDrafts ? 'replace-active' : 'append';
+    this.applyAttachmentFile(file);
+    this.showAttachmentMenu = false;
+    this.showEmojiPicker = false;
 
-    this.attachmentQueue = [
-      ...this.attachmentQueue,
-      {
-        file,
-        name: file.name,
-        mimeType: file.type,
-        isImage,
-        isVideo,
-        isPdf,
-        previewUrl,
-        previewResourceUrl,
-      }
-    ];
-    this.activeAttachmentIndex = this.attachmentQueue.length - 1;
+    // Allow picking the same or another file again on the next click.
+    setTimeout(() => this.resetNativeFileInput(input), 0);
+  }
+
+  private applyAttachmentFile(file: File): void {
+    const pickMode = this.attachmentPickMode;
+    this.attachmentPickMode = 'append';
+
+    console.log('FILE SELECTED:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      pickMode,
+    });
+
+    const draft = this.buildAttachmentDraftFromFile(file);
+    if (!draft) {
+      return;
+    }
+
+    const replaceActive = pickMode === 'replace-active' && this.attachmentQueue.length > 0;
+    const replaceIndex = this.activeAttachmentIndex >= 0
+      ? this.activeAttachmentIndex
+      : Math.max(this.attachmentQueue.length - 1, 0);
+
+    if (replaceActive) {
+      this.revokeAttachmentPreview(this.attachmentQueue[replaceIndex]);
+      const nextQueue = [...this.attachmentQueue];
+      nextQueue[replaceIndex] = draft;
+      this.attachmentQueue = nextQueue;
+      this.activeAttachmentIndex = replaceIndex;
+    } else {
+      this.attachmentQueue = [draft];
+      this.activeAttachmentIndex = 0;
+    }
+
     this.selectedAttachment = this.attachmentQueue[this.activeAttachmentIndex] || null;
     this.showAttachmentMenu = false;
     this.showEmojiPicker = false;
     this.queueScrollToBottom(true);
+
+    console.log('PREVIEW UPDATED', {
+      activeIndex: this.activeAttachmentIndex,
+      queueLength: this.attachmentQueue.length,
+      name: this.selectedAttachment?.name,
+      mimeType: this.selectedAttachment?.mimeType,
+    });
+  }
+
+  private buildAttachmentDraftFromFile(file: File): SelectedAttachment | null {
+    const normalizedMimeType = String(file.type || '').toLowerCase();
+    const normalizedName = String(file.name || '').toLowerCase();
+    const isVideo = normalizedMimeType.startsWith('video/') || /\.(mp4|webm|ogv|mov|m4v)$/i.test(normalizedName);
+    if (isVideo) {
+      console.log('[ATTACHMENT REJECTED]', { reason: 'video_send_disabled', name: file.name });
+      return null;
+    }
+
+    const isImage = normalizedMimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(normalizedName);
+    const isPdf = normalizedMimeType.includes('pdf') || normalizedName.endsWith('.pdf');
+    const isSpreadsheet = normalizedMimeType.includes('spreadsheet')
+      || normalizedMimeType.includes('excel')
+      || /\.(xlsx|xls|csv)$/i.test(normalizedName);
+    const extension = this.extractAttachmentExtension(file.name, normalizedMimeType);
+    const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
+
+    return {
+      file,
+      name: file.name,
+      mimeType: file.type,
+      isImage,
+      isVideo: false,
+      isPdf,
+      isSpreadsheet,
+      extension,
+      sizeBytes: file.size,
+      sizeLabel: this.formatAttachmentFileSize(file.size),
+      previewUrl,
+      previewResourceUrl: null,
+    };
+  }
+
+  private createAttachmentStubFromMessage(message: PendingMessage): SelectedAttachment {
+    const name = String(message.filename || 'attachment');
+    const mimeType = String(message.mimeType || '');
+    const normalizedName = name.toLowerCase();
+    const normalizedMimeType = mimeType.toLowerCase();
+    const isImage = this.isImageFileMessage(message);
+    const isVideo = this.isVideoFileMessage(message);
+    const isPdf = this.isPdfFileMessage(message);
+    const isSpreadsheet = normalizedMimeType.includes('spreadsheet')
+      || normalizedMimeType.includes('excel')
+      || /\.(xlsx|xls|csv)$/i.test(normalizedName);
+
+    return {
+      file: new File([], name, { type: mimeType || 'application/octet-stream' }),
+      name,
+      mimeType,
+      isImage,
+      isVideo,
+      isPdf,
+      isSpreadsheet,
+      extension: this.extractAttachmentExtension(name, normalizedMimeType),
+      sizeBytes: 0,
+      sizeLabel: '',
+      previewUrl: undefined,
+      previewResourceUrl: null,
+    };
+  }
+
+  private extractAttachmentExtension(fileName: string, mimeType: string): string {
+    const match = String(fileName || '').match(/\.([a-z0-9]+)$/i);
+    if (match?.[1]) {
+      return match[1].toUpperCase();
+    }
+
+    if (mimeType.includes('pdf')) {
+      return 'PDF';
+    }
+    if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
+      return 'XLSX';
+    }
+    if (mimeType.includes('word')) {
+      return 'DOCX';
+    }
+    if (mimeType.startsWith('image/')) {
+      return 'IMG';
+    }
+
+    return 'FILE';
+  }
+
+  formatAttachmentFileSize(bytes: number): string {
+    if (!Number.isFinite(bytes) || bytes <= 0) {
+      return '';
+    }
+
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = bytes;
+    let unitIndex = 0;
+
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex += 1;
+    }
+
+    const rounded = unitIndex === 0 ? Math.round(size) : Number(size.toFixed(1));
+    return `${rounded} ${units[unitIndex]}`;
+  }
+
+  getAttachmentHeaderLabel(attachment: SelectedAttachment): string {
+    const name = String(attachment?.name || 'Attachment').trim();
+    if (name.length <= 42) {
+      return name;
+    }
+
+    const extensionIndex = name.lastIndexOf('.');
+    if (extensionIndex > 8) {
+      const stem = name.slice(0, extensionIndex);
+      const ext = name.slice(extensionIndex);
+      const maxStem = 42 - ext.length - 1;
+      if (maxStem > 8) {
+        return `${stem.slice(0, maxStem)}…${ext}`;
+      }
+    }
+
+    return `${name.slice(0, 39)}…`;
+  }
+
+  getAttachmentDocumentBadge(attachment: SelectedAttachment | null): string {
+    if (!attachment) {
+      return 'FILE';
+    }
+
+    if (attachment.isPdf) {
+      return 'PDF';
+    }
+    if (attachment.isSpreadsheet) {
+      return 'XLSX';
+    }
+    if (attachment.extension) {
+      return attachment.extension;
+    }
+
+    return 'DOC';
+  }
+
+  getAttachmentDocumentCardClass(attachment: SelectedAttachment | null): string {
+    if (!attachment) {
+      return 'wa-doc-card--generic';
+    }
+
+    if (attachment.isPdf) {
+      return 'wa-doc-card--pdf';
+    }
+    if (attachment.isSpreadsheet) {
+      return 'wa-doc-card--sheet';
+    }
+    if (/docx?/i.test(attachment.extension)) {
+      return 'wa-doc-card--doc';
+    }
+
+    return 'wa-doc-card--generic';
+  }
+
+  private revokeAttachmentPreview(item: SelectedAttachment | null | undefined): void {
+    if (item?.previewUrl) {
+      URL.revokeObjectURL(item.previewUrl);
+    }
+  }
+
+  clearAllAttachmentDrafts(): void {
+    this.resetAttachmentDraftState();
   }
 
   removeSelectedAttachment(): void {
@@ -1436,8 +1670,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     return index === this.activeAttachmentIndex;
   }
 
-  addAnotherAttachment(type: 'image' | 'video' | 'document'): void {
-    this.openAttachmentType(type);
+  addAnotherAttachment(_type: 'image' | 'document'): void {
+    // Replaced by native label/file inputs in the composer toolbar.
   }
 
   private resetAttachmentDraftState(): void {
@@ -1451,15 +1685,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.attachmentQueue = [];
     this.activeAttachmentIndex = -1;
     this.attachmentCaption = '';
-    if (this.imageAttachmentInput?.nativeElement) {
-      this.imageAttachmentInput.nativeElement.value = '';
-    }
-    if (this.documentAttachmentInput?.nativeElement) {
-      this.documentAttachmentInput.nativeElement.value = '';
-    }
-    if (this.videoAttachmentInput?.nativeElement) {
-      this.videoAttachmentInput.nativeElement.value = '';
-    }
+    this.attachmentPickMode = 'append';
+    this.composerDragActive = false;
   }
 
   onComposerKeydown(event: KeyboardEvent): void {
@@ -1474,7 +1701,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onMessageStreamScroll(): void {
-    this.activeMessageMenuId = null;
+    this.closeMessageMenu();
 
     if (!this.isNearBottom()) {
       return;
@@ -1589,17 +1816,44 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   toggleMessageMenu(message: PendingMessage, event: Event): void {
     event.stopPropagation();
     const menuId = this.getMessageMenuId(message);
-    this.activeMessageMenuId = this.activeMessageMenuId === menuId ? null : menuId;
+    if (this.activeMessageMenuId === menuId) {
+      this.closeMessageMenu();
+      return;
+    }
+
+    const trigger = event.currentTarget as HTMLElement | null;
+    if (!trigger) {
+      return;
+    }
+
+    const rect = trigger.getBoundingClientRect();
+    const align: 'start' | 'end' = message.direction === 'incoming' ? 'start' : 'end';
+    const gap = 4;
+    const openBelow = rect.bottom + this.messageMenuEstimatedHeight + gap < window.innerHeight - 12;
+    const placement: 'above' | 'below' = openBelow ? 'below' : 'above';
+    const top = placement === 'below'
+      ? rect.bottom + gap
+      : Math.max(12, rect.top - this.messageMenuEstimatedHeight - gap);
+    const left = align === 'start'
+      ? rect.left
+      : rect.right - this.messageMenuWidth;
+    const clampedLeft = Math.max(8, Math.min(left, window.innerWidth - this.messageMenuWidth - 8));
+
+    this.activeMessageMenuId = menuId;
+    this.activeMenuMessage = message;
+    this.messageMenuAnchor = { top, left: clampedLeft, placement, align };
   }
 
   closeMessageMenu(event?: Event): void {
     event?.stopPropagation();
     this.activeMessageMenuId = null;
+    this.activeMenuMessage = null;
+    this.messageMenuAnchor = null;
   }
 
   createTaskFromMessage(message: PendingMessage, event: Event): void {
     event.stopPropagation();
-    this.activeMessageMenuId = null;
+    this.closeMessageMenu();
 
     const conversation = this.selectedConversation;
     if (!conversation) {
@@ -1611,6 +1865,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     const title = this.buildTaskTitleFromMessage(description);
     const customerName = String(conversation.clientName || '').trim();
     const customerPhone = String(conversation.phoneNumber || '').trim();
+    const messageId = String(message.messageId || '').trim();
 
     this.router.navigate(['/manage-task'], {
       state: {
@@ -1619,9 +1874,189 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
           description,
           customerName,
           customerPhone,
+          createdFromChat: true,
+          conversationId: conversation._id,
+          chatMessageId: messageId,
+          chatPhone: customerPhone,
+          messageText: description,
         },
       },
     });
+  }
+
+  openLinkedTask(message: PendingMessage, event: Event): void {
+    event.stopPropagation();
+    const taskId = message.linkedTask?.taskId;
+    if (!taskId) {
+      return;
+    }
+
+    this.router.navigate(['/manage-task'], {
+      queryParams: { taskId },
+    });
+  }
+
+  getLinkedTaskTooltip(message: PendingMessage): string {
+    const task = message.linkedTask;
+    if (!task) {
+      return '';
+    }
+
+    const parts = [task.title || 'Linked task'];
+    if (task.status) {
+      parts.push(`Status: ${task.status}`);
+    }
+    if (task.dueDate) {
+      parts.push(`Due: ${new Date(task.dueDate).toLocaleString()}`);
+    }
+    if (task.assigneeName) {
+      parts.push(`Assignee: ${task.assigneeName}`);
+    }
+    return parts.join(' · ');
+  }
+
+  canSoftDeleteMessage(message: PendingMessage): boolean {
+    if (message.deleted) {
+      return this.isChatAdmin;
+    }
+
+    return this.isChatAdmin || message.direction === 'outgoing';
+  }
+
+  softDeleteMessage(message: PendingMessage, event: Event): void {
+    event.stopPropagation();
+    this.closeMessageMenu();
+
+    const messageId = String(message.messageId || '').trim();
+    if (!messageId || !this.canSoftDeleteMessage(message)) {
+      return;
+    }
+
+    this.chatService.softDeleteMessage(messageId, false).pipe(take(1)).subscribe({
+      next: (response) => {
+        if (!response.success) {
+          this.toastr.error(response.message || 'Unable to remove message', 'Chat');
+          return;
+        }
+
+        this.applyMessagePatch(messageId, response.data as ChatMessage);
+        this.toastr.success('Message hidden from CRM view', 'Chat');
+      },
+      error: () => this.toastr.error('Unable to remove message', 'Chat'),
+    });
+  }
+
+  restoreDeletedMessage(message: PendingMessage, event: Event): void {
+    event.stopPropagation();
+    this.closeMessageMenu();
+
+    const messageId = String(message.messageId || '').trim();
+    if (!messageId || !this.isChatAdmin) {
+      return;
+    }
+
+    this.chatService.softDeleteMessage(messageId, true).pipe(take(1)).subscribe({
+      next: (response) => {
+        if (!response.success) {
+          this.toastr.error(response.message || 'Unable to restore message', 'Chat');
+          return;
+        }
+
+        this.applyMessagePatch(messageId, response.data as ChatMessage);
+        this.toastr.success('Message restored', 'Chat');
+      },
+      error: () => this.toastr.error('Unable to restore message', 'Chat'),
+    });
+  }
+
+  toggleMessageImportant(message: PendingMessage, event: Event): void {
+    event.stopPropagation();
+    this.closeMessageMenu();
+
+    const messageId = String(message.messageId || '').trim();
+    if (!messageId) {
+      return;
+    }
+
+    const nextImportant = !message.important;
+    this.chatService.toggleMessageImportant(messageId, nextImportant).pipe(take(1)).subscribe({
+      next: (response) => {
+        if (!response.success) {
+          this.toastr.error(response.message || 'Unable to update message', 'Chat');
+          return;
+        }
+
+        this.applyMessagePatch(messageId, response.data as ChatMessage);
+      },
+      error: () => this.toastr.error('Unable to update message', 'Chat'),
+    });
+  }
+
+  copyMessageText(message: PendingMessage, event: Event): void {
+    event.stopPropagation();
+    this.closeMessageMenu();
+
+    const text = this.getMessageDisplayText(message);
+    if (!text) {
+      return;
+    }
+
+    navigator.clipboard?.writeText(text)
+      .then(() => this.toastr.success('Message copied', 'Chat'))
+      .catch(() => this.toastr.error('Unable to copy message', 'Chat'));
+  }
+
+  isMessageDeleted(message: PendingMessage): boolean {
+    return Boolean(message.deleted);
+  }
+
+  getMessageDomId(message: PendingMessage): string {
+    return `msg-${this.getMessageMenuId(message)}`;
+  }
+
+  private applyMessagePatch(messageId: string, patch: ChatMessage): void {
+    const merge = (list: PendingMessage[]): PendingMessage[] => list.map((item) => {
+      if (item.messageId !== messageId) {
+        return item;
+      }
+
+      return {
+        ...item,
+        ...patch,
+        isPending: item.isPending,
+      };
+    });
+
+    this.messages = merge(this.messages);
+    this.pendingMessages = merge(this.pendingMessages);
+  }
+
+  private queueHighlightMessage(messageId: string): void {
+    const normalizedId = String(messageId || '').trim();
+    if (!normalizedId) {
+      return;
+    }
+
+    this.pendingHighlightMessageId = null;
+    setTimeout(() => {
+      const target = this.messages.find((item) => item.messageId === normalizedId);
+      if (!target) {
+        return;
+      }
+
+      const element = document.getElementById(this.getMessageDomId(target));
+      if (!element) {
+        return;
+      }
+
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      this.highlightedMessageId = normalizedId;
+      setTimeout(() => {
+        if (this.highlightedMessageId === normalizedId) {
+          this.highlightedMessageId = null;
+        }
+      }, 3200);
+    }, 120);
   }
 
   getMessageMenuId(message: PendingMessage): string {
@@ -2268,7 +2703,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
         console.log('PROVIDER ACCEPTED', {
           messageId: response.data?.messageId,
-          providerStatus: response.data?.status,
           persistenceWarning: (response as { persistenceWarning?: string }).persistenceWarning || null,
         });
 
@@ -2796,9 +3230,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
-    this.activeMessageMenuId = null;
-
     const target = event.target as HTMLElement | null;
+    if (!target?.closest('.message-menu-floating') && !target?.closest('.message-menu-trigger')) {
+      this.closeMessageMenu();
+    }
+
     if (target?.closest('.composer-input')) {
       return;
     }
@@ -2845,6 +3281,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       const latestMessage = this.messages[this.messages.length - 1] || null;
       const nextLastMessageId = latestMessage?.messageId || '';
       const hasNewTailMessage = Boolean(nextLastMessageId && nextLastMessageId !== previousLastMessageId);
+
+      if (this.pendingHighlightMessageId) {
+        this.queueHighlightMessage(this.pendingHighlightMessageId);
+      }
 
       if (this.forceScrollOnNextMessageUpdate) {
         this.forceScrollOnNextMessageUpdate = false;
@@ -2941,6 +3381,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       const nextLastMessageId = this.messages[this.messages.length - 1]?.messageId || '';
       const hasNewTailMessage = Boolean(nextLastMessageId && nextLastMessageId !== previousLastMessageId);
 
+      if (this.pendingHighlightMessageId) {
+        this.queueHighlightMessage(this.pendingHighlightMessageId);
+      }
+
       if (this.forceScrollOnNextMessageUpdate) {
         this.forceScrollOnNextMessageUpdate = false;
         this.queueScrollToBottom(true, true); // instant jump on conversation open
@@ -2992,7 +3436,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         destination: event.destination,
         timestamp: event.timestamp,
       });
-      this.applyLocalMessageStatus(event.messageId, event.status);
+      if (event.messageId && event.status) {
+        this.applyLocalMessageStatus(event.messageId, event.status);
+      }
     }
     this.refreshConversationsFromApi();
 
@@ -3371,6 +3817,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    console.log('ATTACHMENT SEND START', {
+      count: attachments.length,
+      names: attachments.map((item) => item.name),
+      captionLength: String(text || '').length,
+    });
+
     if (this.isMockConversation(conversation._id)) {
       attachments.forEach((item) => this.addMockOutgoingFileMessage(conversation, item));
       this.resetAttachmentDraftState();
@@ -3516,16 +3968,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.addOptimisticOutgoingFileMessage(
       this.selectedConversation,
-      {
-        file: new File([], message.filename, { type: message.mimeType || 'application/octet-stream' }),
-        name: message.filename,
-        mimeType: message.mimeType || '',
-        isImage: this.isImageFileMessage(message),
-        isVideo: this.isVideoFileMessage(message),
-        isPdf: this.isPdfFileMessage(message),
-        previewUrl: undefined,
-        previewResourceUrl: null,
-      },
+      this.createAttachmentStubFromMessage(message),
       localPendingId,
       message.text || message.filename
     );
@@ -3643,7 +4086,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const mapUiStatus = (incoming: string): string => {
+    const mapUiStatus = (incoming: string): 'sent' | 'delivered' | 'read' | 'failed' => {
       if (incoming === 'failed') {
         return 'failed';
       }
@@ -3653,7 +4096,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return 'sent';
     };
 
-    const nextStatus = mapUiStatus(normalizedStatus);
+    const nextStatus: 'sent' | 'delivered' | 'read' | 'failed' = mapUiStatus(normalizedStatus);
     let updated = false;
 
     this.pendingMessages = this.pendingMessages.map((message) => {

@@ -31,6 +31,11 @@ const taskSchema = new mongoose.Schema(
       default: [],
     },
     adminOwner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+    createdFromChat: { type: Boolean, default: false },
+    conversationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation', index: true },
+    chatMessageId: { type: String, trim: true, index: true },
+    chatPhone: { type: String, trim: true, default: '' },
+    messageText: { type: String, default: '' },
   },
   { timestamps: true }
 );
