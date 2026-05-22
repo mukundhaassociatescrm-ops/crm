@@ -1,12 +1,30 @@
 /**
  * Fast2SMS route "dlt" expects `message` = Message ID from Fast2SMS DLT Manager.
- * Jio DLT Excel does not include this — configure via CRM (messageId field).
  */
 
-const resolveConfiguredMessageId = (template) => String(template?.messageId || template?.dltMessageId || '').trim();
+const asTrimmed = (value) => String(value ?? '').trim();
+
+const resolveConfiguredMessageId = (template) => {
+  const messageId = asTrimmed(template?.messageId || template?.dltMessageId);
+  if (messageId) {
+    return messageId;
+  }
+
+  const templateId = asTrimmed(template?.templateId);
+  if (templateId) {
+    console.log('[SMS MESSAGE ID FALLBACK]', {
+      templateId,
+      reason: 'using_templateId_as_messageId',
+      note: 'Prefer Fast2SMS sync to populate messageId on this row',
+    });
+    return templateId;
+  }
+
+  return '';
+};
 
 const resolveFast2smsMessageId = (template) => {
-  const testMessageId = String(process.env.FAST2SMS_DLT_TEST_MESSAGE_ID || '').trim();
+  const testMessageId = asTrimmed(process.env.FAST2SMS_DLT_TEST_MESSAGE_ID);
   if (testMessageId) {
     console.log('[SINGLE DLT SMS TEST OVERRIDE]', {
       messageId: testMessageId,
@@ -15,36 +33,31 @@ const resolveFast2smsMessageId = (template) => {
     return testMessageId;
   }
 
-  const messageId = resolveConfiguredMessageId(template);
-  if (messageId) {
-    return messageId;
-  }
-
-  return '';
+  return resolveConfiguredMessageId(template);
 };
 
 const hasConfiguredMessageId = (template) => Boolean(resolveConfiguredMessageId(template));
 
 const resolveFast2smsSenderId = (template) => {
-  const testSenderId = String(process.env.FAST2SMS_DLT_TEST_SENDER_ID || '').trim();
+  const testSenderId = asTrimmed(process.env.FAST2SMS_DLT_TEST_SENDER_ID);
   if (testSenderId) {
     return testSenderId;
   }
 
-  return String(template?.senderId || '').trim();
+  return asTrimmed(template?.senderId);
 };
 
 const resolveFast2smsEntityId = (template) => {
-  const testEntityId = String(process.env.FAST2SMS_DLT_TEST_ENTITY_ID || '').trim();
+  const testEntityId = asTrimmed(process.env.FAST2SMS_DLT_TEST_ENTITY_ID);
   if (testEntityId) {
     return testEntityId;
   }
 
-  return String(template?.entityId || '').trim();
+  return asTrimmed(template?.entityId);
 };
 
 const buildTemplateLookupQuery = (requestedId) => {
-  const id = String(requestedId || '').trim();
+  const id = asTrimmed(requestedId);
   if (!id) {
     return null;
   }

@@ -22,6 +22,10 @@ const SYNC_TRACKED_FIELDS = [
   'dltMessageId',
 ];
 
+const normalizeContent = (text) => String(text || '').replace(/\s+/g, ' ').trim();
+
+const isMissingMessageId = (doc) => !String(doc?.messageId || doc?.dltMessageId || '').trim();
+
 const buildUpsertLookup = (payload) => {
   const clauses = [];
   if (payload.messageId) {
@@ -46,23 +50,61 @@ const findExistingTemplate = async (payload) => {
     }
   }
 
-  if (payload.senderId && payload.templateContent) {
-    const excelMatch = await SmsTemplate.findOne({
-      senderId: payload.senderId,
-      templateContent: payload.templateContent,
-      $or: [
-        { messageId: '' },
-        { messageId: { $exists: false } },
-        { dltMessageId: '' },
-        { dltMessageId: { $exists: false } },
-      ],
+  const dltKey = String(payload.contentTemplateId || '').trim();
+  if (dltKey && !dltKey.startsWith('f2sms:')) {
+    const byDltTemplateId = await SmsTemplate.findOne({
+      $or: [{ templateId: dltKey }, { contentTemplateId: dltKey }],
     });
-    if (excelMatch) {
-      return excelMatch;
+    if (byDltTemplateId) {
+      return byDltTemplateId;
+    }
+  }
+
+  if (payload.senderId && payload.templateContent) {
+    const exactContent = await SmsTemplate.findOne({
+      templateContent: payload.templateContent,
+    });
+    if (exactContent) {
+      return exactContent;
+    }
+
+    const normalizedIncoming = normalizeContent(payload.templateContent);
+    if (normalizedIncoming) {
+      const candidates = await SmsTemplate.find({
+        senderId: payload.senderId,
+        templateContent: { $exists: true, $ne: '' },
+      }).limit(50);
+
+      const contentMatch = candidates.find(
+        (row) => normalizeContent(row.templateContent) === normalizedIncoming,
+      );
+      if (contentMatch) {
+        return contentMatch;
+      }
     }
   }
 
   return null;
+};
+
+const applySyncToExisting = (existing, savePayload) => {
+  const preservedTemplateId = String(existing.templateId || '').trim();
+  const preserveCrmTemplateKey = preservedTemplateId && !preservedTemplateId.startsWith('f2sms:');
+
+  SYNC_TRACKED_FIELDS.forEach((field) => {
+    existing[field] = savePayload[field];
+  });
+
+  if (preserveCrmTemplateKey) {
+    existing.templateId = preservedTemplateId;
+    existing.contentTemplateId = existing.contentTemplateId || preservedTemplateId;
+  } else if (!existing.templateId || existing.templateId.startsWith('f2sms:')) {
+    existing.templateId = existing.contentTemplateId || savePayload.templateId;
+  }
+
+  if (savePayload.contentTemplateId && !String(savePayload.contentTemplateId).startsWith('f2sms:')) {
+    existing.contentTemplateId = savePayload.contentTemplateId;
+  }
 };
 
 const hasTemplateChanged = (existing, nextPayload) => SYNC_TRACKED_FIELDS.some((field) => {
@@ -73,6 +115,68 @@ const hasTemplateChanged = (existing, nextPayload) => SYNC_TRACKED_FIELDS.some((
   }
   return String(existing[field] ?? '') !== String(nextPayload[field] ?? '');
 });
+
+const backfillMissingMessageIds = async () => {
+  const sources = await SmsTemplate.find({
+    messageId: { $exists: true, $nin: ['', null] },
+  }).select('messageId dltMessageId templateContent senderId').lean();
+
+  let repairedByContent = 0;
+
+  for (const source of sources) {
+    if (!source.templateContent) {
+      continue;
+    }
+
+    const result = await SmsTemplate.updateMany(
+      {
+        _id: { $ne: source._id },
+        $or: [
+          { messageId: '' },
+          { messageId: null },
+          { messageId: { $exists: false } },
+        ],
+        templateContent: source.templateContent,
+      },
+      {
+        $set: {
+          messageId: source.messageId,
+          dltMessageId: source.dltMessageId || source.messageId,
+        },
+      },
+    );
+    repairedByContent += result.modifiedCount || 0;
+  }
+
+  const shortIdRepair = await SmsTemplate.updateMany(
+    {
+      $or: [
+        { messageId: '' },
+        { messageId: null },
+        { messageId: { $exists: false } },
+      ],
+      templateId: { $regex: /^\d{1,11}$/ },
+    },
+    [
+      {
+        $set: {
+          messageId: '$templateId',
+          dltMessageId: '$templateId',
+        },
+      },
+    ],
+  );
+
+  console.log('[FAST2SMS TEMPLATE BACKFILL]', {
+    repairedByContent,
+    repairedShortTemplateId: shortIdRepair.modifiedCount || 0,
+  });
+
+  return {
+    repairedByContent,
+    repairedShortTemplateId: shortIdRepair.modifiedCount || 0,
+  };
+};
 
 const syncSmsTemplatesFromFast2Sms = async () => {
   console.log('[FAST2SMS TEMPLATE SYNC START]');
@@ -100,6 +204,7 @@ const syncSmsTemplatesFromFast2Sms = async () => {
     parsed: flatTemplates.length,
     senderRecords: parsedSenders.length,
     missingFieldWarnings: 0,
+    backfill: null,
   };
 
   console.log('[FAST2SMS TEMPLATE SYNC DISCOVERY]', {
@@ -132,11 +237,11 @@ const syncSmsTemplatesFromFast2Sms = async () => {
     const normalized = normalizeSmsTemplateForApi(payload);
     console.log('[FAST2SMS TEMPLATE NORMALIZED]', {
       templateName: normalized.templateName,
+      templateId: normalized.templateId,
       messageId: normalized.messageId,
       dltTemplateId: normalized.dltTemplateId,
       senderId: normalized.senderId,
       contentLength: normalized.content.length,
-      variableCount: normalized.variables?.length || 0,
       ready: normalized.ready,
     });
 
@@ -150,28 +255,50 @@ const syncSmsTemplatesFromFast2Sms = async () => {
         await SmsTemplate.create(savePayload);
         summary.created += 1;
         summary.synced += 1;
-        console.log('[FAST2SMS TEMPLATE UPSERT]', { action: 'created', templateId: payload.templateId });
+        console.log('[FAST2SMS TEMPLATE UPSERT]', { action: 'created', templateId: savePayload.templateId });
         continue;
       }
 
-      if (!hasTemplateChanged(existing, savePayload)) {
-        summary.skipped += 1;
-        continue;
-      }
-
-      SYNC_TRACKED_FIELDS.forEach((field) => {
-        existing[field] = savePayload[field];
+      console.log('[FAST2SMS TEMPLATE MERGE]', {
+        action: 'matched_existing',
+        existingTemplateId: existing.templateId,
+        existingMessageId: existing.messageId || null,
+        incomingMessageId: savePayload.messageId,
+        wasMissingMessageId: isMissingMessageId(existing),
       });
-      if (payload.contentTemplateId && !String(payload.contentTemplateId).startsWith('f2sms:')) {
-        existing.contentTemplateId = payload.contentTemplateId;
+
+      const nextPayload = { ...savePayload };
+      if (String(existing.templateId || '').trim() && !String(existing.templateId).startsWith('f2sms:')) {
+        nextPayload.templateId = existing.templateId;
+        nextPayload.contentTemplateId = existing.contentTemplateId || existing.templateId;
       }
-      if (!existing.templateId || existing.templateId.startsWith('f2sms:')) {
-        existing.templateId = existing.contentTemplateId || payload.templateId;
+
+      if (!hasTemplateChanged(existing, nextPayload)) {
+        if (isMissingMessageId(existing) && savePayload.messageId) {
+          applySyncToExisting(existing, nextPayload);
+          await existing.save();
+          summary.updated += 1;
+          summary.synced += 1;
+          console.log('[FAST2SMS TEMPLATE UPSERT]', {
+            action: 'backfilled_message_id',
+            templateId: existing.templateId,
+            messageId: existing.messageId,
+          });
+        } else {
+          summary.skipped += 1;
+        }
+        continue;
       }
+
+      applySyncToExisting(existing, nextPayload);
       await existing.save();
       summary.updated += 1;
       summary.synced += 1;
-      console.log('[FAST2SMS TEMPLATE UPSERT]', { action: 'updated', templateId: payload.templateId });
+      console.log('[FAST2SMS TEMPLATE UPSERT]', {
+        action: 'updated',
+        templateId: existing.templateId,
+        messageId: existing.messageId,
+      });
     } catch (error) {
       summary.errors += 1;
       console.log('[FAST2SMS TEMPLATE SKIPPED]', {
@@ -182,10 +309,13 @@ const syncSmsTemplatesFromFast2Sms = async () => {
     }
   }
 
+  summary.backfill = await backfillMissingMessageIds();
+
   console.log('[FAST2SMS TEMPLATE SYNC COMPLETE]', summary);
   return summary;
 };
 
 module.exports = {
   syncSmsTemplatesFromFast2Sms,
+  backfillMissingMessageIds,
 };

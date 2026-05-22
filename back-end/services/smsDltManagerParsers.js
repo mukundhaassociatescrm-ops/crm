@@ -168,7 +168,7 @@ const mapFlatTemplateToDbPayload = (flat, senderLookup = new Map()) => {
   const entityName = flat.entityName || senderMeta.entityName;
   const content = flat.content;
   const dltTemplateId = flat.dltTemplateId;
-  const crmTemplateId = dltTemplateId || `f2sms:${messageId}`;
+  const crmTemplateId = dltTemplateId || messageId;
   const templateName = flat.templateName || dltTemplateId || `Template ${messageId}`;
 
   const missingFields = [];

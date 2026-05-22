@@ -14,7 +14,13 @@ const resolveDltTemplateId = (doc) => {
   return '';
 };
 
-const resolveMessageId = (doc) => asTrimmed(doc?.messageId || doc?.dltMessageId);
+const resolveMessageId = (doc) => {
+  const direct = asTrimmed(doc?.messageId || doc?.dltMessageId);
+  if (direct) {
+    return direct;
+  }
+  return asTrimmed(doc?.templateId);
+};
 
 const resolveContent = (doc) => asTrimmed(doc?.templateContent || doc?.content);
 

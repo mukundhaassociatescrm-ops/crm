@@ -13,6 +13,8 @@ const {
   buildTemplateLookupQuery,
 } = require('../services/dltTemplateResolver');
 
+const asTrimmed = (value) => String(value ?? '').trim();
+
 const normalizeVariablesInput = (rawVariables, slotCount) => {
   if (!slotCount) {
     return [];
@@ -66,26 +68,34 @@ exports.sendSingleSms = async (req, res) => {
       });
     }
 
-    console.log('[SMS SEND TEMPLATE]', {
+    console.log('[SMS SEND TEMPLATE RECORD]', {
+      mongoId: String(template._id),
       requestedTemplateKey,
       templateId: template.templateId,
-      templateName: template.templateName,
-      senderId: template.senderId,
-      messageId: resolveConfiguredMessageId(template) || null,
+      messageId: template.messageId || null,
+      dltMessageId: template.dltMessageId || null,
+      contentTemplateId: template.contentTemplateId || null,
+      senderId: template.senderId || null,
+      provider: template.provider || null,
+      templateName: template.templateName || null,
+      contentLength: String(template.templateContent || '').length,
     });
 
     if (!hasConfiguredMessageId(template)) {
       return res.status(400).json({
         success: false,
-        message: 'Message ID not configured for this template',
+        message: 'Template sync incomplete. Missing DLT Message ID.',
       });
     }
 
     const fast2smsMessageId = resolveFast2smsMessageId(template);
+    const messageIdSource = asTrimmed(template.messageId || template.dltMessageId)
+      ? 'messageId'
+      : 'templateId_fallback';
 
     console.log('[SMS MESSAGE ID]', {
       messageId: fast2smsMessageId,
-      source: template.messageId ? 'messageId' : 'dltMessageId',
+      source: messageIdSource,
     });
 
     const senderId = resolveFast2smsSenderId(template) || String(template.senderId || '').trim();
