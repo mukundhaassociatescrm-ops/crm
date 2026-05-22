@@ -2,16 +2,34 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
-export function getSmsTemplateMessageId(
-  template: Pick<SmsTemplate, 'messageId' | 'dltMessageId'> | null | undefined,
+/** Fast2SMS DLT Manager Message ID (short numeric). Not the 15–20 digit DLT content template ID. */
+export function isFast2smsMessageId(value: string | undefined | null): boolean {
+  const id = String(value ?? '').trim();
+  return /^\d{1,11}$/.test(id);
+}
+
+export function getFast2smsMessageId(
+  template: Pick<SmsTemplate, 'messageId' | 'dltMessageId' | 'fast2smsMessageId'> | null | undefined,
 ): string {
-  return String(template?.messageId || template?.dltMessageId || '').trim();
+  const candidates = [
+    template?.fast2smsMessageId,
+    template?.messageId,
+    template?.dltMessageId,
+  ].map((v) => String(v ?? '').trim()).filter(Boolean);
+
+  return candidates.find(isFast2smsMessageId) || '';
+}
+
+export function getSmsTemplateMessageId(
+  template: Pick<SmsTemplate, 'messageId' | 'dltMessageId' | 'fast2smsMessageId'> | null | undefined,
+): string {
+  return getFast2smsMessageId(template);
 }
 
 export function hasSmsTemplateMessageId(
-  template: Pick<SmsTemplate, 'messageId' | 'dltMessageId'> | null | undefined,
+  template: Pick<SmsTemplate, 'messageId' | 'dltMessageId' | 'fast2smsMessageId'> | null | undefined,
 ): boolean {
-  return Boolean(getSmsTemplateMessageId(template));
+  return Boolean(getFast2smsMessageId(template));
 }
 
 export function getSmsTemplateDltId(
@@ -68,16 +86,16 @@ export function getSmsTemplateReadinessIssues(
     issues.push('Missing template content — Fast2SMS sync incomplete');
   }
 
-  if (!hasSmsTemplateMessageId(template)) {
+  const fast2smsId = getFast2smsMessageId(template);
+  const rawStored = String(template.messageId || template.dltMessageId || '').trim();
+  if (rawStored && !isFast2smsMessageId(rawStored)) {
+    issues.push('Stored messageId is a DLT Content Template ID, not a Fast2SMS Message ID — run Sync Templates from Fast2SMS');
+  } else if (!fast2smsId) {
     if (template.provider === 'excel') {
       issues.push('Missing Fast2SMS Message ID — Fast2SMS sync required (Excel import does not provide Message ID)');
     } else {
       issues.push('Missing Fast2SMS Message ID — Fast2SMS sync required');
     }
-  }
-
-  if (!hasSmsTemplateMessageId(template) && !getSmsTemplateDltId(template)) {
-    issues.push('Missing DLT Template ID — template sync incomplete');
   }
 
   return issues;
@@ -94,9 +112,7 @@ export function isSmsTemplateReadyToSend(
     SmsTemplate,
     | 'messageId'
     | 'dltMessageId'
-    | 'dltTemplateId'
-    | 'contentTemplateId'
-    | 'templateId'
+    | 'fast2smsMessageId'
     | 'senderId'
     | 'content'
     | 'templateContent'
@@ -111,7 +127,7 @@ export function isSmsTemplateReadyToSend(
   }
   const senderId = String(template.senderId || '').trim();
   const content = getSmsTemplateContent(template);
-  return Boolean(senderId && content && hasSmsTemplateDltRouteId(template));
+  return Boolean(senderId && content && hasSmsTemplateMessageId(template));
 }
 
 export interface SmsTemplateVariableSlot {
@@ -122,8 +138,10 @@ export interface SmsTemplateVariableSlot {
 export interface SmsTemplate {
   _id: string;
   templateId: string;
+  crmTemplateId?: string;
   templateName: string;
   messageId?: string;
+  fast2smsMessageId?: string;
   dltMessageId?: string;
   dltTemplateId?: string;
   contentTemplateId?: string;

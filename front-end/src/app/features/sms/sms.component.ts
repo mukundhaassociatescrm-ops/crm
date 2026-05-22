@@ -46,7 +46,7 @@ export class SmsComponent implements OnInit, OnDestroy {
   searchQuery = '';
   isSending = false;
   smsTemplates: SmsTemplate[] = [];
-  selectedSmsTemplateId = '';
+  selectedSmsTemplateRecordId = '';
   templateVariables: Record<number, string> = {};
   isLoadingTemplates = false;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -71,7 +71,7 @@ export class SmsComponent implements OnInit, OnDestroy {
   }
 
   get selectedSmsTemplate(): SmsTemplate | null {
-    return this.smsTemplates.find((item) => item.templateId === this.selectedSmsTemplateId) || null;
+    return this.smsTemplates.find((item) => item._id === this.selectedSmsTemplateRecordId) || null;
   }
 
   get templateVariableSlots(): SmsTemplateVariableSlot[] {
@@ -80,7 +80,7 @@ export class SmsComponent implements OnInit, OnDestroy {
 
   get templateVariableLabel(): string {
     const count = this.templateVariableSlots.length;
-    if (!this.selectedSmsTemplateId) {
+    if (!this.selectedSmsTemplateRecordId) {
       return '';
     }
     if (count === 0) {
@@ -100,7 +100,7 @@ export class SmsComponent implements OnInit, OnDestroy {
   }
 
   get templateReadinessIssues(): string[] {
-    if (!this.selectedSmsTemplateId) {
+    if (!this.selectedSmsTemplateRecordId) {
       return [];
     }
     return getSmsTemplateReadinessIssues(this.selectedSmsTemplate);
@@ -111,7 +111,7 @@ export class SmsComponent implements OnInit, OnDestroy {
   }
 
   get canSend(): boolean {
-    if (!this.selectedClient || !this.selectedSmsTemplateId || this.isSending) {
+    if (!this.selectedClient || !this.selectedSmsTemplateRecordId || this.isSending) {
       return false;
     }
 
@@ -131,8 +131,10 @@ export class SmsComponent implements OnInit, OnDestroy {
     this.syncTemplateVariableMap();
     this.focusFirstVariableInput();
     console.log('[SINGLE SMS TEMPLATE SELECTED]', {
-      templateId: this.selectedSmsTemplateId,
-      messageId: this.selectedSmsTemplate?.messageId || this.selectedSmsTemplate?.dltMessageId || null,
+      templateRecordId: this.selectedSmsTemplateRecordId,
+      crmTemplateId: this.selectedSmsTemplate?.templateId,
+      fast2smsMessageId: this.selectedSmsTemplate?.fast2smsMessageId || this.selectedSmsTemplate?.messageId || null,
+      dltTemplateId: this.selectedSmsTemplate?.dltTemplateId || null,
       senderId: this.selectedSmsTemplate?.senderId || null,
       isActive: this.selectedSmsTemplate?.isActive ?? null,
       provider: this.selectedSmsTemplate?.provider || null,
@@ -206,14 +208,21 @@ export class SmsComponent implements OnInit, OnDestroy {
     }
 
     const phone = this.selectedClient.mobile;
-    const templateId = this.selectedSmsTemplateId;
     const variables = buildSmsVariablesArray(this.templateVariableSlots, this.templateVariables);
+
+    console.log('[SINGLE SMS SEND REQUEST]', {
+      phone,
+      templateRecordId: this.selectedSmsTemplateRecordId,
+      fast2smsMessageId: this.selectedSmsTemplate?.fast2smsMessageId || this.selectedSmsTemplate?.messageId,
+      dltTemplateId: this.selectedSmsTemplate?.dltTemplateId,
+      senderId: this.selectedSmsTemplate?.senderId,
+    });
 
     this.isSending = true;
     this.http
       .post<SmsSendResponse>('/api/sms/send-single', {
         phone,
-        templateId,
+        templateRecordId: this.selectedSmsTemplateRecordId,
         variables,
       })
       .pipe(

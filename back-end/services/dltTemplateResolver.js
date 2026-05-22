@@ -1,27 +1,14 @@
+const mongoose = require('mongoose');
+const {
+  asTrimmed,
+  isFast2smsMessageId,
+  resolveFast2smsMessageIdFromRecord,
+} = require('./smsFast2smsIdUtils');
+
 /**
- * Fast2SMS route "dlt" expects `message` = Message ID from Fast2SMS DLT Manager.
+ * Fast2SMS bulkV2 route "dlt" uses JSON field `message` = DLT Manager Message ID only.
+ * See: https://docs.fast2sms.com/reference/dlt-sms
  */
-
-const asTrimmed = (value) => String(value ?? '').trim();
-
-const resolveConfiguredMessageId = (template) => {
-  const messageId = asTrimmed(template?.messageId || template?.dltMessageId);
-  if (messageId) {
-    return messageId;
-  }
-
-  const templateId = asTrimmed(template?.templateId);
-  if (templateId) {
-    console.log('[SMS MESSAGE ID FALLBACK]', {
-      templateId,
-      reason: 'using_templateId_as_messageId',
-      note: 'Prefer Fast2SMS sync to populate messageId on this row',
-    });
-    return templateId;
-  }
-
-  return '';
-};
 
 const resolveFast2smsMessageId = (template) => {
   const testMessageId = asTrimmed(process.env.FAST2SMS_DLT_TEST_MESSAGE_ID);
@@ -33,10 +20,10 @@ const resolveFast2smsMessageId = (template) => {
     return testMessageId;
   }
 
-  return resolveConfiguredMessageId(template);
+  return resolveFast2smsMessageIdFromRecord(template);
 };
 
-const hasConfiguredMessageId = (template) => Boolean(resolveConfiguredMessageId(template));
+const hasConfiguredMessageId = (template) => Boolean(resolveFast2smsMessageId(template));
 
 const resolveFast2smsSenderId = (template) => {
   const testSenderId = asTrimmed(process.env.FAST2SMS_DLT_TEST_SENDER_ID);
@@ -56,27 +43,31 @@ const resolveFast2smsEntityId = (template) => {
   return asTrimmed(template?.entityId);
 };
 
-const buildTemplateLookupQuery = (requestedId) => {
-  const id = asTrimmed(requestedId);
+const buildTemplateLookupQuery = (requestedKey) => {
+  const id = asTrimmed(requestedKey);
   if (!id) {
     return null;
   }
 
-  return {
-    $or: [
-      { messageId: id },
-      { dltMessageId: id },
-      { contentTemplateId: id },
-      { templateId: id },
-    ],
-  };
+  const clauses = [
+    { messageId: id },
+    { dltMessageId: id },
+    { contentTemplateId: id },
+    { templateId: id },
+  ];
+
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    clauses.unshift({ _id: id });
+  }
+
+  return { $or: clauses };
 };
 
 module.exports = {
-  resolveConfiguredMessageId,
   resolveFast2smsMessageId,
   hasConfiguredMessageId,
   resolveFast2smsSenderId,
   resolveFast2smsEntityId,
   buildTemplateLookupQuery,
+  isFast2smsMessageId,
 };

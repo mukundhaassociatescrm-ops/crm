@@ -88,12 +88,23 @@ const findExistingTemplate = async (payload) => {
 };
 
 const applySyncToExisting = (existing, savePayload) => {
+  const { isDltContentTemplateId } = require('./smsFast2smsIdUtils');
   const preservedTemplateId = String(existing.templateId || '').trim();
   const preserveCrmTemplateKey = preservedTemplateId && !preservedTemplateId.startsWith('f2sms:');
 
   SYNC_TRACKED_FIELDS.forEach((field) => {
     existing[field] = savePayload[field];
   });
+
+  if (isDltContentTemplateId(existing.messageId) && savePayload.messageId) {
+    existing.messageId = savePayload.messageId;
+    existing.dltMessageId = savePayload.dltMessageId;
+    console.log('[FAST2SMS TEMPLATE REPAIR]', {
+      crmTemplateId: existing.templateId,
+      repairedMessageId: existing.messageId,
+      reason: 'replaced_dlt_content_id_in_messageId_field',
+    });
+  }
 
   if (preserveCrmTemplateKey) {
     existing.templateId = preservedTemplateId;

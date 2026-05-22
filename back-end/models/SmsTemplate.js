@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const smsTemplateSchema = new mongoose.Schema(
   {
     templateName: { type: String, trim: true, default: '' },
-    /** CRM / DLT content template ID (lookup key for send API). */
+    /** CRM dropdown / legacy lookup key (DLT content template ID or f2sms key — NOT sent to Fast2SMS as `message`). */
     templateId: {
       type: String,
       required: true,
@@ -11,7 +11,7 @@ const smsTemplateSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-    /** Fast2SMS DLT Manager Message ID — sent as bulkV2 `message` (route: dlt). */
+    /** Fast2SMS DLT Manager Message ID (short numeric, e.g. 215773) — sole value for bulkV2 `message`. */
     messageId: { type: String, trim: true, default: '', index: true },
     senderId: { type: String, trim: true, default: '' },
     entityId: { type: String, trim: true, default: '' },
@@ -23,8 +23,9 @@ const smsTemplateSchema = new mongoose.Schema(
     syncedAt: { type: Date, default: null },
     isActive: { type: Boolean, default: false, index: true },
 
-    /** @deprecated Excel / legacy fields — kept for fallback import compatibility. */
+    /** Mirror of messageId for legacy reads. */
     dltMessageId: { type: String, trim: true, default: '' },
+    /** TRAI DLT content template ID (long numeric) — never use as Fast2SMS `message`. */
     contentTemplateId: { type: String, trim: true, default: '' },
     sampleContent: { type: String, default: '' },
     category: { type: String, trim: true, default: '' },

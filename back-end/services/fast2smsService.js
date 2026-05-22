@@ -204,7 +204,6 @@ async function sendDltSms({
   senderId,
   variablesValues = '',
   entityId = '',
-  contentTemplateId = '',
 }) {
   const normalizedPhone = normalizeIndianMobile(phone);
   if (!normalizedPhone) {
@@ -238,19 +237,14 @@ async function sendDltSms({
     payload.entity_id = normalizedEntityId;
   }
 
-  const normalizedContentTemplateId = String(contentTemplateId || '').trim();
-  if (normalizedContentTemplateId && String(process.env.FAST2SMS_INCLUDE_CONTENT_TEMPLATE_ID || '').toLowerCase() === 'true') {
-    payload.template_id = normalizedContentTemplateId;
-  }
-
-  console.log('[SMS SEND PAYLOAD]', {
+  console.log('[FAST2SMS OUTGOING PAYLOAD]', {
+    route: payload.route,
     sender_id: payload.sender_id,
     message: payload.message,
-    variables_values: payload.variables_values || '',
-    route: payload.route,
+    message_id: payload.message,
+    entity_id: payload.entity_id || null,
     numbers: payload.numbers,
-    entity_id: payload.entity_id || undefined,
-    template_id: payload.template_id || undefined,
+    variables_values: payload.variables_values || null,
   });
 
   const providerResponse = await postFast2SmsPayload(payload);
