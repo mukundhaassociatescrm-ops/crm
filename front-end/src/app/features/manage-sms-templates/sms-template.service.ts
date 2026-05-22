@@ -213,6 +213,10 @@ export interface SmsTemplateImportResponse {
 export class SmsTemplateService {
   constructor(private readonly http: HttpClient) {}
 
+  getLiveTemplates(): Observable<SmsTemplateListResponse & { source?: string }> {
+    return this.http.get<SmsTemplateListResponse & { source?: string }>('/api/sms/templates/live');
+  }
+
   getTemplates(options: {
     search?: string;
     activeOnly?: boolean;

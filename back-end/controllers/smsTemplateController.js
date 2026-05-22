@@ -6,6 +6,8 @@ const {
   IMPORT_ACCEPTED_MIME_TYPES,
   importSmsTemplatesFromFile,
 } = require('../services/smsTemplateImportService');
+const { fetchDltManagerRawBody } = require('../services/fast2smsService');
+const { fetchLiveSmsTemplates } = require('../services/smsLiveTemplateService');
 const { syncSmsTemplatesFromFast2Sms } = require('../services/smsTemplateSyncService');
 const { normalizeSmsTemplateForApi } = require('../services/smsTemplateNormalize');
 
@@ -27,6 +29,53 @@ const upload = multer({
 });
 
 exports.templateUpload = upload.single('file');
+
+exports.debugFast2smsTemplates = async (req, res, next) => {
+  try {
+    console.log('CALLING FAST2SMS TEMPLATE API');
+
+    const httpResult = await fetchDltManagerRawBody('template');
+
+    console.log(
+      'FAST2SMS RAW RESPONSE:',
+      JSON.stringify(httpResult.body, null, 2),
+    );
+
+    if (!httpResult.ok) {
+      return res.status(httpResult.status || 500).json(
+        httpResult.body || { success: false, message: 'Fast2SMS request failed' },
+      );
+    }
+
+    return res.status(200).json(httpResult.body ?? {});
+  } catch (error) {
+    console.error(
+      'FAST2SMS DEBUG ERROR:',
+      error?.message || String(error),
+    );
+    return res.status(500).json({
+      success: false,
+      error: error?.message || String(error),
+    });
+  }
+};
+
+exports.listLiveSmsTemplates = async (req, res, next) => {
+  try {
+    const result = await fetchLiveSmsTemplates();
+    return res.status(200).json({
+      success: true,
+      source: result.source,
+      data: result.data,
+      meta: {
+        count: result.count,
+        total: result.count,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
 
 exports.syncSmsTemplates = async (req, res, next) => {
   try {

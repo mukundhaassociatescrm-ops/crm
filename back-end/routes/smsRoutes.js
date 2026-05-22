@@ -5,7 +5,9 @@ const { sendSingleSms } = require('../controllers/smsController');
 const {
   templateUpload,
   importSmsTemplates,
+  debugFast2smsTemplates,
   debugSmsTemplates,
+  listLiveSmsTemplates,
   listSmsTemplates,
   patchSmsTemplateActive,
   syncSmsTemplates,
@@ -16,6 +18,8 @@ const router = express.Router();
 
 router.post('/send-single', protect, sendSingleSms);
 router.post('/send', protect, sendSingleSms);
+router.get('/debug-fast2sms-templates', protect, debugFast2smsTemplates);
+router.get('/templates/live', protect, listLiveSmsTemplates);
 router.get('/templates', protect, listSmsTemplates);
 router.get('/templates/debug', protect, authorizeRole('admin'), debugSmsTemplates);
 router.post('/templates/sync', protect, authorizeRole('admin'), syncSmsTemplates);

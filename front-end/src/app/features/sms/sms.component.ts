@@ -219,10 +219,22 @@ export class SmsComponent implements OnInit, OnDestroy {
     });
 
     this.isSending = true;
+    const selected = this.selectedSmsTemplate;
     this.http
       .post<SmsSendResponse>('/api/sms/send-single', {
         phone,
         templateRecordId: this.selectedSmsTemplateRecordId,
+        template: selected
+          ? {
+              _id: selected._id,
+              messageId: selected.fast2smsMessageId || selected.messageId,
+              senderId: selected.senderId,
+              entityId: selected.entityId,
+              templateContent: getSmsTemplateContent(selected),
+              templateName: selected.templateName,
+              templateId: selected.templateId,
+            }
+          : undefined,
         variables,
       })
       .pipe(
@@ -282,12 +294,13 @@ export class SmsComponent implements OnInit, OnDestroy {
 
   private loadSmsTemplates(): void {
     this.isLoadingTemplates = true;
-    this.smsTemplateService.getTemplates({ activeOnly: true, provider: 'fast2sms', limit: 200 }).subscribe({
+    this.smsTemplateService.getLiveTemplates().subscribe({
       next: (response) => {
         this.isLoadingTemplates = false;
         this.smsTemplates = response.success && Array.isArray(response.data) ? response.data : [];
         const readyCount = this.smsTemplates.filter((t) => isSmsTemplateReadyToSend(t)).length;
         console.log('[SINGLE SMS TEMPLATES LOADED]', {
+          source: response.source || 'fast2sms',
           total: this.smsTemplates.length,
           readyToSend: readyCount,
           notReady: this.smsTemplates.length - readyCount,

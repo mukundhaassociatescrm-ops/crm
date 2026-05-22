@@ -38,7 +38,7 @@ const buildSafeDltManagerUrlForLog = (type) => {
   return safeUrl.toString();
 };
 
-async function fetchDltManagerRaw(type) {
+async function fetchDltManagerRawBody(type) {
   const apiKey = process.env.FAST2SMS_API_KEY;
   if (!apiKey) {
     throw new Error('FAST2SMS_API_KEY is not configured.');
@@ -53,6 +53,27 @@ async function fetchDltManagerRaw(type) {
   url.searchParams.set('authorization', apiKey);
   url.searchParams.set('type', normalizedType);
 
+  const fetch = await getFetch();
+  const response = await fetch(url.toString(), { method: 'GET' });
+
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  return {
+    type: normalizedType,
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText || '',
+    body,
+  };
+}
+
+async function fetchDltManagerRaw(type) {
+  const normalizedType = String(type || '').trim().toLowerCase();
   const isTemplateFetch = normalizedType === 'template';
 
   if (isTemplateFetch) {
@@ -68,23 +89,11 @@ async function fetchDltManagerRaw(type) {
     });
   }
 
-  const fetch = await getFetch();
-  const response = await fetch(url.toString(), { method: 'GET' });
-
-  let body = null;
-  try {
-    body = await response.json();
-  } catch (parseError) {
-    body = null;
-    console.log('[FAST2SMS DLT MANAGER PARSE ERROR]', {
-      type: normalizedType,
-      status: response.status,
-      message: parseError?.message || String(parseError),
-    });
-  }
+  const httpResult = await fetchDltManagerRawBody(type);
+  const { status, body } = httpResult;
 
   if (isTemplateFetch) {
-    console.log('FAST2SMS STATUS:', response.status);
+    console.log('FAST2SMS STATUS:', status);
 
     if (body) {
       console.log(
@@ -112,13 +121,13 @@ async function fetchDltManagerRaw(type) {
     console.log('==============================\n');
   } else {
     console.log('[FAST2SMS SENDER FETCH RESPONSE]', {
-      status: response.status,
+      status,
       topLevelKeys: body && typeof body === 'object' ? Object.keys(body) : [],
       dataLength: Array.isArray(body?.data) ? body.data.length : 0,
     });
   }
 
-  if (!response.ok) {
+  if (!httpResult.ok) {
     const messageFromApi = body?.message || body?.error || `Fast2SMS DLT Manager (${normalizedType}) request failed.`;
     throw new Error(Array.isArray(messageFromApi) ? messageFromApi.join(', ') : String(messageFromApi));
   }
@@ -348,6 +357,7 @@ async function sendSMS(phone, message) {
 }
 
 module.exports = {
+  fetchDltManagerRawBody,
   fetchDltManagerRaw,
   fetchDltTemplates,
   fetchDltSenders,

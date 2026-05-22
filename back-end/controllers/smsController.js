@@ -37,6 +37,39 @@ const normalizeVariablesInput = (rawVariables, slotCount) => {
   return [];
 };
 
+const resolveLiveTemplateFromBody = (body) => {
+  const source = body?.template;
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+
+  const messageId = asTrimmed(source.messageId || source.fast2smsMessageId);
+  const senderId = asTrimmed(source.senderId);
+  const templateContent = asTrimmed(source.templateContent || source.content);
+
+  if (!messageId || !senderId || !templateContent) {
+    return null;
+  }
+
+  if (!isFast2smsMessageId(messageId)) {
+    return null;
+  }
+
+  return {
+    _id: asTrimmed(source._id) || `f2sms:${messageId}`,
+    templateId: asTrimmed(source.templateId) || messageId,
+    templateName: asTrimmed(source.templateName) || `Template ${messageId}`,
+    messageId,
+    dltMessageId: messageId,
+    senderId,
+    entityId: asTrimmed(source.entityId),
+    entityName: asTrimmed(source.entityName),
+    templateContent,
+    provider: 'fast2sms',
+    isActive: true,
+  };
+};
+
 const findActiveTemplate = async (requestedKey) => {
   const key = asTrimmed(requestedKey);
   if (!key) {
@@ -79,19 +112,26 @@ exports.sendSingleSms = async (req, res) => {
       });
     }
 
-    const template = await findActiveTemplate(requestedTemplateKey);
+    let template = resolveLiveTemplateFromBody(req.body);
+
+    if (!template && requestedTemplateKey) {
+      template = await findActiveTemplate(requestedTemplateKey);
+    }
+
     if (!template) {
       return res.status(404).json({
         success: false,
-        message: 'Active DLT template not found. Sync from Fast2SMS or activate the template first.',
+        message: 'DLT template not found. Select a live Fast2SMS template or provide template details in the request.',
       });
     }
 
     const dltContentTemplateId = resolveDltContentTemplateIdFromRecord(template);
     const storedMessageId = asTrimmed(template.messageId || template.dltMessageId);
     const templateRecord = template.toObject ? template.toObject() : template;
+    const isLiveTemplate = Boolean(req.body?.template);
 
     console.log('SELECTED TEMPLATE:', JSON.stringify({
+      source: isLiveTemplate ? 'fast2sms_live' : 'database',
       _id: String(templateRecord._id),
       templateId: templateRecord.templateId,
       messageId: templateRecord.messageId || null,
@@ -175,7 +215,7 @@ exports.sendSingleSms = async (req, res) => {
     return res.status(200).json({
       success: true,
       phone: result.phone,
-      templateRecordId: String(template._id),
+      templateRecordId: String(template._id || template.messageId),
       crmTemplateId: template.templateId,
       messageId: fast2smsMessageId,
       senderId: result.senderId,
