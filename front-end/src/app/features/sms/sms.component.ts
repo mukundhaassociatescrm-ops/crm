@@ -8,6 +8,8 @@ import { catchError, finalize, of } from 'rxjs';
 import { Client, ClientService } from '../manage-client/client.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 import {
+  getSmsTemplateContent,
+  getSmsTemplateReadinessIssues,
   isSmsTemplateReadyToSend,
   SmsTemplate,
   SmsTemplateService,
@@ -92,13 +94,20 @@ export class SmsComponent implements OnInit, OnDestroy {
       return 'Select a DLT template to preview the message.';
     }
     return renderSmsTemplatePreview(
-      this.selectedSmsTemplate.templateContent,
+      getSmsTemplateContent(this.selectedSmsTemplate),
       this.templateVariables,
     );
   }
 
+  get templateReadinessIssues(): string[] {
+    if (!this.selectedSmsTemplateId) {
+      return [];
+    }
+    return getSmsTemplateReadinessIssues(this.selectedSmsTemplate);
+  }
+
   get selectedTemplateNotReady(): boolean {
-    return Boolean(this.selectedSmsTemplate) && !isSmsTemplateReadyToSend(this.selectedSmsTemplate);
+    return this.templateReadinessIssues.length > 0;
   }
 
   get canSend(): boolean {
@@ -121,11 +130,15 @@ export class SmsComponent implements OnInit, OnDestroy {
   onSmsTemplateChanged(): void {
     this.syncTemplateVariableMap();
     this.focusFirstVariableInput();
-    console.log('[TEMPLATE VARIABLE DETECTED]', {
-      source: 'single_sms',
+    console.log('[SINGLE SMS TEMPLATE SELECTED]', {
       templateId: this.selectedSmsTemplateId,
-      count: this.templateVariableSlots.length,
-      slots: this.templateVariableSlots,
+      messageId: this.selectedSmsTemplate?.messageId || this.selectedSmsTemplate?.dltMessageId || null,
+      senderId: this.selectedSmsTemplate?.senderId || null,
+      isActive: this.selectedSmsTemplate?.isActive ?? null,
+      provider: this.selectedSmsTemplate?.provider || null,
+      ready: isSmsTemplateReadyToSend(this.selectedSmsTemplate),
+      issues: this.templateReadinessIssues,
+      variableCount: this.templateVariableSlots.length,
     });
     this.logTemplatePreview();
   }
@@ -260,14 +273,23 @@ export class SmsComponent implements OnInit, OnDestroy {
 
   private loadSmsTemplates(): void {
     this.isLoadingTemplates = true;
-    this.smsTemplateService.getTemplates({ activeOnly: true }).subscribe({
+    this.smsTemplateService.getTemplates({ activeOnly: true, limit: 200 }).subscribe({
       next: (response) => {
         this.isLoadingTemplates = false;
         this.smsTemplates = response.success && Array.isArray(response.data) ? response.data : [];
+        const readyCount = this.smsTemplates.filter((t) => isSmsTemplateReadyToSend(t)).length;
+        console.log('[SINGLE SMS TEMPLATES LOADED]', {
+          total: this.smsTemplates.length,
+          readyToSend: readyCount,
+          notReady: this.smsTemplates.length - readyCount,
+        });
       },
-      error: () => {
+      error: (err) => {
         this.isLoadingTemplates = false;
         this.smsTemplates = [];
+        console.log('[SINGLE SMS TEMPLATES LOAD ERROR]', {
+          message: err?.error?.message || err?.message || 'Failed to load templates',
+        });
       },
     });
   }

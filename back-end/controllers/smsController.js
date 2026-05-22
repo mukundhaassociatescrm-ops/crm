@@ -112,6 +112,17 @@ exports.sendSingleSms = async (req, res) => {
 
     const variablesValues = buildVariablesValues(slots, variables);
 
+    console.log('[SMS SEND PAYLOAD]', {
+      route: 'dlt',
+      sender_id: senderId,
+      message: fast2smsMessageId,
+      message_id: fast2smsMessageId,
+      template_id: template.contentTemplateId || template.templateId,
+      numbers: normalizedPhone,
+      variables_values: variablesValues || '',
+      entity_id: resolveFast2smsEntityId(template) || undefined,
+    });
+
     const result = await sendDltSms({
       phone: normalizedPhone,
       messageId: fast2smsMessageId,

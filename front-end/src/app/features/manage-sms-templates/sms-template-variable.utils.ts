@@ -43,7 +43,7 @@ export const extractSmsTemplateVariableSlots = (content: string): SmsTemplateVar
 
 export const resolveSmsTemplateVariableSlots = (
   template: SmsTemplate | null | undefined,
-): SmsTemplateVariableSlot[] => extractSmsTemplateVariableSlots(template?.templateContent || '');
+): SmsTemplateVariableSlot[] => extractSmsTemplateVariableSlots(template?.content || template?.templateContent || '');
 
 export const renderSmsTemplatePreview = (
   content: string,

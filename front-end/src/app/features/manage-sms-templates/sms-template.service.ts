@@ -14,10 +14,109 @@ export function hasSmsTemplateMessageId(
   return Boolean(getSmsTemplateMessageId(template));
 }
 
-export function isSmsTemplateReadyToSend(
-  template: Pick<SmsTemplate, 'messageId' | 'dltMessageId' | 'senderId' | 'isActive'> | null | undefined,
+export function getSmsTemplateDltId(
+  template: Pick<SmsTemplate, 'dltTemplateId' | 'contentTemplateId' | 'templateId'> | null | undefined,
+): string {
+  const dltTemplateId = String(template?.dltTemplateId || '').trim();
+  if (dltTemplateId && !dltTemplateId.startsWith('f2sms:')) {
+    return dltTemplateId;
+  }
+  const contentTemplateId = String(template?.contentTemplateId || '').trim();
+  if (contentTemplateId && !contentTemplateId.startsWith('f2sms:')) {
+    return contentTemplateId;
+  }
+  const templateId = String(template?.templateId || '').trim();
+  if (templateId && !templateId.startsWith('f2sms:')) {
+    return templateId;
+  }
+  return '';
+}
+
+export function hasSmsTemplateDltRouteId(
+  template: Pick<SmsTemplate, 'messageId' | 'dltMessageId' | 'contentTemplateId' | 'templateId'> | null | undefined,
 ): boolean {
-  return Boolean(template?.isActive && hasSmsTemplateMessageId(template) && String(template?.senderId || '').trim());
+  return hasSmsTemplateMessageId(template) || Boolean(getSmsTemplateDltId(template));
+}
+
+export function getSmsTemplateReadinessIssues(
+  template: Pick<
+    SmsTemplate,
+    | 'messageId'
+    | 'dltMessageId'
+    | 'dltTemplateId'
+    | 'contentTemplateId'
+    | 'templateId'
+    | 'senderId'
+    | 'content'
+    | 'templateContent'
+    | 'provider'
+  > | null | undefined,
+): string[] {
+  if (!template) {
+    return ['No template selected'];
+  }
+
+  const issues: string[] = [];
+  const senderId = String(template.senderId || '').trim();
+  const content = getSmsTemplateContent(template);
+
+  if (!senderId) {
+    issues.push('Missing Sender ID — run Sync Templates from Fast2SMS');
+  }
+
+  if (!content) {
+    issues.push('Missing template content — Fast2SMS sync incomplete');
+  }
+
+  if (!hasSmsTemplateMessageId(template)) {
+    if (template.provider === 'excel') {
+      issues.push('Missing Fast2SMS Message ID — Fast2SMS sync required (Excel import does not provide Message ID)');
+    } else {
+      issues.push('Missing Fast2SMS Message ID — Fast2SMS sync required');
+    }
+  }
+
+  if (!hasSmsTemplateMessageId(template) && !getSmsTemplateDltId(template)) {
+    issues.push('Missing DLT Template ID — template sync incomplete');
+  }
+
+  return issues;
+}
+
+export function getSmsTemplateContent(
+  template: Pick<SmsTemplate, 'content' | 'templateContent'> | null | undefined,
+): string {
+  return String(template?.content || template?.templateContent || '').trim();
+}
+
+export function isSmsTemplateReadyToSend(
+  template: Pick<
+    SmsTemplate,
+    | 'messageId'
+    | 'dltMessageId'
+    | 'dltTemplateId'
+    | 'contentTemplateId'
+    | 'templateId'
+    | 'senderId'
+    | 'content'
+    | 'templateContent'
+    | 'ready'
+  > | null | undefined,
+): boolean {
+  if (!template) {
+    return false;
+  }
+  if (template.ready === true) {
+    return true;
+  }
+  const senderId = String(template.senderId || '').trim();
+  const content = getSmsTemplateContent(template);
+  return Boolean(senderId && content && hasSmsTemplateDltRouteId(template));
+}
+
+export interface SmsTemplateVariableSlot {
+  index: number;
+  label: string;
 }
 
 export interface SmsTemplate {
@@ -26,10 +125,15 @@ export interface SmsTemplate {
   templateName: string;
   messageId?: string;
   dltMessageId?: string;
+  dltTemplateId?: string;
   contentTemplateId?: string;
+  content?: string;
   entityId?: string;
   entityName?: string;
   templateContent: string;
+  variables?: SmsTemplateVariableSlot[];
+  route?: string;
+  ready?: boolean;
   sampleContent?: string;
   senderId?: string;
   category?: string;

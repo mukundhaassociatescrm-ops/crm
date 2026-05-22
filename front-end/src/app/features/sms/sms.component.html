@@ -127,9 +127,9 @@
         <p class="template-variables-validation" *ngIf="templateVariableSlots.length && !canSend">
           Fill all variables above to enable Send DLT SMS.
         </p>
-        <p class="template-variables-validation" *ngIf="selectedTemplateNotReady">
-          Template is not ready to send. Sync from Fast2SMS and ensure Message ID and Sender ID are configured.
-        </p>
+        <div class="template-variables-validation" *ngIf="selectedTemplateNotReady">
+          <p *ngFor="let issue of templateReadinessIssues">{{ issue }}</p>
+        </div>
       </section>
 
       <div class="sender-meta" *ngIf="selectedSmsTemplate as template">

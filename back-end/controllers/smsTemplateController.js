@@ -6,6 +6,7 @@ const {
   importSmsTemplatesFromFile,
 } = require('../services/smsTemplateImportService');
 const { syncSmsTemplatesFromFast2Sms } = require('../services/smsTemplateSyncService');
+const { normalizeSmsTemplateForApi } = require('../services/smsTemplateNormalize');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -105,9 +106,11 @@ exports.listSmsTemplates = async (req, res, next) => {
       SmsTemplate.countDocuments(query),
     ]);
 
+    const normalized = templates.map((row) => normalizeSmsTemplateForApi(row));
+
     return res.status(200).json({
       success: true,
-      data: templates,
+      data: normalized,
       meta: {
         count: templates.length,
         total,

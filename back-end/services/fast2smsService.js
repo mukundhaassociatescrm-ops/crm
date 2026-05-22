@@ -26,40 +26,12 @@ const normalizeIndianMobile = (value) => {
   return null;
 };
 
-const unwrapDltManagerRecords = (body) => {
-  if (!body) {
-    return [];
-  }
+const {
+  parseSenderResponse,
+  parseTemplateResponse,
+} = require('./smsDltManagerParsers');
 
-  if (Array.isArray(body)) {
-    return body;
-  }
-
-  const candidates = [
-    body.data,
-    body.records,
-    body.templates,
-    body.senders,
-    body.result,
-    body.list,
-  ];
-
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate)) {
-      return candidate;
-    }
-    if (candidate && typeof candidate === 'object') {
-      const nested = Object.values(candidate).find((value) => Array.isArray(value));
-      if (nested) {
-        return nested;
-      }
-    }
-  }
-
-  return [];
-};
-
-async function fetchDltManager(type) {
+async function fetchDltManagerRaw(type) {
   const apiKey = process.env.FAST2SMS_API_KEY;
   if (!apiKey) {
     throw new Error('FAST2SMS_API_KEY is not configured.');
@@ -89,27 +61,35 @@ async function fetchDltManager(type) {
     throw new Error(Array.isArray(messageFromApi) ? messageFromApi.join(', ') : String(messageFromApi));
   }
 
-  if (body && (body.return === false || body.return === 'false' || body.status === false)) {
+  if (
+    body
+    && (
+      body.return === false
+      || body.return === 'false'
+      || body.status === false
+      || body.success === false
+    )
+  ) {
     const apiMessage = body.message || 'Fast2SMS DLT Manager rejected the request.';
     throw new Error(Array.isArray(apiMessage) ? apiMessage.join(', ') : String(apiMessage));
   }
 
-  const records = unwrapDltManagerRecords(body);
-  console.log('[FAST2SMS TEMPLATE RESPONSE]', {
-    type: normalizedType,
-    recordCount: records.length,
-    keys: body && typeof body === 'object' ? Object.keys(body) : [],
-  });
+  if (normalizedType === 'template') {
+    return parseTemplateResponse(body);
+  }
 
-  return records;
+  return parseSenderResponse(body);
 }
 
 async function fetchDltTemplates() {
-  return fetchDltManager('template');
+  console.log('[FAST2SMS API CALL]', { endpoint: DLT_MANAGER_BASE_URL, type: 'template' });
+  return fetchDltManagerRaw('template');
 }
 
 async function fetchDltSenders() {
-  return fetchDltManager('sender');
+  console.log('[FAST2SMS API CALL]', { endpoint: DLT_MANAGER_BASE_URL, type: 'sender' });
+  const parsed = await fetchDltManagerRaw('sender');
+  return parsed.map((row) => row.raw || row);
 }
 
 async function sendFast2SmsBulk({ message, numbers }) {
@@ -313,7 +293,7 @@ async function sendSMS(phone, message) {
 }
 
 module.exports = {
-  fetchDltManager,
+  fetchDltManagerRaw,
   fetchDltTemplates,
   fetchDltSenders,
   sendFast2SmsBulk,
