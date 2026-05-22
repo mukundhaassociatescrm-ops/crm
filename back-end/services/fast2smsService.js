@@ -221,6 +221,78 @@ async function sendFast2SmsBulk({ message, numbers }) {
   };
 }
 
+/**
+ * Fast2SMS DLT bulk (multiple) — POST /dev/custom
+ * @see https://docs.fast2sms.com/reference/dlt-sms-multiple
+ */
+async function sendDltBulkCustom({ requests }) {
+  const apiKey = process.env.FAST2SMS_API_KEY;
+  if (!apiKey) {
+    throw new Error('FAST2SMS_API_KEY is not configured.');
+  }
+
+  const normalizedRequests = (requests || []).map((row) => ({
+    sender_id: String(row.sender_id || row.senderId || '').trim(),
+    message: String(row.message || '').trim(),
+    variables_values: String(row.variables_values ?? row.variablesValues ?? ''),
+    numbers: String(row.numbers || '').trim(),
+  }));
+
+  if (!normalizedRequests.length) {
+    throw new Error('At least one DLT bulk request is required.');
+  }
+
+  const invalid = normalizedRequests.find(
+    (row) => !row.sender_id || !row.message || !row.numbers,
+  );
+  if (invalid) {
+    throw new Error('Each DLT bulk request requires sender_id, message (DLT template ID), and numbers.');
+  }
+
+  const payload = {
+    route: 'dlt',
+    requests: normalizedRequests,
+  };
+
+  console.log(
+    'FAST2SMS BULK PAYLOAD:',
+    JSON.stringify(payload, null, 2),
+  );
+
+  const fetch = await getFetch();
+  const response = await fetch('https://www.fast2sms.com/dev/custom', {
+    method: 'POST',
+    headers: {
+      authorization: apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    const messageFromApi = body?.message || body?.error || 'Fast2SMS DLT bulk request failed.';
+    throw new Error(Array.isArray(messageFromApi) ? messageFromApi.join(', ') : String(messageFromApi));
+  }
+
+  if (body && (body.return === false || body.success === false)) {
+    const apiMessage = body.message || 'Fast2SMS rejected the DLT bulk request.';
+    throw new Error(Array.isArray(apiMessage) ? apiMessage.join(', ') : String(apiMessage));
+  }
+
+  return {
+    success: true,
+    acceptedCount: normalizedRequests.length,
+    raw: body,
+  };
+}
+
 async function postFast2SmsPayload(payload) {
   const apiKey = process.env.FAST2SMS_API_KEY;
   if (!apiKey) {
@@ -362,6 +434,7 @@ module.exports = {
   fetchDltTemplates,
   fetchDltSenders,
   sendFast2SmsBulk,
+  sendDltBulkCustom,
   sendDltSms,
   postFast2SmsPayload,
   sendSMS,

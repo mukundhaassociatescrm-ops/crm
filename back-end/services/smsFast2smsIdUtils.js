@@ -48,10 +48,20 @@ const resolveDltContentTemplateIdFromRecord = (template) => {
   return candidates.find(isDltContentTemplateId) || '';
 };
 
+/** Fast2SMS POST /dev/custom bulk DLT — `message` prefers TRAI content template ID, else Message ID. */
+const resolveBulkDltCustomMessage = (template) => {
+  const dltContentId = resolveDltContentTemplateIdFromRecord(template);
+  if (dltContentId) {
+    return dltContentId;
+  }
+  return resolveFast2smsMessageIdFromRecord(template);
+};
+
 module.exports = {
   asTrimmed,
   isFast2smsMessageId,
   isDltContentTemplateId,
   resolveFast2smsMessageIdFromRecord,
   resolveDltContentTemplateIdFromRecord,
+  resolveBulkDltCustomMessage,
 };

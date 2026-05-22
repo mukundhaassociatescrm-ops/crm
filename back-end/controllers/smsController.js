@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
+const Group = require('../models/Group');
+const Client = require('../models/Client');
 const SmsTemplate = require('../models/SmsTemplate');
-const { sendDltSms, normalizeIndianMobile } = require('../services/fast2smsService');
+const { sendDltSms, sendDltBulkCustom, normalizeIndianMobile } = require('../services/fast2smsService');
 const {
   extractSmsTemplateVariableSlots,
   buildVariablesValues,
@@ -16,6 +18,7 @@ const {
 const {
   resolveFast2smsMessageIdFromRecord,
   resolveDltContentTemplateIdFromRecord,
+  resolveBulkDltCustomMessage,
   isDltContentTemplateId,
 } = require('../services/smsFast2smsIdUtils');
 
@@ -232,6 +235,128 @@ exports.sendSingleSms = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: error?.message || 'Failed to send DLT SMS.',
+    });
+  }
+};
+
+const collectGroupContacts = async (groupId) => {
+  const group = await Group.findById(groupId);
+  if (!group) {
+    return { group: null, contacts: [] };
+  }
+
+  const manualContacts = (group.contacts || []).map((contact) => ({
+    name: contact.name || '',
+    mobile: contact.phone || contact.mobile || '',
+  }));
+  const clientContacts = await Client.find({ groups: group._id }).select('name mobile');
+  const contacts = [...manualContacts, ...clientContacts.map((client) => ({
+    name: client.name || '',
+    mobile: client.mobile || '',
+  }))].filter((contact, index, list) => {
+    const mobile = String(contact.mobile || '').trim();
+    return mobile && list.findIndex((item) => String(item.mobile || '').trim() === mobile) === index;
+  });
+
+  return { group, contacts };
+};
+
+exports.sendBulkDltSms = async (req, res) => {
+  const { groupId } = req.body;
+  const rawVariables = req.body?.variables;
+
+  try {
+    if (!asTrimmed(groupId)) {
+      return res.status(400).json({ success: false, message: 'groupId is required.' });
+    }
+
+    const template = resolveLiveTemplateFromBody(req.body);
+    if (!template) {
+      return res.status(400).json({
+        success: false,
+        message: 'template is required with messageId, senderId, and templateContent from live Fast2SMS.',
+      });
+    }
+
+    const dltMessage = resolveBulkDltCustomMessage(template);
+    if (!dltMessage) {
+      return res.status(400).json({
+        success: false,
+        message: 'DLT template ID is required for bulk send (dltTemplateId or Fast2SMS Message ID).',
+      });
+    }
+
+    const senderId = resolveFast2smsSenderId(template);
+    if (!senderId) {
+      return res.status(400).json({ success: false, message: 'senderId is required for DLT bulk SMS.' });
+    }
+
+    const { group, contacts } = await collectGroupContacts(groupId);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Group not found.' });
+    }
+
+    if (!contacts.length) {
+      return res.status(400).json({ success: false, message: 'Group has no contacts to send.' });
+    }
+
+    const slots = extractSmsTemplateVariableSlots(template.templateContent);
+    const variables = normalizeVariablesInput(rawVariables, slots.length);
+
+    if (slots.length > 0) {
+      const missing = slots.filter((slot) => !variables[slot.index]);
+      if (missing.length) {
+        return res.status(400).json({
+          success: false,
+          message: `Fill all template variables (${missing.length} missing).`,
+          data: { requiredVariables: slots },
+        });
+      }
+    }
+
+    const variablesValues = buildVariablesValues(slots, variables);
+    const numbers = Array.from(
+      new Set(contacts.map((contact) => normalizeIndianMobile(contact.mobile)).filter(Boolean)),
+    );
+
+    if (!numbers.length) {
+      return res.status(400).json({ success: false, message: 'No valid mobile numbers in this group.' });
+    }
+
+    const requests = numbers.map((phone) => ({
+      sender_id: senderId,
+      message: dltMessage,
+      variables_values: variablesValues || '',
+      numbers: phone,
+    }));
+
+    console.log('[BULK DLT SMS SEND]', {
+      groupId: String(group._id),
+      groupName: group.name,
+      recipientCount: requests.length,
+      senderId,
+      dltMessage,
+      variablesValues: variablesValues || null,
+    });
+
+    const result = await sendDltBulkCustom({ requests });
+
+    return res.status(200).json({
+      success: true,
+      sentCount: result.acceptedCount,
+      senderId,
+      dltMessage,
+      variablesValues: variablesValues || undefined,
+      providerResponse: result.raw,
+    });
+  } catch (error) {
+    console.log('[BULK DLT SMS ERROR]', {
+      groupId,
+      message: error?.message || String(error),
+    });
+    return res.status(400).json({
+      success: false,
+      message: error?.message || 'Failed to send bulk DLT SMS.',
     });
   }
 };

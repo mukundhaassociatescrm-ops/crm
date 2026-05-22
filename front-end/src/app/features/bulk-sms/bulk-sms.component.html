@@ -4,17 +4,21 @@
   <div class="header">
     <div>
       <h2>Bulk SMS</h2>
-      <p>Send plain SMS announcements to a selected customer group through Fast2SMS</p>
+      <p>Send DLT-approved SMS to a group via Fast2SMS (live templates, no local storage)</p>
     </div>
-    <span class="module-badge">SMS only</span>
+    <span class="module-badge">DLT bulk</span>
   </div>
 
   <div class="bulk-layout">
     <section class="form-panel">
+      <p class="dlt-notice">
+        Messages use Fast2SMS <strong>DLT route</strong> (<code>POST /dev/custom</code>) with your approved template ID per recipient.
+      </p>
+
       <div class="form-group">
         <app-group-selector
           label="Audience group"
-          helperText="All valid mobile numbers in this group will receive this SMS."
+          helperText="All valid mobile numbers in this group will receive this DLT SMS."
           [disabled]="isSending"
           (groupChange)="onGroupSelected($event)"
         ></app-group-selector>
@@ -23,41 +27,57 @@
       <div class="form-group">
         <label>Select SMS Template</label>
         <select
-          [(ngModel)]="selectedSmsTemplateId"
+          [(ngModel)]="selectedSmsTemplateRecordId"
           (ngModelChange)="onSmsTemplateChanged()"
           [disabled]="isSending || isLoadingTemplates"
         >
           <option value="">{{ isLoadingTemplates ? 'Loading templates...' : '-- Select SMS template --' }}</option>
-          <option *ngFor="let template of smsTemplates" [value]="template.templateId">
+          <option *ngFor="let template of smsTemplates" [value]="template._id">
             {{ template.templateName || template.templateId }}
           </option>
         </select>
         <div class="field-note" *ngIf="!isLoadingTemplates && !smsTemplates.length">
-          No active templates. <a routerLink="/manage-sms-templates">Sync from Fast2SMS</a>.
+          No templates returned from Fast2SMS. Check FAST2SMS_API_KEY and try again.
         </div>
       </div>
 
-      <div class="form-group">
-        <label>SMS message</label>
-        <textarea
-          rows="8"
-          [(ngModel)]="message"
-          placeholder="Type your SMS message or select a template above..."
-          [disabled]="isSending"
-        ></textarea>
-        <div class="counter-row">
-          <span>{{ characterCount }} chars</span>
-          <span>{{ smsSegments }} segment{{ smsSegments === 1 ? '' : 's' }}</span>
+      <section class="template-variables-panel" *ngIf="selectedSmsTemplateRecordId">
+        <div class="template-variables-header">
+          <h5>Template variables</h5>
+          <span class="template-variables-count">{{ templateVariableLabel }}</span>
         </div>
-        <div class="field-note" *ngIf="characterCount > 320">
-          Long SMS messages may be split into multiple billable segments.
+
+        <p class="template-variables-hint" *ngIf="templateVariableSlots.length === 0">
+          This template has no placeholders. It will be sent as registered with DLT.
+        </p>
+
+        <div class="template-variables-fields" *ngIf="templateVariableSlots.length > 0">
+          <label
+            class="template-var-field"
+            *ngFor="let slot of templateVariableSlots; trackBy: trackBySlotIndex"
+            [class.template-field--missing]="isTemplateVariableMissing(slot.index)"
+          >
+            <span>Variable {{ slot.index + 1 }} <ng-container *ngIf="slot.label">({{ slot.label }})</ng-container></span>
+            <input
+              type="text"
+              [ngModel]="templateVariables[slot.index] || ''"
+              (ngModelChange)="onTemplateVariableChanged(slot.index, $event)"
+              [placeholder]="'Enter value for {# ' + slot.label + ' #}'"
+              [disabled]="isSending"
+            >
+            <small class="template-field-error" *ngIf="isTemplateVariableMissing(slot.index)">Required</small>
+          </label>
         </div>
-      </div>
+
+        <p class="template-readiness" *ngIf="templateReadinessIssues.length">
+          <span *ngFor="let issue of templateReadinessIssues">{{ issue }}</span>
+        </p>
+      </section>
 
       <div class="action-section">
         <button type="button" class="btn-send" [disabled]="!canSend" (click)="sendBulkSms()">
           <i class="fa-solid fa-message"></i>
-          <span>{{ isSending ? 'Sending...' : 'Send Bulk SMS' }}</span>
+          <span>{{ isSending ? 'Sending...' : 'Send Bulk DLT SMS' }}</span>
         </button>
       </div>
     </section>
@@ -71,13 +91,13 @@
       <div class="phone-preview">
         <div class="phone-header">
           <strong>{{ selectedGroup?.name || 'Audience group' }}</strong>
-          <span>Fast2SMS broadcast</span>
+          <span>Fast2SMS DLT bulk</span>
         </div>
         <div class="sms-bubble">
-          {{ message || 'Your SMS preview will appear here.' }}
+          {{ templatePreview }}
         </div>
-        <div class="sms-meta">
-          {{ characterCount }} characters · {{ smsSegments }} segment{{ smsSegments === 1 ? '' : 's' }}
+        <div class="sms-meta" *ngIf="selectedSmsTemplate">
+          Sender: {{ selectedSmsTemplate.senderId || '—' }} · DLT ID: {{ bulkDltMessageId(selectedSmsTemplate) || '—' }}
         </div>
       </div>
     </aside>

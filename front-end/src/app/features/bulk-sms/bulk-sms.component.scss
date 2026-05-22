@@ -73,6 +73,93 @@
   display: flex;
   flex-direction: column;
   padding: 30px;
+  gap: 16px;
+}
+
+.dlt-notice {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.template-variables-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.template-variables-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  h5 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+  }
+}
+
+.template-variables-count {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.template-variables-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.template-var-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  span {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  input {
+    padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  &.template-field--missing input {
+    border-color: #f87171;
+  }
+}
+
+.template-field-error {
+  color: #dc2626;
+  font-size: 11px;
+}
+
+.template-readiness {
+  margin: 0;
+  font-size: 12px;
+  color: #b45309;
+}
+
+.template-variables-hint {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
 }
 
 .preview-panel {

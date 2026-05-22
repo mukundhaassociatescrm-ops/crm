@@ -107,6 +107,38 @@ export function getSmsTemplateContent(
   return String(template?.content || template?.templateContent || '').trim();
 }
 
+/** DLT template ID for Fast2SMS POST /dev/custom bulk (`message` field). */
+export function getBulkDltMessageParam(
+  template: Pick<SmsTemplate, 'dltTemplateId' | 'contentTemplateId' | 'templateId' | 'messageId' | 'fast2smsMessageId'> | null | undefined,
+): string {
+  const dltId = getSmsTemplateDltId(template);
+  if (dltId) {
+    return dltId;
+  }
+  return getFast2smsMessageId(template);
+}
+
+export function isSmsTemplateReadyForBulkDlt(
+  template: Pick<
+    SmsTemplate,
+    | 'senderId'
+    | 'content'
+    | 'templateContent'
+    | 'dltTemplateId'
+    | 'contentTemplateId'
+    | 'templateId'
+    | 'messageId'
+    | 'fast2smsMessageId'
+  > | null | undefined,
+): boolean {
+  if (!template) {
+    return false;
+  }
+  const senderId = String(template.senderId || '').trim();
+  const content = getSmsTemplateContent(template);
+  return Boolean(senderId && content && getBulkDltMessageParam(template));
+}
+
 export function isSmsTemplateReadyToSend(
   template: Pick<
     SmsTemplate,
@@ -215,6 +247,27 @@ export class SmsTemplateService {
 
   getLiveTemplates(): Observable<SmsTemplateListResponse & { source?: string }> {
     return this.http.get<SmsTemplateListResponse & { source?: string }>('/api/sms/templates/live');
+  }
+
+  sendBulkDlt(payload: {
+    groupId: string;
+    template: {
+      _id?: string;
+      messageId?: string;
+      senderId?: string;
+      entityId?: string;
+      templateContent: string;
+      templateName?: string;
+      templateId?: string;
+      dltTemplateId?: string;
+      contentTemplateId?: string;
+    };
+    variables?: string[];
+  }): Observable<{ success: boolean; sentCount?: number; message?: string }> {
+    return this.http.post<{ success: boolean; sentCount?: number; message?: string }>(
+      '/api/sms/send-bulk-dlt',
+      payload,
+    );
   }
 
   getTemplates(options: {

@@ -2,12 +2,24 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
+import { finalize } from 'rxjs';
 import { Group } from '../manage-group/group.service';
-import { BulkMessageService, SendBulkMessagePayload } from '../manage-bulk-message/bulk-message.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 import { GroupSelectorComponent } from '../../shared/components/group-selector/group-selector.component';
-import { SmsTemplate, SmsTemplateService } from '../manage-sms-templates/sms-template.service';
-import { RouterLink } from '@angular/router';
+import {
+  buildSmsVariablesArray,
+  renderSmsTemplatePreview,
+  resolveSmsTemplateVariableSlots,
+  SmsTemplateVariableSlot,
+} from '../manage-sms-templates/sms-template-variable.utils';
+import {
+  getBulkDltMessageParam as resolveBulkDltMessageParam,
+  getSmsTemplateContent,
+  getSmsTemplateReadinessIssues,
+  isSmsTemplateReadyForBulkDlt,
+  SmsTemplate,
+  SmsTemplateService,
+} from '../manage-sms-templates/sms-template.service';
 
 @Component({
   selector: 'app-bulk-sms',
@@ -18,18 +30,57 @@ import { RouterLink } from '@angular/router';
 })
 export class BulkSmsComponent {
   selectedGroup: Group | null = null;
-  message = '';
   isSending = false;
   smsTemplates: SmsTemplate[] = [];
-  selectedSmsTemplateId = '';
+  selectedSmsTemplateRecordId = '';
+  templateVariables: Record<number, string> = {};
   isLoadingTemplates = false;
 
   constructor(
-    private readonly bulkMessageService: BulkMessageService,
     private readonly toastr: ToastrService,
     private readonly smsTemplateService: SmsTemplateService,
   ) {
     this.loadSmsTemplates();
+  }
+
+  get selectedSmsTemplate(): SmsTemplate | null {
+    return this.smsTemplates.find((item) => item._id === this.selectedSmsTemplateRecordId) || null;
+  }
+
+  get templateVariableSlots(): SmsTemplateVariableSlot[] {
+    return resolveSmsTemplateVariableSlots(this.selectedSmsTemplate);
+  }
+
+  get templateVariableLabel(): string {
+    const count = this.templateVariableSlots.length;
+    if (!this.selectedSmsTemplateRecordId) {
+      return '';
+    }
+    if (count === 0) {
+      return 'No variables required';
+    }
+    return `${count} variable${count === 1 ? '' : 's'} required`;
+  }
+
+  get templatePreview(): string {
+    if (!this.selectedSmsTemplate) {
+      return 'Select a DLT template to preview the message.';
+    }
+    return renderSmsTemplatePreview(
+      getSmsTemplateContent(this.selectedSmsTemplate),
+      this.templateVariables,
+    );
+  }
+
+  get templateReadinessIssues(): string[] {
+    if (!this.selectedSmsTemplateRecordId) {
+      return [];
+    }
+    const issues = getSmsTemplateReadinessIssues(this.selectedSmsTemplate);
+    if (this.selectedSmsTemplate && !resolveBulkDltMessageParam(this.selectedSmsTemplate)) {
+      issues.push('Missing DLT template ID for bulk send');
+    }
+    return issues;
   }
 
   get selectedGroupMemberCount(): number {
@@ -40,22 +91,21 @@ export class BulkSmsComponent {
     return this.selectedGroup.memberCount ?? this.selectedGroup.actualClientCount ?? this.selectedGroup.numbers?.length ?? this.selectedGroup.contacts?.length ?? 0;
   }
 
-  get characterCount(): number {
-    return this.message.length;
-  }
-
-  get smsSegments(): number {
-    if (this.characterCount <= 0) {
-      return 0;
-    }
-    if (this.characterCount <= 160) {
-      return 1;
-    }
-    return Math.ceil(this.characterCount / 160);
-  }
-
   get canSend(): boolean {
-    return !!this.selectedGroup?._id && !!this.message.trim() && !this.isSending;
+    if (!this.selectedGroup?._id || !this.selectedSmsTemplateRecordId || this.isSending) {
+      return false;
+    }
+
+    if (!isSmsTemplateReadyForBulkDlt(this.selectedSmsTemplate)) {
+      return false;
+    }
+
+    const slots = this.templateVariableSlots;
+    if (!slots.length) {
+      return true;
+    }
+
+    return slots.every((slot) => String(this.templateVariables[slot.index] || '').trim().length > 0);
   }
 
   onGroupSelected(group: Group | null): void {
@@ -63,60 +113,112 @@ export class BulkSmsComponent {
   }
 
   onSmsTemplateChanged(): void {
-    const template = this.smsTemplates.find((item) => item.templateId === this.selectedSmsTemplateId);
-    if (!template) {
+    this.syncTemplateVariableMap();
+    console.log('[BULK SMS TEMPLATE SELECTED]', {
+      templateRecordId: this.selectedSmsTemplateRecordId,
+      dltMessage: resolveBulkDltMessageParam(this.selectedSmsTemplate),
+      senderId: this.selectedSmsTemplate?.senderId,
+      variableCount: this.templateVariableSlots.length,
+    });
+  }
+
+  onTemplateVariableChanged(index: number, value: string): void {
+    this.templateVariables = {
+      ...this.templateVariables,
+      [index]: value,
+    };
+  }
+
+  isTemplateVariableMissing(index: number): boolean {
+    return !String(this.templateVariables[index] || '').trim();
+  }
+
+  trackBySlotIndex(_: number, slot: SmsTemplateVariableSlot): number {
+    return slot.index;
+  }
+
+  bulkDltMessageId(template: SmsTemplate | null): string {
+    return resolveBulkDltMessageParam(template);
+  }
+
+  sendBulkSms(): void {
+    if (!this.canSend || !this.selectedGroup?._id || !this.selectedSmsTemplate) {
       return;
     }
-    this.message = template.templateContent || '';
+
+    const variables = buildSmsVariablesArray(this.templateVariableSlots, this.templateVariables);
+    const selected = this.selectedSmsTemplate;
+
+    console.log('[BULK SMS SEND REQUEST]', {
+      groupId: this.selectedGroup._id,
+      recipientCount: this.selectedGroupMemberCount,
+      dltMessage: resolveBulkDltMessageParam(selected),
+      senderId: selected.senderId,
+      variables,
+    });
+
+    this.isSending = true;
+    this.smsTemplateService
+      .sendBulkDlt({
+        groupId: this.selectedGroup._id,
+        template: {
+          _id: selected._id,
+          messageId: selected.fast2smsMessageId || selected.messageId,
+          senderId: selected.senderId,
+          entityId: selected.entityId,
+          templateContent: getSmsTemplateContent(selected),
+          templateName: selected.templateName,
+          templateId: selected.templateId,
+          dltTemplateId: selected.dltTemplateId,
+          contentTemplateId: selected.contentTemplateId,
+        },
+        variables,
+      })
+      .pipe(finalize(() => {
+        this.isSending = false;
+      }))
+      .subscribe({
+        next: (response) => {
+          if (!response.success) {
+            this.toastr.error(response.message || 'Failed to send bulk SMS', 'Error');
+            return;
+          }
+
+          this.toastr.success(
+            `${response.sentCount ?? this.selectedGroupMemberCount} recipient(s) sent via Fast2SMS DLT`,
+            'Bulk SMS Sent',
+          );
+          this.templateVariables = {};
+          this.syncTemplateVariableMap();
+        },
+        error: (error) => {
+          this.toastr.error(error?.error?.message || 'Failed to send bulk SMS', 'Error');
+        },
+      });
+  }
+
+  private syncTemplateVariableMap(): void {
+    const nextMap: Record<number, string> = {};
+    this.templateVariableSlots.forEach((slot) => {
+      nextMap[slot.index] = this.templateVariables[slot.index] || '';
+    });
+    this.templateVariables = nextMap;
   }
 
   private loadSmsTemplates(): void {
     this.isLoadingTemplates = true;
-    this.smsTemplateService.getTemplates({ activeOnly: true }).subscribe({
+    this.smsTemplateService.getLiveTemplates().subscribe({
       next: (response) => {
         this.isLoadingTemplates = false;
         this.smsTemplates = response.success && Array.isArray(response.data) ? response.data : [];
+        console.log('[BULK SMS TEMPLATES LOADED]', {
+          source: response.source || 'fast2sms',
+          total: this.smsTemplates.length,
+        });
       },
       error: () => {
         this.isLoadingTemplates = false;
         this.smsTemplates = [];
-      },
-    });
-  }
-
-  sendBulkSms(): void {
-    if (!this.canSend || !this.selectedGroup?._id) {
-      return;
-    }
-
-    const payload: SendBulkMessagePayload = {
-      groupId: this.selectedGroup._id,
-      message: this.message.trim(),
-      channel: 'sms',
-    };
-
-    console.log('[BULK SMS SEND]', {
-      groupId: payload.groupId,
-      recipientCount: this.selectedGroupMemberCount,
-      characterCount: this.characterCount,
-      segments: this.smsSegments,
-    });
-
-    this.isSending = true;
-    this.bulkMessageService.sendBulkMessage(payload).subscribe({
-      next: (response) => {
-        this.isSending = false;
-        if (!response.success) {
-          this.toastr.error(response.message || 'Failed to send bulk SMS', 'Error');
-          return;
-        }
-
-        this.toastr.success(`${response.sentCount} recipient(s) queued via Fast2SMS`, 'Bulk SMS Sent');
-        this.message = '';
-      },
-      error: (error) => {
-        this.isSending = false;
-        this.toastr.error(error?.error?.message || 'Failed to send bulk SMS', 'Error');
       },
     });
   }

@@ -1,7 +1,7 @@
 const express = require('express');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRole } = require('../middleware/roleMiddleware');
-const { sendSingleSms } = require('../controllers/smsController');
+const { sendSingleSms, sendBulkDltSms } = require('../controllers/smsController');
 const {
   templateUpload,
   importSmsTemplates,
@@ -18,6 +18,7 @@ const router = express.Router();
 
 router.post('/send-single', protect, sendSingleSms);
 router.post('/send', protect, sendSingleSms);
+router.post('/send-bulk-dlt', protect, authorizeRole('admin'), sendBulkDltSms);
 router.get('/debug-fast2sms-templates', protect, debugFast2smsTemplates);
 router.get('/templates/live', protect, listLiveSmsTemplates);
 router.get('/templates', protect, listSmsTemplates);
