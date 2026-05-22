@@ -87,9 +87,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   availableTemplates: WhatsAppTemplateOption[] = [];
   showTemplateModal = false;
   selectedTemplateId = '';
-  templateSearchTerm = '';
-  selectedTemplateCategory = 'all';
   templateVariables: Record<number, string> = {};
+  private readonly recentTemplateStorageKey = 'crm_recent_whatsapp_template_ids';
   isSendingTemplate = false;
   isLoadingTemplates = false;
   templateModalError = '';
@@ -524,7 +523,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   get selectedTemplatePreview(): string {
     if (!this.selectedTemplateId) {
-      return 'Select a template from the list to see the message preview.';
+      return '';
     }
 
     return this.renderTemplateBody(this.selectedTemplate, this.templateVariables);
@@ -532,10 +531,34 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   get newChatTemplatePreview(): string {
     if (!this.selectedNewChatTemplateId) {
-      return 'Select a template to see the message preview.';
+      return '';
     }
 
     return this.renderTemplateBody(this.selectedNewChatTemplate, this.newChatTemplateVariables);
+  }
+
+  get selectedTemplatePreviewMeta(): string {
+    const count = this.selectedTemplatePreview.length;
+    if (!count) {
+      return '';
+    }
+    return `${count} character${count === 1 ? '' : 's'}`;
+  }
+
+  get newChatTemplatePreviewMeta(): string {
+    const count = this.newChatTemplatePreview.length;
+    if (!count) {
+      return '';
+    }
+    return `${count} character${count === 1 ? '' : 's'}`;
+  }
+
+  get templateDropdownOptions(): WhatsAppTemplateOption[] {
+    return this.sortTemplatesForDropdown(this.availableTemplates);
+  }
+
+  get newChatTemplateDropdownOptions(): WhatsAppTemplateOption[] {
+    return this.sortTemplatesForDropdown(this.newChatAvailableTemplates);
   }
 
   get selectedTemplateVariableLabel(): string {
@@ -679,28 +702,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     return `${normalized.slice(0, maxLength).trim()}…`;
   }
 
-  get templateCategories(): string[] {
-    const categories = [...new Set(this.availableTemplates.map((item) => String(item.category || 'Utility').trim()).filter(Boolean))];
-    return categories.sort((a, b) => a.localeCompare(b));
-  }
-
-  get filteredTemplates(): WhatsAppTemplateOption[] {
-    const search = this.templateSearchTerm.trim().toLowerCase();
-
-    return this.availableTemplates.filter((template) => {
-      if (this.selectedTemplateCategory !== 'all' && template.category !== this.selectedTemplateCategory) {
-        return false;
-      }
-
-      if (!search) {
-        return true;
-      }
-
-      return [template.name, template.id, template.body]
-        .some((value) => String(value || '').toLowerCase().includes(search));
-    });
-  }
-
   get selectedTemplateVariableIndexes(): number[] {
     return resolveTemplateVariableIndexes(this.selectedTemplate);
   }
@@ -808,6 +809,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onNewChatTemplateIdChanged(): void {
+    if (this.selectedNewChatTemplateId) {
+      this.rememberRecentTemplate(this.selectedNewChatTemplateId);
+    }
     this.logTemplateSelected('new_chat_modal', this.selectedNewChatTemplate, this.selectedNewChatTemplateId);
     this.syncNewChatTemplateVariableMap();
     this.newChatError = '';
@@ -2297,22 +2301,98 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
-  onTemplateChanged(): void {
+  onSelectedTemplateIdChanged(): void {
     this.syncTemplateVariableMap();
     this.templateModalError = '';
+    if (this.selectedTemplateId) {
+      this.rememberRecentTemplate(this.selectedTemplateId);
+    }
+    this.logTemplateSelected('template_modal', this.selectedTemplate, this.selectedTemplateId);
     this.logTemplatePreviewGenerated('template_modal', this.selectedTemplate, this.templateVariables);
     this.focusFirstTemplateVariableInput('template_modal');
   }
 
-  selectTemplate(template: WhatsAppTemplateOption): void {
-    this.selectedTemplateId = template.id;
-    console.log('[UI TEMPLATE SELECTED]', this.selectedTemplateId);
-    this.logTemplateSelected('template_modal', template, template.id);
-    this.onTemplateChanged();
+  getTemplateOptionLabel(template: WhatsAppTemplateOption): string {
+    const name = String(template.name || template.id || '').trim();
+    const category = String(template.category || '').trim();
+    const recent = this.getRecentTemplateIds().includes(template.id);
+    const categorySuffix = category ? ` · ${category}` : '';
+    const recentPrefix = recent ? '★ ' : '';
+    return `${recentPrefix}${name}${categorySuffix}`;
   }
 
-  onTemplateCategoryChanged(category: string): void {
-    this.selectedTemplateCategory = category;
+  getTemplateVariableFieldLabel(index: number): string {
+    return `Variable {{${index}}}`;
+  }
+
+  trackByTemplateId(_: number, template: WhatsAppTemplateOption): string {
+    return template.id;
+  }
+
+  focusNextTemplateVariable(currentIndex: number, context: 'template_modal' | 'new_chat_modal'): void {
+    const indexes = context === 'template_modal'
+      ? this.selectedTemplateVariableIndexes
+      : this.newChatTemplateVariableIndexes;
+    const currentPos = indexes.indexOf(currentIndex);
+    const nextIndex = currentPos >= 0 ? indexes[currentPos + 1] : undefined;
+    if (nextIndex === undefined) {
+      return;
+    }
+
+    const prefix = context === 'template_modal' ? 'template-modal-var-' : 'new-chat-modal-var-';
+    setTimeout(() => {
+      const input = document.getElementById(`${prefix}${nextIndex}`) as HTMLInputElement | null;
+      input?.focus();
+    }, 0);
+  }
+
+  private sortTemplatesForDropdown(templates: WhatsAppTemplateOption[]): WhatsAppTemplateOption[] {
+    const recentIds = this.getRecentTemplateIds();
+    const recentRank = new Map(recentIds.map((id, index) => [id, index]));
+
+    return [...templates].sort((left, right) => {
+      const leftRecent = recentRank.has(left.id);
+      const rightRecent = recentRank.has(right.id);
+      if (leftRecent && rightRecent) {
+        return (recentRank.get(left.id) || 0) - (recentRank.get(right.id) || 0);
+      }
+      if (leftRecent) {
+        return -1;
+      }
+      if (rightRecent) {
+        return 1;
+      }
+
+      const leftName = String(left.name || left.id).toLowerCase();
+      const rightName = String(right.name || right.id).toLowerCase();
+      return leftName.localeCompare(rightName);
+    });
+  }
+
+  private getRecentTemplateIds(): string[] {
+    try {
+      const raw = localStorage.getItem(this.recentTemplateStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed)
+        ? parsed.map((value) => String(value || '').trim()).filter(Boolean).slice(0, 8)
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private rememberRecentTemplate(templateId: string): void {
+    const normalizedId = String(templateId || '').trim();
+    if (!normalizedId) {
+      return;
+    }
+
+    const next = [normalizedId, ...this.getRecentTemplateIds().filter((id) => id !== normalizedId)].slice(0, 8);
+    try {
+      localStorage.setItem(this.recentTemplateStorageKey, JSON.stringify(next));
+    } catch {
+      // Ignore storage quota / privacy mode errors.
+    }
   }
 
   onTemplateVariableChanged(index: number, value: string): void {

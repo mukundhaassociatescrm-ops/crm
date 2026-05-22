@@ -505,129 +505,100 @@
       </footer>
 
       <div class="template-modal-backdrop" *ngIf="showTemplateModal" (click)="closeTemplateModal()">
-        <div class="template-modal" (click)="$event.stopPropagation()">
+        <div class="template-modal template-picker-modal" (click)="$event.stopPropagation()">
           <div class="template-modal-header">
             <h4>Start WhatsApp Chat</h4>
-            <button type="button" class="template-close" (click)="closeTemplateModal()">
+            <button type="button" class="template-close" (click)="closeTemplateModal()" [disabled]="isSendingTemplate">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
-          <p class="template-helper">
-            This customer is outside the 24-hour session window. Send an approved template to initiate chat.
-          </p>
 
-          <div class="template-search-row">
-            <label class="template-field template-search-field">
-              <span>Search template</span>
-              <input type="text" [(ngModel)]="templateSearchTerm" placeholder="Search by name or content">
-            </label>
-          </div>
-
-          <div class="template-category-row" *ngIf="templateCategories.length > 0">
-            <button
-              type="button"
-              class="template-category-chip"
-              [class.active]="selectedTemplateCategory === 'all'"
-              (click)="onTemplateCategoryChanged('all')"
-            >
-              All
-            </button>
-            <button
-              type="button"
-              class="template-category-chip"
-              *ngFor="let category of templateCategories"
-              [class.active]="selectedTemplateCategory === category"
-              (click)="onTemplateCategoryChanged(category)"
-            >
-              {{ category }}
-            </button>
-          </div>
-
-          <p class="template-selection-hint" *ngIf="!isLoadingTemplates && filteredTemplates.length && !selectedTemplateId">
-            Select a template below to continue.
-          </p>
-
-          <div class="template-list" *ngIf="!isLoadingTemplates; else templateLoadingTpl">
-            <button
-              type="button"
-              class="template-card"
-              *ngFor="let item of filteredTemplates"
-              [class.active]="item.id === selectedTemplateId"
-              [attr.aria-pressed]="item.id === selectedTemplateId"
-              (click)="selectTemplate(item)"
-            >
-              <div class="template-card-header">
-                <span class="template-card-title">{{ item.name || item.id }}</span>
-                <span class="template-card-badge">{{ getTemplateVariableCount(item) }} variable(s)</span>
-              </div>
-              <p class="template-card-body">"{{ getTemplateBodySnippet(item.body) }}"</p>
-              <span class="template-card-meta">{{ item.category }} · {{ item.language }}</span>
-            </button>
-            <div class="template-empty" *ngIf="!filteredTemplates.length">No templates found.</div>
-          </div>
-          <ng-template #templateLoadingTpl>
-            <div class="template-empty">Loading templates...</div>
-          </ng-template>
-
-          <section class="template-variables-panel" *ngIf="selectedTemplateId">
-            <div class="template-variables-header">
-              <h5>Template variables</h5>
-              <span class="template-variables-count">{{ selectedTemplateVariableLabel }}</span>
-            </div>
-
-            <p class="template-variables-hint" *ngIf="selectedTemplateVariableIndexes.length === 0">
-              This template has no placeholders. You can send it without filling any fields.
+          <div class="template-picker-body">
+            <p class="template-helper-compact">
+              Outside the 24-hour window. Choose an approved template to start the conversation.
             </p>
 
-            <div class="template-variables-fields" *ngIf="selectedTemplateVariableIndexes.length > 0">
-              <label
-                class="template-field"
-                *ngFor="let index of selectedTemplateVariableIndexes; let first = first"
-                [class.template-field--missing]="isTemplateVariableMissing(index)"
+            <label class="template-field template-picker-field">
+              <span>Select template</span>
+              <select
+                [(ngModel)]="selectedTemplateId"
+                (ngModelChange)="onSelectedTemplateIdChanged()"
+                [disabled]="isSendingTemplate || isLoadingTemplates"
               >
-                <span>Variable {{ index }}</span>
-                <input
-                  type="text"
-                  [id]="'template-modal-var-' + index"
-                  [ngModel]="templateVariables[index] || ''"
-                  (ngModelChange)="onTemplateVariableChanged(index, $event)"
-                  [placeholder]="'Enter value for {{' + index + '}}'"
-                  [attr.autofocus]="first ? true : null"
-                >
-                <small class="template-field-error" *ngIf="isTemplateVariableMissing(index)">Required</small>
-              </label>
-            </div>
+                <option value="">{{ isLoadingTemplates ? 'Loading templates...' : '-- Select template --' }}</option>
+                <option *ngFor="let item of templateDropdownOptions; trackBy: trackByTemplateId" [value]="item.id">
+                  {{ getTemplateOptionLabel(item) }}
+                </option>
+              </select>
+            </label>
 
-            <div class="template-preview" [class.template-preview--incomplete]="selectedTemplateVariableIndexes.length && !canSendSelectedTemplate">
-              <span class="label">Live preview</span>
-              <p class="template-preview-text">{{ selectedTemplatePreview }}</p>
-            </div>
-
-            <p class="template-variables-validation" *ngIf="selectedTemplateVariableIndexes.length && !canSendSelectedTemplate">
-              Fill all variables above to enable Send Template.
+            <p class="template-empty" *ngIf="!isLoadingTemplates && !templateDropdownOptions.length">
+              No WhatsApp templates available.
             </p>
-          </section>
 
-          <div class="template-preview template-preview--placeholder" *ngIf="!selectedTemplateId">
-            <span class="label">Live preview</span>
-            <p class="template-preview-placeholder">
-              Select a template from the list to preview the message before sending.
-            </p>
+            <ng-container *ngIf="selectedTemplateId">
+              <section class="wa-template-preview-block">
+                <h5 class="wa-block-title">Template preview</h5>
+                <div class="wa-chat-preview">
+                  <div class="wa-bubble">
+                    <p class="wa-bubble-text">{{ selectedTemplatePreview }}</p>
+                  </div>
+                  <span class="wa-preview-meta">{{ selectedTemplatePreviewMeta }}</span>
+                </div>
+              </section>
+
+              <section
+                class="wa-template-variables-block"
+                *ngIf="selectedTemplateVariableIndexes.length > 0"
+              >
+                <h5 class="wa-block-title">Variables</h5>
+                <p class="template-variables-hint">{{ selectedTemplateVariableLabel }}</p>
+
+                <div class="template-variables-fields">
+                  <label
+                    class="template-field wa-variable-field"
+                    *ngFor="let index of selectedTemplateVariableIndexes; let first = first"
+                    [class.template-field--missing]="isTemplateVariableMissing(index)"
+                  >
+                    <span>{{ getTemplateVariableFieldLabel(index) }}</span>
+                    <input
+                      type="text"
+                      [id]="'template-modal-var-' + index"
+                      [ngModel]="templateVariables[index] || ''"
+                      (ngModelChange)="onTemplateVariableChanged(index, $event)"
+                      (keydown.enter)="focusNextTemplateVariable(index, 'template_modal')"
+                      [placeholder]="'Value for {{' + index + '}}'"
+                      [disabled]="isSendingTemplate"
+                      [attr.autofocus]="first ? true : null"
+                    >
+                    <small class="template-field-error" *ngIf="isTemplateVariableMissing(index)">Required</small>
+                  </label>
+                </div>
+
+                <p class="template-variables-validation" *ngIf="!canSendSelectedTemplate">
+                  Fill all variables to enable Send Template.
+                </p>
+              </section>
+
+              <p class="template-variables-hint wa-no-vars-hint" *ngIf="selectedTemplateVariableIndexes.length === 0">
+                No placeholders in this template. You can send it as-is.
+              </p>
+            </ng-container>
           </div>
 
           <p class="template-error" *ngIf="templateModalError">{{ templateModalError }}</p>
 
-          <div class="template-modal-actions">
+          <div class="template-modal-actions template-picker-actions">
             <button type="button" class="template-secondary" (click)="closeTemplateModal()" [disabled]="isSendingTemplate">Cancel</button>
             <button type="button" class="template-primary" (click)="sendTemplateToStartChat()" [disabled]="!canSendSelectedTemplate">
-              {{ isSendingTemplate ? 'Sending...' : 'Send template' }}
+              {{ isSendingTemplate ? 'Sending...' : 'Send Template' }}
             </button>
           </div>
         </div>
       </div>
 
       <div class="template-modal-backdrop" *ngIf="showNewChatModal" (click)="closeNewChatModal()">
-        <div class="template-modal new-chat-modal" (click)="$event.stopPropagation()">
+        <div class="template-modal template-picker-modal new-chat-modal" (click)="$event.stopPropagation()">
           <div class="template-modal-header">
             <h4>Start New Chat</h4>
             <button type="button" class="template-close" (click)="closeNewChatModal()" [disabled]="isStartingNewChat">
@@ -635,8 +606,9 @@
             </button>
           </div>
 
-          <p class="template-helper">
-            Search customer by name or phone. Select a customer to start a WhatsApp chat.
+          <div class="template-picker-body">
+          <p class="template-helper-compact">
+            Search customer by name or phone, then choose an approved template.
           </p>
 
           <label class="template-field customer-autocomplete">
@@ -666,63 +638,73 @@
             </div>
           </label>
 
-          <label class="template-field" *ngIf="newChatAvailableTemplates.length || isLoadingNewChatTemplates">
-            <span>WhatsApp template</span>
+          <label class="template-field template-picker-field" *ngIf="newChatAvailableTemplates.length || isLoadingNewChatTemplates">
+            <span>Select template</span>
             <select
               [(ngModel)]="selectedNewChatTemplateId"
               (ngModelChange)="onNewChatTemplateIdChanged()"
               [disabled]="isStartingNewChat || isLoadingNewChatTemplates"
             >
               <option value="">{{ isLoadingNewChatTemplates ? 'Loading templates...' : '-- Select template --' }}</option>
-              <option *ngFor="let t of newChatAvailableTemplates" [value]="t.id">
-                {{ t.name || t.id }} · {{ getTemplateVariableCount(t) }} variable(s)
+              <option *ngFor="let t of newChatTemplateDropdownOptions; trackBy: trackByTemplateId" [value]="t.id">
+                {{ getTemplateOptionLabel(t) }}
               </option>
             </select>
           </label>
 
-          <section class="template-variables-panel" *ngIf="selectedNewChatTemplateId">
-            <div class="template-variables-header">
-              <h5>Template variables</h5>
-              <span class="template-variables-count">{{ newChatTemplateVariableLabel }}</span>
-            </div>
+          <ng-container *ngIf="selectedNewChatTemplateId">
+            <section class="wa-template-preview-block">
+              <h5 class="wa-block-title">Template preview</h5>
+              <div class="wa-chat-preview">
+                <div class="wa-bubble">
+                  <p class="wa-bubble-text">{{ newChatTemplatePreview }}</p>
+                </div>
+                <span class="wa-preview-meta">{{ newChatTemplatePreviewMeta }}</span>
+              </div>
+            </section>
 
-            <p class="template-variables-hint" *ngIf="newChatTemplateVariableIndexes.length === 0">
-              This template has no placeholders. You can start the chat without filling any fields.
-            </p>
+            <section
+              class="wa-template-variables-block"
+              *ngIf="newChatTemplateVariableIndexes.length > 0"
+            >
+              <h5 class="wa-block-title">Variables</h5>
+              <p class="template-variables-hint">{{ newChatTemplateVariableLabel }}</p>
 
-            <div class="template-variables-fields" *ngIf="newChatTemplateVariableIndexes.length > 0">
-              <label
-                class="template-field"
-                *ngFor="let index of newChatTemplateVariableIndexes; let first = first"
-                [class.template-field--missing]="isNewChatTemplateVariableMissing(index)"
-              >
-                <span>Variable {{ index }}</span>
-                <input
-                  type="text"
-                  [id]="'new-chat-modal-var-' + index"
-                  [ngModel]="newChatTemplateVariables[index] || ''"
-                  (ngModelChange)="onNewChatTemplateVariableChanged(index, $event)"
-                  [placeholder]="'Enter value for {{' + index + '}}'"
-                  [disabled]="isStartingNewChat"
-                  [attr.autofocus]="first ? true : null"
+              <div class="template-variables-fields">
+                <label
+                  class="template-field wa-variable-field"
+                  *ngFor="let index of newChatTemplateVariableIndexes; let first = first"
+                  [class.template-field--missing]="isNewChatTemplateVariableMissing(index)"
                 >
-                <small class="template-field-error" *ngIf="isNewChatTemplateVariableMissing(index)">Required</small>
-              </label>
-            </div>
+                  <span>{{ getTemplateVariableFieldLabel(index) }}</span>
+                  <input
+                    type="text"
+                    [id]="'new-chat-modal-var-' + index"
+                    [ngModel]="newChatTemplateVariables[index] || ''"
+                    (ngModelChange)="onNewChatTemplateVariableChanged(index, $event)"
+                    (keydown.enter)="focusNextTemplateVariable(index, 'new_chat_modal')"
+                    [placeholder]="'Value for {{' + index + '}}'"
+                    [disabled]="isStartingNewChat"
+                    [attr.autofocus]="first ? true : null"
+                  >
+                  <small class="template-field-error" *ngIf="isNewChatTemplateVariableMissing(index)">Required</small>
+                </label>
+              </div>
 
-            <div class="template-preview" [class.template-preview--incomplete]="newChatTemplateVariableIndexes.length && !canStartNewChat">
-              <span class="label">Live preview</span>
-              <p class="template-preview-text">{{ newChatTemplatePreview }}</p>
-            </div>
+              <p class="template-variables-validation" *ngIf="!canStartNewChat">
+                Fill all variables to enable Start Chat.
+              </p>
+            </section>
 
-            <p class="template-variables-validation" *ngIf="newChatTemplateVariableIndexes.length && !canStartNewChat">
-              Fill all variables above to enable Start Chat.
+            <p class="template-variables-hint wa-no-vars-hint" *ngIf="newChatTemplateVariableIndexes.length === 0">
+              No placeholders in this template. You can start the chat as-is.
             </p>
-          </section>
+          </ng-container>
+          </div>
 
           <p class="template-error" *ngIf="newChatError">{{ newChatError }}</p>
 
-          <div class="template-modal-actions">
+          <div class="template-modal-actions template-picker-actions">
             <button type="button" class="template-secondary" (click)="closeNewChatModal()" [disabled]="isStartingNewChat">Cancel</button>
             <button type="button" class="template-primary" (click)="startNewChat()" [disabled]="!canStartNewChat">
               {{ isStartingNewChat ? 'Starting...' : 'Start Chat' }}
