@@ -120,14 +120,17 @@ export class ProfileComponent implements OnInit {
     }
 
     if (this.isAdmin) {
+      const raw = this.profileForm.getRawValue();
       payload.bankDetails = this.bankDetailsValue;
-      payload.ownerNotificationsEnabled = !!this.profileForm.get('ownerNotificationsEnabled')?.value;
-      payload.ownerWhatsappNumber = String(this.profileForm.get('ownerWhatsappNumber')?.value || '').trim();
-      const limit = Number(this.profileForm.get('whatsappDailyTemplateLimit')?.value);
+      payload.ownerNotificationsEnabled = !!raw.ownerNotificationsEnabled;
+      payload.ownerWhatsappNumber = String(raw.ownerWhatsappNumber || '').trim();
+      const limit = Number.parseInt(String(raw.whatsappDailyTemplateLimit ?? ''), 10);
       if (Number.isFinite(limit) && limit > 0) {
         payload.whatsappDailyTemplateLimit = limit;
       }
     }
+
+    console.log('PROFILE UPDATE PAYLOAD', payload);
 
     this.authService.updateProfile(payload).subscribe({
       next: (res) => {
@@ -154,13 +157,15 @@ export class ProfileComponent implements OnInit {
     });
   }
 
-  private applyProfileUpdate(name: string, persistedToApi: boolean, profileData?: Partial<UpdateProfilePayload>): void {
+  private applyProfileUpdate(name: string, persistedToApi: boolean, profileData?: Partial<UpdateProfilePayload> & { whatsappDailyTemplateLimit?: number }): void {
     const updatedUser = {
       ...this.currentUser,
       name,
       bankDetails: profileData?.bankDetails || this.currentUser?.bankDetails || DEFAULT_BANK_DETAILS,
       ownerNotificationsEnabled: profileData?.ownerNotificationsEnabled ?? this.currentUser?.ownerNotificationsEnabled,
       ownerWhatsappNumber: profileData?.ownerWhatsappNumber ?? this.currentUser?.ownerWhatsappNumber,
+      whatsappDailyTemplateLimit:
+        profileData?.whatsappDailyTemplateLimit ?? this.currentUser?.whatsappDailyTemplateLimit,
     };
 
     this.authService.saveUser(updatedUser);
@@ -172,7 +177,9 @@ export class ProfileComponent implements OnInit {
       confirmPassword: '',
       ownerNotificationsEnabled: !!updatedUser.ownerNotificationsEnabled,
       ownerWhatsappNumber: updatedUser.ownerWhatsappNumber || '',
-      whatsappDailyTemplateLimit: updatedUser.whatsappDailyTemplateLimit || 200,
+      whatsappDailyTemplateLimit: Number(updatedUser.whatsappDailyTemplateLimit) > 0
+        ? Number(updatedUser.whatsappDailyTemplateLimit)
+        : 200,
       bankDetails: updatedUser.bankDetails,
     });
 

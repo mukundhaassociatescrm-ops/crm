@@ -122,12 +122,14 @@ exports.updateProfile = async (req, res, next) => {
     const role = normalizeRole(user.role);
     let appSettings = null;
     if (role === 'admin') {
+      const limitRaw = whatsappDailyTemplateLimit ?? req.body?.safeDailyLimit;
       appSettings = await updateAppSettings(
         {
           bankDetails,
           ownerNotificationsEnabled:
             typeof ownerNotificationsEnabled === 'boolean' ? ownerNotificationsEnabled : undefined,
           ownerWhatsappNumber,
+          whatsappDailyTemplateLimit: limitRaw,
         },
         userId
       );

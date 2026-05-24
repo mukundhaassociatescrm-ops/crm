@@ -29,7 +29,7 @@ exports.getCampaignSettings = async (req, res, next) => {
 
 exports.updateCampaignSettings = async (req, res, next) => {
   try {
-    const limit = req.body?.whatsappDailyTemplateLimit;
+    const limit = req.body?.whatsappDailyTemplateLimit ?? req.body?.safeDailyLimit;
     const updated = await updateDailyTemplateLimit(limit, req.user?._id);
     const usage = await getRolling24hUsage();
     res.json({
