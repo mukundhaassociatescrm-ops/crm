@@ -7,6 +7,8 @@ import { ManageTaskComponent } from './features/manage-task/manage-task/manage-t
 import { ManageChatComponent } from './features/manage-chat/manage-chat/manage-chat.component';
 import { ManageGroupComponent } from './features/manage-group/manage-group.component';
 import { ManageBulkMessageComponent } from './features/manage-bulk-message/manage-bulk-message.component';
+import { CampaignDashboardComponent } from './features/manage-bulk-message/campaign-dashboard.component';
+import { CampaignHistoryComponent } from './features/manage-bulk-message/campaign-history.component';
 import { BulkSmsComponent } from './features/bulk-sms/bulk-sms.component';
 import { EmployeeDashboardComponent } from './features/employee-dashboard/employee-dashboard.component';
 import { TaskRemindersComponent } from './features/task-reminders/task-reminders.component';
@@ -46,6 +48,21 @@ export const routes: Routes = [
         path: 'whatsapp-campaigns',
         component: ManageBulkMessageComponent,
         data: { role: 'admin', breadcrumb: 'WhatsApp Campaigns', fullscreenPageKey: 'whatsapp-campaigns' }
+      },
+      {
+        path: 'whatsapp-campaign-tracking',
+        component: CampaignHistoryComponent,
+        data: { role: 'admin', breadcrumb: 'Campaign tracking', fullscreenPageKey: 'whatsapp-campaigns' }
+      },
+      {
+        path: 'whatsapp-campaign-tracking/:id',
+        component: CampaignDashboardComponent,
+        data: { role: 'admin', breadcrumb: 'Campaign detail', fullscreenPageKey: 'whatsapp-campaigns' }
+      },
+      {
+        path: 'whatsapp-campaigns/:id',
+        component: CampaignDashboardComponent,
+        data: { role: 'admin', breadcrumb: 'Campaign detail', fullscreenPageKey: 'whatsapp-campaigns' }
       },
       {
         path: 'bulk-sms',

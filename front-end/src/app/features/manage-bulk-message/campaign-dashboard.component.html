@@ -1,0 +1,90 @@
+<div class="dash-wrapper page-workspace" *ngIf="campaign as c">
+  <app-fullscreen-toggle pageKey="whatsapp-campaigns"></app-fullscreen-toggle>
+
+  <div class="dash-header">
+    <div>
+      <a routerLink="/whatsapp-campaign-tracking" class="back-link"><i class="fa-solid fa-arrow-left"></i> All campaigns</a>
+      <h2>{{ c.name }}</h2>
+      <p class="meta">
+        {{ c.templateName || c.templateId }} · {{ c.groupName }} ·
+        Started {{ (c.startedAt || c.createdAt) | date:'medium' }} ·
+        Daily usage {{ usage.used }}/{{ usage.limit }}
+      </p>
+    </div>
+    <div class="dash-actions">
+      <button type="button" class="btn-ghost" (click)="exportCsv()">Export</button>
+      <button type="button" class="btn-ghost" (click)="retryFailed()">Retry failed</button>
+      <button type="button" class="btn-ghost" *ngIf="c.status !== 'paused'" (click)="pause()">Pause</button>
+      <button type="button" class="btn-primary" *ngIf="c.status === 'paused'" (click)="resume()">Resume</button>
+    </div>
+  </div>
+
+  <div class="progress-block">
+    <div class="progress-label"><span>Progress</span><strong>{{ progressPercent }}%</strong></div>
+    <div class="progress-bar"><span [style.width.%]="progressPercent"></span></div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat"><span>Total</span><strong>{{ c.stats.total || 0 }}</strong></div>
+    <div class="stat delivered"><span>Delivered</span><strong>{{ c.stats.delivered || 0 }}</strong></div>
+    <div class="stat queued"><span>Queued</span><strong>{{ (c.stats.queued || 0) + (c.stats.waitingDailyLimit || 0) }}</strong></div>
+    <div class="stat failed"><span>Failed</span><strong>{{ c.stats.failed || 0 }}</strong></div>
+    <div class="stat read"><span>Read</span><strong>{{ c.stats.read || 0 }}</strong></div>
+    <div class="stat sending"><span>Sending</span><strong>{{ c.stats.sending || 0 }}</strong></div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-toolbar">
+      <input
+        type="search"
+        [(ngModel)]="search"
+        (ngModelChange)="onSearchChange()"
+        placeholder="Search name or phone…"
+      >
+      <div class="filter-chips">
+        <button
+          type="button"
+          *ngFor="let f of statusFilters"
+          [class.active]="statusFilter === f.value"
+          (click)="statusFilter = f.value; onFilterChange()"
+        >{{ f.label }}</button>
+      </div>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Customer</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th>Scheduled time</th>
+            <th>Delivered time</th>
+            <th>Failure reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of recipients">
+            <td>{{ r.customerName || '—' }}</td>
+            <td>{{ r.phone }}</td>
+            <td><span class="pill" [attr.data-status]="r.status">{{ displayStatus(r.status) }}</span></td>
+            <td>{{ r.scheduledAt ? (r.scheduledAt | date:'short') : '—' }}</td>
+            <td>{{ r.deliveredAt ? (r.deliveredAt | date:'short') : (r.sentAt ? (r.sentAt | date:'short') : '—') }}</td>
+            <td>{{ r.failureReason || r.reason || '—' }}</td>
+          </tr>
+          <tr *ngIf="!recipients.length && !isLoading">
+            <td colspan="6" class="empty">No recipients match your filters.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination" *ngIf="recipientTotal > 0">
+      <button type="button" [disabled]="page <= 1" (click)="goPage(page - 1)">Previous</button>
+      <span>{{ recipientTotal }} recipients · Page {{ page }} of {{ totalPages }} ({{ pageSize }}/page)</span>
+      <button type="button" [disabled]="page >= totalPages" (click)="goPage(page + 1)">Next</button>
+    </div>
+  </div>
+</div>
+
+<div class="dash-loading" *ngIf="isLoading && !campaign">Loading campaign…</div>

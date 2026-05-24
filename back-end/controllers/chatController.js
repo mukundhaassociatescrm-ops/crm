@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const { applyCampaignDeliveryUpdate } = require('../services/campaignRecipientStatusService');
 const {
   sendGupshupTextMessage,
   sendGupshupFileMessage,
@@ -1127,6 +1128,17 @@ exports.processGupshupWebhook = async (body) => {
       reason,
       phone,
     });
+
+    if (messageId) {
+      applyCampaignDeliveryUpdate({
+        messageId,
+        status,
+        reason,
+        timestamp: eventTimestamp,
+      }).catch((campaignError) => {
+        console.warn('[CAMPAIGN WEBHOOK UPDATE]', campaignError?.message || campaignError);
+      });
+    }
 
     chatDebug('gupshup:status persisted', {
       messageId: messageId || '(missing)',

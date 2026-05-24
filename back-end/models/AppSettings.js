@@ -18,6 +18,15 @@ const appSettingsSchema = new mongoose.Schema(
     ownerNotificationSessionExpiresAt: { type: Date, default: null },
     ownerSessionReminderSentAt: { type: Date, default: null },
     ownerSessionReminderWindowExpiresAt: { type: Date, default: null },
+  /** Rolling 24h cap on new WhatsApp template conversation initiations (campaign queue). */
+    whatsappDailyTemplateLimit: {
+      type: Number,
+      default: () => {
+        const fromEnv = Number.parseInt(String(process.env.WHATSAPP_CAMPAIGN_DAILY_TEMPLATE_LIMIT || ''), 10);
+        return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 200;
+      },
+      min: 1,
+    },
     bankDetails: {
       type: bankDetailsSchema,
       default: () => ({

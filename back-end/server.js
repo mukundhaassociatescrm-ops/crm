@@ -14,6 +14,10 @@ const {
 } = require('./services/ownerNotificationSessionService');
 const { ensureDefaultSuperadmin } = require('./services/superadminService');
 const { setSocketServer } = require('./services/socketService');
+const {
+  initializeCampaignProcessor,
+  stopCampaignProcessor,
+} = require('./services/whatsappCampaignProcessor');
 
 const PORT = process.env.PORT || 3000;
 
@@ -57,6 +61,12 @@ const startServer = async () => {
       } catch (error) {
         console.error('Failed to initialize owner session reminder scheduler:', error.message);
       }
+
+      try {
+        initializeCampaignProcessor();
+      } catch (error) {
+        console.error('Failed to initialize campaign processor:', error.message);
+      }
     });
   } catch (error) {
     console.error('MongoDB connection error:', error.message);
@@ -71,6 +81,7 @@ process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
   cleanupAllReminders();
   stopOwnerSessionReminderScheduler();
+  stopCampaignProcessor();
   if (!server) {
     process.exit(0);
   }
@@ -84,6 +95,7 @@ process.on('SIGINT', () => {
   console.log('SIGINT signal received: closing HTTP server');
   cleanupAllReminders();
   stopOwnerSessionReminderScheduler();
+  stopCampaignProcessor();
   if (!server) {
     process.exit(0);
   }

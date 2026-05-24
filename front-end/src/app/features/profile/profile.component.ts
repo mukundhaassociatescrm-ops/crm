@@ -29,6 +29,7 @@ export class ProfileComponent implements OnInit {
     confirmPassword: [''],
     ownerNotificationsEnabled: [false],
     ownerWhatsappNumber: [''],
+    whatsappDailyTemplateLimit: [200, [Validators.required, Validators.min(1)]],
     bankDetails: this.fb.group({
       bankName: ['', Validators.required],
       accountNumber: ['', Validators.required],
@@ -82,6 +83,7 @@ export class ProfileComponent implements OnInit {
         email: this.currentUser.email,
         ownerNotificationsEnabled: !!this.currentUser.ownerNotificationsEnabled,
         ownerWhatsappNumber: this.currentUser.ownerWhatsappNumber || '',
+        whatsappDailyTemplateLimit: this.currentUser.whatsappDailyTemplateLimit || 200,
         bankDetails: profileBankDetails,
       });
     }
@@ -121,6 +123,10 @@ export class ProfileComponent implements OnInit {
       payload.bankDetails = this.bankDetailsValue;
       payload.ownerNotificationsEnabled = !!this.profileForm.get('ownerNotificationsEnabled')?.value;
       payload.ownerWhatsappNumber = String(this.profileForm.get('ownerWhatsappNumber')?.value || '').trim();
+      const limit = Number(this.profileForm.get('whatsappDailyTemplateLimit')?.value);
+      if (Number.isFinite(limit) && limit > 0) {
+        payload.whatsappDailyTemplateLimit = limit;
+      }
     }
 
     this.authService.updateProfile(payload).subscribe({
@@ -166,6 +172,7 @@ export class ProfileComponent implements OnInit {
       confirmPassword: '',
       ownerNotificationsEnabled: !!updatedUser.ownerNotificationsEnabled,
       ownerWhatsappNumber: updatedUser.ownerWhatsappNumber || '',
+      whatsappDailyTemplateLimit: updatedUser.whatsappDailyTemplateLimit || 200,
       bankDetails: updatedUser.bankDetails,
     });
 

@@ -33,7 +33,18 @@ const emitChatUpdate = (event) => {
   });
 };
 
+const emitCampaignUpdate = (event) => {
+  if (!io) {
+    return;
+  }
+  io.emit('campaign:update', {
+    ...event,
+    timestamp: event?.timestamp || new Date().toISOString(),
+  });
+};
+
 module.exports = {
   setSocketServer,
   emitChatUpdate,
+  emitCampaignUpdate,
 };

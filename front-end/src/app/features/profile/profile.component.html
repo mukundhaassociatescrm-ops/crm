@@ -91,6 +91,25 @@
           </div>
 
           <div class="section-title-row section-gap">
+            <div class="section-title no-margin">WhatsApp Safe Daily Limit</div>
+            <span class="admin-only-badge">Admin Only</span>
+          </div>
+          <p class="section-hint">
+            Maximum new template conversations per rolling 24 hours during account warm-up.
+            Increase when Meta business messaging quality improves (e.g. 500, 1000).
+          </p>
+          <div class="form-group">
+            <label>Recipients per day</label>
+            <input
+              formControlName="whatsappDailyTemplateLimit"
+              type="number"
+              min="1"
+              step="1"
+              placeholder="200" />
+            <span class="field-hint">Default 200. Campaigns auto-queue across days when audience exceeds this limit.</span>
+          </div>
+
+          <div class="section-title-row section-gap">
             <div class="section-title no-margin">Company Bank Details</div>
             <span class="admin-only-badge">Admin Only</span>
           </div>

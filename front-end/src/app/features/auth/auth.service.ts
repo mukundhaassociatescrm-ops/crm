@@ -61,6 +61,7 @@ export interface UpdateProfilePayload {
   bankDetails?: ProfileBankDetails;
   ownerNotificationsEnabled?: boolean;
   ownerWhatsappNumber?: string;
+  whatsappDailyTemplateLimit?: number;
 }
 
 @Injectable({

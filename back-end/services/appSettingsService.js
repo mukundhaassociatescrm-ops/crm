@@ -6,9 +6,15 @@ const DEFAULT_BANK_DETAILS = {
   ifsc: 'SBIN0008608',
 };
 
+const resolveDefaultDailyTemplateLimit = () => {
+  const fromEnv = Number.parseInt(String(process.env.WHATSAPP_CAMPAIGN_DAILY_TEMPLATE_LIMIT || ''), 10);
+  return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 200;
+};
+
 const DEFAULT_SETTINGS = {
   ownerNotificationsEnabled: String(process.env.OWNER_NOTIFICATIONS_ENABLED || '').toLowerCase() === 'true',
   ownerWhatsappNumber: String(process.env.OWNER_WHATSAPP_NUMBER || '').trim(),
+  whatsappDailyTemplateLimit: resolveDefaultDailyTemplateLimit(),
   bankDetails: DEFAULT_BANK_DETAILS,
 };
 
@@ -21,6 +27,9 @@ const normalizeBankDetails = (bankDetails = {}) => ({
 const serializeSettings = (doc) => ({
   ownerNotificationsEnabled: Boolean(doc?.ownerNotificationsEnabled),
   ownerWhatsappNumber: String(doc?.ownerWhatsappNumber || '').trim(),
+  whatsappDailyTemplateLimit: Number(doc?.whatsappDailyTemplateLimit) > 0
+    ? Number(doc.whatsappDailyTemplateLimit)
+    : DEFAULT_SETTINGS.whatsappDailyTemplateLimit,
   bankDetails: normalizeBankDetails(doc?.bankDetails || DEFAULT_BANK_DETAILS),
 });
 
@@ -30,6 +39,7 @@ const getAppSettings = async () => {
     settings = await AppSettings.create({
       ownerNotificationsEnabled: DEFAULT_SETTINGS.ownerNotificationsEnabled,
       ownerWhatsappNumber: DEFAULT_SETTINGS.ownerWhatsappNumber,
+      whatsappDailyTemplateLimit: DEFAULT_SETTINGS.whatsappDailyTemplateLimit,
       bankDetails: DEFAULT_SETTINGS.bankDetails,
     });
   }
@@ -48,6 +58,13 @@ const updateAppSettings = async (partial = {}, userId = null) => {
 
   if (partial.ownerWhatsappNumber !== undefined) {
     settings.ownerWhatsappNumber = String(partial.ownerWhatsappNumber || '').trim();
+  }
+
+  if (partial.whatsappDailyTemplateLimit !== undefined) {
+    const parsed = Number.parseInt(String(partial.whatsappDailyTemplateLimit), 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      settings.whatsappDailyTemplateLimit = parsed;
+    }
   }
 
   if (partial.bankDetails !== undefined) {

@@ -4,144 +4,132 @@
   <div class="header">
     <div>
       <h2>WhatsApp Campaigns</h2>
-      <p>Send approved WhatsApp templates to selected customer groups</p>
+      <p>Create a campaign — queueing, daily limits, and delivery tracking run automatically.</p>
     </div>
-    <span class="module-badge">Template based</span>
+    <a routerLink="/whatsapp-campaign-tracking" class="link-tracking">
+      <i class="fa-solid fa-chart-line"></i>
+      Campaign tracking
+    </a>
   </div>
 
   <div class="bulk-layout">
-    <div class="bulk-form-panel">
-      <div class="form-group">
-        <app-group-selector
-          label="Audience group"
-          helperText="Only contacts in this group will receive the campaign."
-          [disabled]="isSending || isUploadingMedia"
-          (groupChange)="onGroupSelected($event)"
-        ></app-group-selector>
-      </div>
+  <div class="bulk-form-panel">
+    <div class="form-group">
+      <app-group-selector
+        label="Audience group"
+        helperText="Contacts in this group receive the campaign."
+        [disabled]="isSending"
+        (groupChange)="onGroupSelected($event)"
+      ></app-group-selector>
+    </div>
 
-      <div class="form-group">
-        <label>Approved WhatsApp template</label>
-        <select
-          [(ngModel)]="selectedBulkTemplateId"
-          (ngModelChange)="onBulkTemplateIdChanged()"
-          [disabled]="isSending || isLoadingBulkTemplates"
-        >
-          <option value="">{{ isLoadingBulkTemplates ? 'Loading templates...' : '-- Select template --' }}</option>
-          <option *ngFor="let t of bulkWhatsAppTemplates" [value]="t.id">
-            {{ t.name || t.id }} · {{ getTemplateVariableCount(t) }} variable(s)
-          </option>
-        </select>
-        <div class="field-note" *ngIf="!isLoadingBulkTemplates && !bulkWhatsAppTemplates.length">
-          No templates loaded. Check API configuration or refresh template approval status.
-        </div>
-      </div>
+    <div class="form-group">
+      <label>Approved WhatsApp template</label>
+      <select
+        [(ngModel)]="selectedBulkTemplateId"
+        (ngModelChange)="onBulkTemplateIdChanged()"
+        [disabled]="isSending || isLoadingBulkTemplates"
+      >
+        <option value="">{{ isLoadingBulkTemplates ? 'Loading…' : '-- Select template --' }}</option>
+        <option *ngFor="let t of bulkWhatsAppTemplates" [value]="t.id">{{ t.name || t.id }}</option>
+      </select>
 
-      <div class="form-group" *ngIf="bulkTemplateVariableIndexes.length > 0">
-        <label>Template variables</label>
-        <div *ngFor="let index of bulkTemplateVariableIndexes" class="template-var-row">
-          <span class="var-label">Variable {{ index }}</span>
-          <input
-            type="text"
-            [ngModel]="bulkTemplateVariables[index] || ''"
-            (ngModelChange)="onBulkTemplateVariableChanged(index, $event)"
-            [attr.placeholder]="'Value for variable ' + index"
-            [disabled]="isSending"
-          >
-        </div>
-      </div>
+      <ul class="template-meta" *ngIf="selectedBulkTemplate">
+        <li><span>Category</span><strong>{{ templateCategoryLabel }}</strong></li>
+        <li><span>Language</span><strong>{{ templateLanguageLabel }}</strong></li>
+        <li><span>Variables</span><strong>{{ templateVariableCount }}</strong></li>
+      </ul>
+    </div>
 
-      <div class="form-group">
-        <label>Media attachment</label>
-        <div class="media-uploader" [class.has-media]="hasSelectedMedia">
-          <ng-container *ngIf="!selectedMediaFile; else selectedMediaTpl">
-            <input
-              #campaignMediaInput
-              type="file"
-              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
-              class="hidden-file-input"
-              (change)="onMediaSelected($event)"
-            >
-            <button type="button" class="btn-secondary" (click)="campaignMediaInput.click()" [disabled]="isSending || isUploadingMedia">
-              <i class="fa-solid fa-paperclip"></i>
-              <span>Attach media</span>
-            </button>
-            <span class="field-note">Optional. Use this for media-header templates or campaign history context.</span>
-          </ng-container>
-          <ng-template #selectedMediaTpl>
-            <div class="media-chip">
-              <div class="media-thumb">
-                <img *ngIf="selectedMediaPreviewUrl && selectedMediaFile?.type?.startsWith('image/')" [src]="selectedMediaPreviewUrl" alt="Media preview">
-                <video *ngIf="selectedMediaPreviewUrl && selectedMediaFile?.type?.startsWith('video/')" [src]="selectedMediaPreviewUrl" muted playsinline></video>
-                <i *ngIf="!selectedMediaPreviewUrl" class="fa-solid fa-file"></i>
-              </div>
-              <div class="media-copy">
-                <strong>{{ selectedMediaFile?.name }}</strong>
-                <span>{{ mediaTypeLabel }}</span>
-              </div>
-              <button type="button" class="icon-btn" (click)="removeSelectedMedia()" [disabled]="isSending || isUploadingMedia" aria-label="Remove media">
-                <i class="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-          </ng-template>
-        </div>
-        <div class="upload-progress" *ngIf="isUploadingMedia">
-          Uploading media... {{ uploadProgress }}%
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Campaign label</label>
+    <div class="form-group" *ngIf="bulkTemplateVariableIndexes.length">
+      <label>Template variables</label>
+      <div *ngFor="let index of bulkTemplateVariableIndexes" class="template-var-row">
+        <span class="var-label">{{ index }}</span>
         <input
           type="text"
-          [(ngModel)]="campaignLabel"
-          placeholder="Optional internal label for tracking/history"
-          [disabled]="isSending || isUploadingMedia"
+          [ngModel]="bulkTemplateVariables[index] || ''"
+          (ngModelChange)="onBulkTemplateVariableChanged(index, $event)"
+          [disabled]="isSending"
         >
       </div>
-
-      <div class="action-section">
-        <button class="btn-send"
-                [disabled]="!canSend || isSending"
-                (click)="sendBulkMessage()">
-          {{ isSending ? (isUploadingMedia ? 'Uploading...' : 'Sending...') : 'Send WhatsApp Campaign' }}
-        </button>
-      </div>
     </div>
 
-    <div class="preview-panel">
-      <div class="preview-title-row">
-        <h3>Live WhatsApp Preview</h3>
-        <span>{{ selectedGroupMemberCount }} recipient{{ selectedGroupMemberCount === 1 ? '' : 's' }}</span>
-      </div>
-
-      <div class="preview-box">
-        <div class="preview-header">
-          <i class="fa-brands fa-whatsapp"></i>
-          <div>
-            <strong>{{ selectedGroup?.name || 'Audience group' }}</strong>
-            <span>Business template message</span>
+    <!-- Media attachment hidden until media-header templates are enabled (backend still supports attachments). -->
+    <div class="form-group media-section-hidden" *ngIf="showMediaAttachment">
+      <label>Media attachment</label>
+      <div class="media-uploader" [class.has-media]="selectedMediaFile">
+        <ng-container *ngIf="!selectedMediaFile; else mediaTpl">
+          <input #mediaInput type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="hidden-file-input" (change)="onMediaSelected($event)">
+          <button type="button" class="btn-secondary" (click)="mediaInput.click()" [disabled]="isSending">Attach media</button>
+        </ng-container>
+        <ng-template #mediaTpl>
+          <div class="media-chip">
+            <span>{{ selectedMediaFile?.name }}</span>
+            <button type="button" class="icon-btn" (click)="removeSelectedMedia()"><i class="fa-solid fa-xmark"></i></button>
           </div>
-        </div>
-
-        <div class="media-preview" *ngIf="selectedMediaFile">
-          <img *ngIf="selectedMediaPreviewUrl && selectedMediaFile.type.startsWith('image/')" [src]="selectedMediaPreviewUrl" alt="Campaign media">
-          <video *ngIf="selectedMediaPreviewUrl && selectedMediaFile.type.startsWith('video/')" [src]="selectedMediaPreviewUrl" muted playsinline controls></video>
-          <div class="media-file-preview" *ngIf="!selectedMediaPreviewUrl">
-            <i class="fa-solid fa-file-lines"></i>
-            <span>{{ selectedMediaFile.name }}</span>
-          </div>
-        </div>
-
-        <div class="preview-message">
-          {{ renderedTemplatePreview }}
-        </div>
-
-        <div class="preview-meta">
-          <span>Template: {{ selectedBulkTemplate?.name || selectedBulkTemplateId || 'Not selected' }}</span>
-          <span *ngIf="selectedMediaFile">{{ mediaTypeLabel }}</span>
-        </div>
+        </ng-template>
       </div>
+      <div class="upload-progress" *ngIf="isUploadingMedia">Uploading… {{ uploadProgress }}%</div>
     </div>
+
+    <div class="form-group">
+      <label>Campaign label</label>
+      <input type="text" [(ngModel)]="campaignLabel" placeholder="e.g. March payment reminder" [disabled]="isSending">
+    </div>
+
+    <div class="action-section">
+      <button class="btn-send" [disabled]="!canSend || isSending" (click)="sendCampaign()">
+        {{ isSending ? 'Starting…' : 'Start campaign' }}
+      </button>
+    </div>
+  </div>
+
+  <aside class="bulk-side-panel">
+    <div class="wa-preview-card">
+      <div class="wa-preview-head">
+        <i class="fa-brands fa-whatsapp"></i>
+        <div>
+          <strong>{{ selectedBulkTemplate?.name || 'Template preview' }}</strong>
+          <span *ngIf="selectedBulkTemplate">{{ templateCategoryLabel }} · {{ templateLanguageLabel }}</span>
+          <span *ngIf="!selectedBulkTemplate">Select a template to preview</span>
+        </div>
+      </div>
+      <div class="wa-preview-body">
+        <div class="wa-bubble">
+          <p class="wa-bubble-text">{{ renderedTemplatePreview }}</p>
+          <span class="wa-bubble-time">{{ previewTimeLabel }}</span>
+        </div>
+      </div>
+      <p class="wa-preview-foot" *ngIf="selectedBulkTemplate">
+        Approved business template · {{ templateVariableCount }} variable(s)
+      </p>
+    </div>
+
+    <div class="campaign-info-card">
+      <h3>Campaign summary</h3>
+      <dl>
+        <div>
+          <dt>Audience</dt>
+          <dd>{{ selectedGroup?.name || 'Not selected' }}</dd>
+        </div>
+        <div>
+          <dt>Recipients</dt>
+          <dd>{{ selectedGroupMemberCount }}</dd>
+        </div>
+        <div>
+          <dt>Template</dt>
+          <dd>{{ selectedBulkTemplate?.name || 'Not selected' }}</dd>
+        </div>
+        <div *ngIf="campaignLabel.trim()">
+          <dt>Label</dt>
+          <dd>{{ campaignLabel.trim() }}</dd>
+        </div>
+      </dl>
+      <p class="info-note">
+        Large audiences are sent automatically across days based on your safe daily limit. Track every recipient in
+        <a routerLink="/whatsapp-campaign-tracking">Campaign tracking</a>.
+      </p>
+    </div>
+  </aside>
   </div>
 </div>

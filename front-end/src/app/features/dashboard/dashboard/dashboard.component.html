@@ -31,7 +31,13 @@
       <div class="card" *ngIf="isAdmin" (click)="nav('whatsapp-campaigns')">
         <div class="icon icon-bulk"><i class="fa-solid fa-envelopes-bulk"></i></div>
         <h3>WhatsApp Campaigns</h3>
-        <p>Send approved templates to customer groups</p>
+        <p>Start template campaigns to customer groups</p>
+      </div>
+
+      <div class="card" *ngIf="isAdmin" (click)="nav('whatsapp-campaign-tracking')">
+        <div class="icon icon-bulk"><i class="fa-solid fa-chart-line"></i></div>
+        <h3>Campaign Tracking</h3>
+        <p>Delivery status, queue progress, and recipient details</p>
       </div>
 
       <div class="card" *ngIf="isAdmin" (click)="nav('bulk-sms')">
@@ -64,11 +70,11 @@
         <p>Pick a client and compose an SMS</p>
       </div>
 
-      <div class="card" *ngIf="isAdmin" (click)="nav('manage-sms-templates')">
+      <!-- <div class="card" *ngIf="isAdmin" (click)="nav('manage-sms-templates')">
         <div class="icon icon-sms-templates"><i class="fa-solid fa-arrows-rotate"></i></div>
         <h3>Manage SMS Templates</h3>
         <p>Sync DLT templates from Fast2SMS for Single and Bulk SMS</p>
-      </div>
+      </div> -->
 
       <div class="card" *ngIf="isAdmin" (click)="nav('work-history')">
         <div class="icon icon-history"><i class="fa-solid fa-timeline"></i></div>

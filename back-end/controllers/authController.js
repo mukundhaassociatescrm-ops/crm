@@ -38,6 +38,7 @@ const serializeUser = (user, accountContext = {}, appSettings = null) => ({
         bankDetails: appSettings.bankDetails,
         ownerNotificationsEnabled: appSettings.ownerNotificationsEnabled,
         ownerWhatsappNumber: appSettings.ownerWhatsappNumber,
+        whatsappDailyTemplateLimit: appSettings.whatsappDailyTemplateLimit,
       }
     : {}),
 });
@@ -90,7 +91,14 @@ exports.login = async (req, res, next) => {
 
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, newPassword, bankDetails, ownerNotificationsEnabled, ownerWhatsappNumber } = req.body;
+    const {
+      name,
+      newPassword,
+      bankDetails,
+      ownerNotificationsEnabled,
+      ownerWhatsappNumber,
+      whatsappDailyTemplateLimit,
+    } = req.body;
     const userId = req.user._id;
 
     const user = await User.findById(userId).select('+password');
@@ -137,6 +145,7 @@ exports.updateProfile = async (req, res, next) => {
               bankDetails: appSettings.bankDetails,
               ownerNotificationsEnabled: appSettings.ownerNotificationsEnabled,
               ownerWhatsappNumber: appSettings.ownerWhatsappNumber,
+              whatsappDailyTemplateLimit: appSettings.whatsappDailyTemplateLimit,
             }
           : {}),
       },
