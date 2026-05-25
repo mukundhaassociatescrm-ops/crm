@@ -2,7 +2,7 @@
 
 /* ===== Layout Wrapper ===== */
 .main-layout {
-  --header-height: 80px;
+  --header-height: 96px;
   height: 100vh;
   overflow: hidden;
   display: flex;
@@ -233,7 +233,7 @@
 
 @media (max-width: 1024px) {
   .main-layout {
-    --header-height: 80px;
+    --header-height: 92px;
   }
 
   .top-header {
@@ -247,7 +247,7 @@
 
 @media (max-width: 768px) {
   .main-layout {
-    --header-height: 74px;
+    --header-height: 88px;
   }
 
   .layout-container {

@@ -2,12 +2,10 @@ import { Component, OnInit } from '@angular/core';
 import { NgIf } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
-import { CommunicationWalletsComponent } from '../../../shared/components/communication-wallets/communication-wallets.component';
-
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [NgIf, CommunicationWalletsComponent],
+  imports: [NgIf],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })

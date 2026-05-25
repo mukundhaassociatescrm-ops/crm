@@ -5,11 +5,12 @@ import { filter, Subscription } from 'rxjs';
 import { FullscreenModeService } from '../../core/services/fullscreen-mode.service';
 import { AuthService } from '../../features/auth/auth.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { HeaderCommunicationWalletsComponent } from '../../shared/components/header-communication-wallets/header-communication-wallets.component';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterModule, CommonModule, BreadcrumbComponent],
+  imports: [RouterModule, CommonModule, BreadcrumbComponent, HeaderCommunicationWalletsComponent],
   templateUrl: './main-layout.component.html',
   styleUrls: ['./main-layout.component.scss']
 })

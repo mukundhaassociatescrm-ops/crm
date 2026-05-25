@@ -1,0 +1,48 @@
+<div class="header-wallets" (click)="$event.stopPropagation()">
+  <div
+    class="wallet-pill"
+    [class]="'level-' + whatsappLevel"
+    [class.is-open]="openPopover === 'whatsapp'"
+    (click)="togglePopover('whatsapp', $event)"
+    title="WhatsApp wallet"
+  >
+    <i class="fa-brands fa-whatsapp"></i>
+    <span class="pill-tag">WA</span>
+    <span class="pill-value">{{ whatsappPillLabel }}</span>
+    <div class="wallet-popover" *ngIf="openPopover === 'whatsapp'" (click)="$event.stopPropagation()">
+      <strong>WhatsApp Wallet</strong>
+      <ng-container *ngIf="whatsapp?.success; else waErr">
+        <span>{{ whatsappBalanceDetail }}</span>
+        <span class="muted">Overdraft: {{ whatsappOverdraftDetail }}</span>
+        <span class="warn" *ngIf="whatsappLevel === 'low' || whatsappLevel === 'critical'">Low balance warning</span>
+      </ng-container>
+      <ng-template #waErr>
+        <span class="err">Unable to fetch wallet balance</span>
+      </ng-template>
+    </div>
+  </div>
+
+  <div
+    class="wallet-pill"
+    [class]="'level-' + smsLevel"
+    [class.is-open]="openPopover === 'sms'"
+    (click)="togglePopover('sms', $event)"
+    title="SMS wallet"
+  >
+    <i class="fa-solid fa-comment-sms"></i>
+    <span class="pill-tag">SMS</span>
+    <span class="pill-value">{{ smsPillLabel }}</span>
+    <span class="pill-count" *ngIf="sms?.success">{{ smsCountPillLabel }}</span>
+    <div class="wallet-popover" *ngIf="openPopover === 'sms'" (click)="$event.stopPropagation()">
+      <strong>SMS Wallet</strong>
+      <ng-container *ngIf="sms?.success; else smsErr">
+        <span>{{ smsWalletDetail }}</span>
+        <span class="muted">{{ smsCountDetail }}</span>
+        <span class="warn" *ngIf="smsLevel === 'low' || smsLevel === 'critical'">Low SMS balance</span>
+      </ng-container>
+      <ng-template #smsErr>
+        <span class="err">Unable to fetch wallet balance</span>
+      </ng-template>
+    </div>
+  </div>
+</div>

@@ -41,16 +41,9 @@
   padding-bottom: $spacing-2xl;
 }
 
-.metrics-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $spacing-lg;
-  margin-bottom: $spacing-2xl;
-}
-
 /* Welcome */
 .welcome-section {
-  margin-bottom: $spacing-xl;
+  margin-bottom: $spacing-2xl;
 
   h1 {
     font-size: $font-size-5xl;
