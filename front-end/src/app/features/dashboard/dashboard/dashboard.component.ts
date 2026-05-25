@@ -2,12 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { NgIf } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
-import { SmsWalletBalanceComponent } from '../../../shared/components/sms-wallet-balance/sms-wallet-balance.component';
+import { CommunicationWalletsComponent } from '../../../shared/components/communication-wallets/communication-wallets.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [NgIf, SmsWalletBalanceComponent],
+  imports: [NgIf, CommunicationWalletsComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })

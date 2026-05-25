@@ -1,0 +1,51 @@
+<section class="comm-wallets" [class.loading]="isLoading">
+  <header class="comm-wallets-head">
+    <i class="fa-solid fa-tower-broadcast"></i>
+    <div>
+      <h3>Communication Wallets</h3>
+      <span class="cache-hint" *ngIf="data?.cached">Cached · refreshes every 5 min</span>
+    </div>
+  </header>
+
+  <div class="comm-wallets-body" *ngIf="!isLoading">
+    <div class="wallet-panel" [class]="'level-' + whatsappLevel">
+      <div class="panel-label">
+        <i class="fa-brands fa-whatsapp"></i>
+        <span>WhatsApp Wallet</span>
+      </div>
+      <ng-container *ngIf="whatsapp?.success; else waError">
+        <div class="panel-amount">{{ whatsappBalanceFormatted }}</div>
+        <div class="panel-meta">Overdraft: {{ whatsappOverdraftFormatted }}</div>
+        <div class="panel-warn" *ngIf="whatsappLevel === 'low' || whatsappLevel === 'critical'">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span *ngIf="whatsappLevel === 'critical'">Critical WhatsApp balance</span>
+          <span *ngIf="whatsappLevel === 'low'">Low WhatsApp balance</span>
+        </div>
+      </ng-container>
+      <ng-template #waError>
+        <p class="panel-error">Unable to fetch wallet balance</p>
+      </ng-template>
+    </div>
+
+    <div class="wallet-panel" [class]="'level-' + smsLevel">
+      <div class="panel-label">
+        <i class="fa-solid fa-comment-sms"></i>
+        <span>SMS Wallet</span>
+      </div>
+      <ng-container *ngIf="sms?.success; else smsError">
+        <div class="panel-amount">{{ smsWalletFormatted }}</div>
+        <div class="panel-meta">{{ smsCountFormatted }} SMS Available</div>
+        <div class="panel-warn" *ngIf="smsLevel === 'low' || smsLevel === 'critical'">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span *ngIf="smsLevel === 'critical'">Critical — only {{ smsCountFormatted }} SMS left</span>
+          <span *ngIf="smsLevel === 'low'">Low SMS balance — {{ smsCountFormatted }} remaining</span>
+        </div>
+      </ng-container>
+      <ng-template #smsError>
+        <p class="panel-error">Unable to fetch wallet balance</p>
+      </ng-template>
+    </div>
+  </div>
+
+  <p class="comm-loading" *ngIf="isLoading">Loading wallet balances…</p>
+</section>
