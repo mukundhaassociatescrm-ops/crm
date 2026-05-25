@@ -7,6 +7,7 @@ import { ToastrService } from 'ngx-toastr';
 import { catchError, finalize, of } from 'rxjs';
 import { Client, ClientService } from '../manage-client/client.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
+import { SmsWalletBalanceComponent } from '../../shared/components/sms-wallet-balance/sms-wallet-balance.component';
 import {
   getSmsTemplateContent,
   getSmsTemplateReadinessIssues,
@@ -35,7 +36,7 @@ type SmsSendResponse =
 @Component({
   selector: 'app-sms',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, FullscreenToggleComponent],
+  imports: [CommonModule, FormsModule, RouterLink, FullscreenToggleComponent, SmsWalletBalanceComponent],
   templateUrl: './sms.component.html',
   styleUrl: './sms.component.scss',
 })

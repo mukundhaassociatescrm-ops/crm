@@ -1,0 +1,18 @@
+<div class="wallet-card" [class.compact]="compact" [class.loading]="isLoading" [class.error]="hasError">
+  <div class="wallet-card-head">
+    <i class="fa-solid fa-wallet"></i>
+    <span>SMS Wallet Balance</span>
+  </div>
+
+  <ng-container *ngIf="!isLoading && !hasError">
+    <div class="wallet-amount">{{ walletFormatted }}</div>
+    <div class="sms-count">{{ smsCountFormatted }} SMS Available</div>
+    <div class="low-balance" *ngIf="isLowBalance">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span>Low SMS balance — {{ lowBalanceMessage }}</span>
+    </div>
+  </ng-container>
+
+  <div class="wallet-state" *ngIf="isLoading">Loading balance…</div>
+  <div class="wallet-state error" *ngIf="!isLoading && hasError">Unable to fetch wallet balance</div>
+</div>

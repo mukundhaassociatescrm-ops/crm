@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Group = require('../models/Group');
 const Client = require('../models/Client');
 const SmsTemplate = require('../models/SmsTemplate');
-const { sendDltSms, sendDltBulkCustom, normalizeIndianMobile } = require('../services/fast2smsService');
+const { sendDltSms, sendDltBulkCustom, normalizeIndianMobile, fetchFast2SmsWalletBalance } = require('../services/fast2smsService');
 const {
   extractSmsTemplateVariableSlots,
   buildVariablesValues,
@@ -357,6 +357,25 @@ exports.sendBulkDltSms = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: error?.message || 'Failed to send bulk DLT SMS.',
+    });
+  }
+};
+
+exports.getWalletBalance = async (req, res, next) => {
+  try {
+    const { wallet, smsCount } = await fetchFast2SmsWalletBalance();
+    return res.json({
+      success: true,
+      wallet,
+      smsCount,
+    });
+  } catch (error) {
+    console.warn('[FAST2SMS WALLET]', error?.message || error);
+    return res.status(200).json({
+      success: false,
+      message: 'Unable to fetch wallet balance',
+      wallet: null,
+      smsCount: null,
     });
   }
 };

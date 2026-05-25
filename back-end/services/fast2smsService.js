@@ -8,6 +8,7 @@ const getFetch = async () => {
 };
 
 const DLT_MANAGER_BASE_URL = 'https://www.fast2sms.com/dev/dlt_manager';
+const WALLET_BASE_URL = 'https://www.fast2sms.com/dev/wallet';
 
 const normalizeIndianMobile = (value) => {
   const digits = String(value || '').replace(/\D/g, '');
@@ -403,6 +404,38 @@ async function sendDltSms({
   };
 }
 
+/**
+ * Fetch Fast2SMS wallet balance (API key stays server-side).
+ * @see https://docs.fast2sms.com/reference/new-endpoint-3
+ */
+async function fetchFast2SmsWalletBalance() {
+  const apiKey = process.env.FAST2SMS_API_KEY;
+  if (!apiKey) {
+    throw new Error('FAST2SMS_API_KEY is not configured.');
+  }
+
+  const url = new URL(WALLET_BASE_URL);
+  url.searchParams.set('authorization', apiKey);
+
+  const fetch = await getFetch();
+  const response = await fetch(url.toString(), { method: 'GET' });
+  const body = await response.json().catch(() => ({}));
+
+  const isOk = response.ok && (body.return === true || body.return === 'true');
+  if (!isOk) {
+    const message = body?.message || body?.msg || `Fast2SMS wallet request failed (${response.status})`;
+    throw new Error(message);
+  }
+
+  const wallet = Number.parseFloat(String(body.wallet ?? '').replace(/,/g, ''));
+  const smsCount = Number.parseInt(String(body.sms_count ?? ''), 10);
+
+  return {
+    wallet: Number.isFinite(wallet) ? wallet : 0,
+    smsCount: Number.isFinite(smsCount) ? smsCount : 0,
+  };
+}
+
 /** @deprecated Use sendDltSms for DLT-enabled accounts. */
 async function sendSMS(phone, message) {
   const normalizedPhone = normalizeIndianMobile(phone);
@@ -433,6 +466,7 @@ module.exports = {
   fetchDltManagerRaw,
   fetchDltTemplates,
   fetchDltSenders,
+  fetchFast2SmsWalletBalance,
   sendFast2SmsBulk,
   sendDltBulkCustom,
   sendDltSms,

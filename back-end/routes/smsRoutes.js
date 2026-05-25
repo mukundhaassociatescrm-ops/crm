@@ -1,7 +1,7 @@
 const express = require('express');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRole } = require('../middleware/roleMiddleware');
-const { sendSingleSms, sendBulkDltSms } = require('../controllers/smsController');
+const { sendSingleSms, sendBulkDltSms, getWalletBalance } = require('../controllers/smsController');
 const {
   templateUpload,
   importSmsTemplates,
@@ -16,6 +16,7 @@ const {
 
 const router = express.Router();
 
+router.get('/wallet-balance', protect, authorizeRole('admin'), getWalletBalance);
 router.post('/send-single', protect, sendSingleSms);
 router.post('/send', protect, sendSingleSms);
 router.post('/send-bulk-dlt', protect, authorizeRole('admin'), sendBulkDltSms);

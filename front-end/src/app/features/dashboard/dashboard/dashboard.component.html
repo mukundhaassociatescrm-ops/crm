@@ -8,6 +8,10 @@
       <p *ngIf="isEmployee">Track and update your day-to-day work from one place</p>
     </div>
 
+    <div class="metrics-row" *ngIf="isAdmin">
+      <app-sms-wallet-balance></app-sms-wallet-balance>
+    </div>
+
     <div class="cards-grid">
 
       <div class="card" *ngIf="isAdmin" (click)="nav('manage-chat')">

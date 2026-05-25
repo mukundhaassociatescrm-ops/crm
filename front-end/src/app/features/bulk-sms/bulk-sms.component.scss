@@ -38,6 +38,13 @@
   }
 }
 
+.header-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
 .module-badge {
   display: inline-flex;
   align-items: center;
