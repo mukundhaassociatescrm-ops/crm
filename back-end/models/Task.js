@@ -48,21 +48,20 @@ const taskSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-taskSchema.pre('save', function protectDisplayId(next) {
+// Mongoose 9+: do not use next() in middleware — return or throw instead.
+taskSchema.pre('save', function protectDisplayId() {
   if (!this.isNew && this.isModified('displayId')) {
-    return next(new Error('Task displayId cannot be changed after creation.'));
+    throw new Error('Task displayId cannot be changed after creation.');
   }
-  return next();
 });
 
-taskSchema.pre('findOneAndUpdate', function protectDisplayIdOnUpdate(next) {
+taskSchema.pre('findOneAndUpdate', function protectDisplayIdOnUpdate() {
   const update = this.getUpdate() || {};
   const setPayload = update.$set || update;
   if (setPayload && (Object.prototype.hasOwnProperty.call(setPayload, 'displayId')
     || Object.prototype.hasOwnProperty.call(setPayload, 'taskNumber'))) {
-    return next(new Error('Task displayId cannot be changed after creation.'));
+    throw new Error('Task displayId cannot be changed after creation.');
   }
-  return next();
 });
 
 module.exports = mongoose.model('Task', taskSchema);
