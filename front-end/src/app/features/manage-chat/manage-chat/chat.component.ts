@@ -35,6 +35,7 @@ interface PendingMessage extends ChatMessage {
 }
 
 interface SelectedAttachment {
+  draftId: string;
   file: File;
   name: string;
   mimeType: string;
@@ -116,7 +117,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   selectedAttachment: SelectedAttachment | null = null;
   attachmentQueue: SelectedAttachment[] = [];
   activeAttachmentIndex = -1;
-  private attachmentPickMode: 'append' | 'replace-active' = 'append';
+  private attachmentDraftIdCounter = 0;
   composerDragActive = false;
   retryingMessageId: string | null = null;
   activeFileViewer: ActiveFileViewer | null = null;
@@ -1369,13 +1370,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     event.stopPropagation();
     this.composerDragActive = false;
 
-    const file = event.dataTransfer?.files?.[0];
-    if (!file) {
+    const files = Array.from(event.dataTransfer?.files || []);
+    if (!files.length) {
       return;
     }
 
-    this.attachmentPickMode = this.hasAttachmentDrafts ? 'replace-active' : 'append';
-    this.applyAttachmentFile(file);
+    this.applyAttachmentFiles(files);
   }
 
   toggleEmojiPicker(): void {
@@ -1392,54 +1392,53 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   onAttachmentFileChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
+    const files = Array.from(input.files || []);
 
-    if (!file) {
+    if (!files.length) {
       this.resetNativeFileInput(input);
       return;
     }
 
-    this.attachmentPickMode = this.hasAttachmentDrafts ? 'replace-active' : 'append';
-    this.applyAttachmentFile(file);
+    this.applyAttachmentFiles(files);
     this.showAttachmentMenu = false;
     this.showEmojiPicker = false;
-
-    // Allow picking the same or another file again on the next click.
     setTimeout(() => this.resetNativeFileInput(input), 0);
   }
 
-  private applyAttachmentFile(file: File): void {
-    const pickMode = this.attachmentPickMode;
-    this.attachmentPickMode = 'append';
-
-    console.log('FILE SELECTED:', {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      pickMode,
-    });
-
-    const draft = this.buildAttachmentDraftFromFile(file);
-    if (!draft) {
+  onAddMoreFilesChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
+    if (!files.length) {
+      this.resetNativeFileInput(input);
       return;
     }
 
-    const replaceActive = pickMode === 'replace-active' && this.attachmentQueue.length > 0;
-    const replaceIndex = this.activeAttachmentIndex >= 0
-      ? this.activeAttachmentIndex
-      : Math.max(this.attachmentQueue.length - 1, 0);
+    this.applyAttachmentFiles(files);
+    setTimeout(() => this.resetNativeFileInput(input), 0);
+  }
 
-    if (replaceActive) {
-      this.revokeAttachmentPreview(this.attachmentQueue[replaceIndex]);
-      const nextQueue = [...this.attachmentQueue];
-      nextQueue[replaceIndex] = draft;
-      this.attachmentQueue = nextQueue;
-      this.activeAttachmentIndex = replaceIndex;
-    } else {
-      this.attachmentQueue = [draft];
-      this.activeAttachmentIndex = 0;
+  private nextAttachmentDraftId(): string {
+    this.attachmentDraftIdCounter += 1;
+    return `att-draft-${Date.now()}-${this.attachmentDraftIdCounter}`;
+  }
+
+  private applyAttachmentFiles(files: File[]): void {
+    const drafts = files
+      .map((file) => this.buildAttachmentDraftFromFile(file))
+      .filter((draft): draft is SelectedAttachment => Boolean(draft));
+
+    if (!drafts.length) {
+      return;
     }
 
+    console.log('FILES SELECTED:', {
+      count: drafts.length,
+      names: drafts.map((item) => item.name),
+      queueBefore: this.attachmentQueue.length,
+    });
+
+    this.attachmentQueue = [...this.attachmentQueue, ...drafts];
+    this.activeAttachmentIndex = this.attachmentQueue.length - 1;
     this.selectedAttachment = this.attachmentQueue[this.activeAttachmentIndex] || null;
     this.showAttachmentMenu = false;
     this.showEmojiPicker = false;
@@ -1449,7 +1448,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       activeIndex: this.activeAttachmentIndex,
       queueLength: this.attachmentQueue.length,
       name: this.selectedAttachment?.name,
-      mimeType: this.selectedAttachment?.mimeType,
     });
   }
 
@@ -1471,6 +1469,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
 
     return {
+      draftId: this.nextAttachmentDraftId(),
       file,
       name: file.name,
       mimeType: file.type,
@@ -1499,6 +1498,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       || /\.(xlsx|xls|csv)$/i.test(normalizedName);
 
     return {
+      draftId: this.nextAttachmentDraftId(),
       file: new File([], name, { type: mimeType || 'application/octet-stream' }),
       name,
       mimeType,
@@ -1671,8 +1671,36 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     return index === this.activeAttachmentIndex;
   }
 
-  addAnotherAttachment(_type: 'image' | 'document'): void {
-    // Replaced by native label/file inputs in the composer toolbar.
+  addAnotherAttachment(type: 'image' | 'document'): void {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = type === 'image'
+      ? 'image/*'
+      : '.pdf,.doc,.docx,.xlsx,.xls,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    input.addEventListener('change', () => {
+      const files = Array.from(input.files || []);
+      if (files.length) {
+        this.applyAttachmentFiles(files);
+      }
+      this.resetNativeFileInput(input);
+    }, { once: true });
+    input.click();
+  }
+
+  getAttachmentComposerTitle(): string {
+    const count = this.attachmentQueue.length;
+    if (count <= 1) {
+      const attachment = this.selectedAttachment;
+      return attachment ? this.getAttachmentHeaderLabel(attachment) : 'Attachment';
+    }
+
+    const active = this.activeAttachmentIndex + 1;
+    return `${count} attachments (${active}/${count})`;
+  }
+
+  trackAttachmentDraft(_index: number, item: SelectedAttachment): string {
+    return item.draftId;
   }
 
   private resetAttachmentDraftState(): void {
@@ -1686,7 +1714,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.attachmentQueue = [];
     this.activeAttachmentIndex = -1;
     this.attachmentCaption = '';
-    this.attachmentPickMode = 'append';
     this.composerDragActive = false;
   }
 

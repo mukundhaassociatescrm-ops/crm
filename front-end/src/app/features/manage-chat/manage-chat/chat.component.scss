@@ -1176,6 +1176,146 @@ app-fullscreen-toggle.fullscreen-toggle--inline {
   text-overflow: ellipsis;
 }
 
+.wa-composer-tray {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #f7f8f9;
+  border-bottom: 1px solid #e9edef;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #c5cdd3;
+    border-radius: 999px;
+  }
+}
+
+.wa-composer-tray-item {
+  position: relative;
+  flex: 0 0 auto;
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 4px;
+  border: 2px solid transparent;
+  transition: border-color 120ms ease, background 120ms ease;
+
+  &.active {
+    border-color: #00a884;
+    background: rgba(0, 168, 132, 0.08);
+  }
+
+  &:hover {
+    background: rgba(17, 27, 33, 0.04);
+  }
+}
+
+.wa-composer-tray-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(17, 27, 33, 0.72);
+  color: #fff;
+  font-size: 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: #b42318;
+  }
+}
+
+.wa-composer-tray-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #e9edef;
+}
+
+.wa-composer-tray-doc {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  border: 1px solid #d1d7db;
+  background: #fff;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #54656f;
+
+  i {
+    font-size: 22px;
+  }
+}
+
+.wa-composer-tray-doc-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #fff;
+  background: #54656f;
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 1.2;
+}
+
+.wa-composer-tray-name {
+  width: 100%;
+  font-size: 10px;
+  color: #3b4a54;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wa-composer-tray-add {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 88px;
+  border: 1px dashed #00a884;
+  border-radius: 8px;
+  background: rgba(0, 168, 132, 0.06);
+  color: #008069;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+
+  i {
+    font-size: 14px;
+  }
+
+  &:hover {
+    background: rgba(0, 168, 132, 0.12);
+  }
+}
+
 .wa-composer-preview {
   flex: 0 1 auto;
   min-height: 120px;

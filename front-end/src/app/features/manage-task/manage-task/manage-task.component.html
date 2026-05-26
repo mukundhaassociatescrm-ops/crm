@@ -18,7 +18,7 @@
 
   <div class="filters-row" [formGroup]="filterForm">
     <div class="filter-field filter-field--search">
-      <input type="text" placeholder="Search task..." formControlName="searchTerm" />
+      <input type="text" placeholder="Search task, customer, phone..." formControlName="searchTerm" />
     </div>
     <div class="filter-field">
       <select formControlName="statusFilter">
@@ -36,15 +36,18 @@
       </select>
     </div>
     <div class="filter-field filter-field--date">
-      <app-date-time-picker formControlName="fromDate" placeholder="From date and time"></app-date-time-picker>
+      <app-date-time-picker formControlName="fromDate" placeholder="From date"></app-date-time-picker>
     </div>
     <div class="filter-field filter-field--date">
-      <app-date-time-picker formControlName="toDate" placeholder="To date and time"></app-date-time-picker>
+      <app-date-time-picker formControlName="toDate" placeholder="To date"></app-date-time-picker>
     </div>
   </div>
 
-  <div *ngIf="!loading && filteredTasks.length === 0" class="empty-state">
-    No tasks match your filters.
+  <div *ngIf="!loading && filteredTasks.length === 0" class="empty-state-card">
+    <div class="empty-state-card__icon"><i class="fas fa-list-check"></i></div>
+    <h3>No tasks found</h3>
+    <p>Adjust your filters or create a new task to get started.</p>
+    <button *ngIf="isAdmin" type="button" class="btn-primary" (click)="openAddTask()">+ Add Task</button>
   </div>
 
   <!-- Desktop / tablet table -->
@@ -57,46 +60,53 @@
             <th class="col-title">Task Name</th>
             <th *ngIf="isAdmin" class="col-assignee">Assigned To</th>
             <th class="col-customer">Customer</th>
-            <th class="col-priority">Priority</th>
             <th class="col-status">Status</th>
-            <th class="col-payment hide-compact">Payment</th>
-            <th class="col-report hide-compact">Report Sent</th>
             <th class="col-due">Due Date</th>
             <th *ngIf="isAdmin" class="col-actions text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let task of filteredTasks; let i = index; trackBy: trackByTaskId">
-            <td class="col-id">{{ getTaskDisplayId(i) }}</td>
+          <tr *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId">
+            <td class="col-id">
+              <span class="task-id-pill">{{ getTaskDisplayId(task, (currentPage - 1) * pageSize + i) }}</span>
+            </td>
             <td class="col-title">
-              <span class="task-title" [title]="task.title">{{ task.title }}</span>
+              <div class="task-title-cell">
+                <span class="priority-dot" [ngClass]="getPriorityDotClass(task.priority)" [title]="task.priority + ' priority'"></span>
+                <span class="task-title" [title]="task.title">{{ task.title }}</span>
+              </div>
             </td>
             <td *ngIf="isAdmin" class="col-assignee">{{ getAssignedUserName(task) }}</td>
             <td class="col-customer">
               <span class="task-meta-text" [title]="getCustomerLabel(task)">{{ getCustomerLabel(task) }}</span>
             </td>
-            <td class="col-priority">
-              <span class="badge badge--sm" [ngClass]="getPriorityClass(task.priority)">{{ task.priority }}</span>
-            </td>
             <td class="col-status">
               <span class="badge badge--sm" [ngClass]="getStatusClass(task.status)">{{ task.status }}</span>
             </td>
-            <td class="col-payment hide-compact">
-              <span class="badge badge--sm payment-badge" [ngClass]="task.paymentReceived ? 'payment-received' : 'payment-not-received'">
-                {{ task.paymentReceived ? 'Received' : 'Pending' }}
-              </span>
+            <td class="col-due">
+              <span class="due-date-text" [title]="formatTaskDueDate(task.dueDate)">{{ formatTaskDueDate(task.dueDate) }}</span>
             </td>
-            <td class="col-report hide-compact">
-              <span class="badge badge--sm" [ngClass]="task.reportSent ? 'completed' : 'pending'">
-                {{ task.reportSent ? 'Yes' : 'No' }}
-              </span>
-            </td>
-            <td class="col-due">{{ task.dueDate | date:'dd/MM/yyyy HH:mm' }}</td>
             <td *ngIf="isAdmin" class="col-actions text-center">
               <div class="row-actions">
-                <button type="button" class="icon-btn icon-btn--edit" (click)="openEditTask(task)" title="Edit task" aria-label="Edit task">
-                  <i class="fas fa-pen"></i>
+                <button
+                  *ngIf="isTaskCompleted(task); else editTaskBtnTpl"
+                  type="button"
+                  class="icon-btn icon-btn--view"
+                  (click)="openViewTask(task)"
+                  title="View task"
+                  aria-label="View task">
+                  <i class="fas fa-eye"></i>
                 </button>
+                <ng-template #editTaskBtnTpl>
+                  <button
+                    type="button"
+                    class="icon-btn icon-btn--edit"
+                    (click)="openEditTask(task)"
+                    title="Edit task"
+                    aria-label="Edit task">
+                    <i class="fas fa-pen"></i>
+                  </button>
+                </ng-template>
                 <button type="button" class="icon-btn icon-btn--delete" (click)="openDeleteModal(task)" title="Delete task" aria-label="Delete task">
                   <i class="fas fa-trash-alt"></i>
                 </button>
@@ -106,14 +116,31 @@
         </tbody>
       </table>
     </div>
+
+    <footer class="table-pagination">
+      <div class="table-pagination__info">
+        Showing {{ paginationStart }}–{{ paginationEnd }} of {{ filteredTasks.length }}
+      </div>
+      <div class="table-pagination__controls">
+        <label class="table-pagination__size">
+          Rows
+          <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)" [ngModelOptions]="{ standalone: true }">
+            <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+          </select>
+        </label>
+        <button type="button" class="page-btn" [disabled]="currentPage <= 1" (click)="goToPage(currentPage - 1)">Prev</button>
+        <span class="page-indicator">{{ currentPage }} / {{ totalPages }}</span>
+        <button type="button" class="page-btn" [disabled]="currentPage >= totalPages" (click)="goToPage(currentPage + 1)">Next</button>
+      </div>
+    </footer>
   </div>
 
   <!-- Mobile / small screen cards -->
   <div class="task-card-list" *ngIf="filteredTasks.length > 0">
-    <article class="task-card" *ngFor="let task of filteredTasks; let i = index; trackBy: trackByTaskId">
+    <article class="task-card" *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId">
       <header class="task-card__header">
-        <span class="task-card__id">{{ getTaskDisplayId(i) }}</span>
-        <span class="task-card__due">{{ task.dueDate | date:'dd/MM/yyyy HH:mm' }}</span>
+        <span class="task-card__id">{{ getTaskDisplayId(task, (currentPage - 1) * pageSize + i) }}</span>
+        <span class="task-card__due">{{ formatTaskDueDate(task.dueDate) }}</span>
         <div *ngIf="isAdmin" class="task-card__actions">
           <button
             type="button"
@@ -124,9 +151,14 @@
             <i class="fas fa-ellipsis-v"></i>
           </button>
           <div class="action-menu" *ngIf="isActionMenuOpen(task)" (click)="$event.stopPropagation()">
-            <button type="button" (click)="openEditTask(task); closeActionMenu()">
-              <i class="fas fa-pen"></i> Edit
+            <button type="button" *ngIf="isTaskCompleted(task); else mobileEditTpl" (click)="openViewTask(task); closeActionMenu()">
+              <i class="fas fa-eye"></i> View
             </button>
+            <ng-template #mobileEditTpl>
+              <button type="button" (click)="openEditTask(task); closeActionMenu()">
+                <i class="fas fa-pen"></i> Edit
+              </button>
+            </ng-template>
             <button type="button" class="danger" (click)="openDeleteModal(task); closeActionMenu()">
               <i class="fas fa-trash-alt"></i> Delete
             </button>
@@ -134,7 +166,10 @@
         </div>
       </header>
 
-      <h3 class="task-card__title" [title]="task.title">{{ task.title }}</h3>
+      <h3 class="task-card__title" [title]="task.title">
+        <span class="priority-dot" [ngClass]="getPriorityDotClass(task.priority)"></span>
+        {{ task.title }}
+      </h3>
 
       <div class="task-card__meta">
         <div *ngIf="isAdmin" class="task-card__meta-item">
@@ -148,16 +183,20 @@
       </div>
 
       <footer class="task-card__footer">
-        <span class="badge badge--sm" [ngClass]="getPriorityClass(task.priority)">{{ task.priority }}</span>
         <span class="badge badge--sm" [ngClass]="getStatusClass(task.status)">{{ task.status }}</span>
-        <span class="badge badge--sm payment-badge" [ngClass]="task.paymentReceived ? 'payment-received' : 'payment-not-received'">
-          {{ task.paymentReceived ? 'Paid' : 'Unpaid' }}
-        </span>
-        <span class="badge badge--sm" [ngClass]="task.reportSent ? 'completed' : 'pending'">
-          Report {{ task.reportSent ? 'Sent' : 'Pending' }}
-        </span>
       </footer>
     </article>
+
+    <footer class="table-pagination table-pagination--cards">
+      <div class="table-pagination__info">
+        Showing {{ paginationStart }}–{{ paginationEnd }} of {{ filteredTasks.length }}
+      </div>
+      <div class="table-pagination__controls">
+        <button type="button" class="page-btn" [disabled]="currentPage <= 1" (click)="goToPage(currentPage - 1)">Prev</button>
+        <span class="page-indicator">{{ currentPage }} / {{ totalPages }}</span>
+        <button type="button" class="page-btn" [disabled]="currentPage >= totalPages" (click)="goToPage(currentPage + 1)">Next</button>
+      </div>
+    </footer>
   </div>
 
 </div>
@@ -166,7 +205,7 @@
 <div class="drawer-overlay" *ngIf="isTaskModalOpen" (click)="closeTaskModal()"></div>
 <div class="task-drawer" *ngIf="isTaskModalOpen" (click)="$event.stopPropagation()">
   <div class="drawer-header">
-    <h2>{{ isEditMode ? 'Edit Task' : 'Add Task' }}</h2>
+    <h2>{{ isViewOnlyMode ? 'View Task' : (isEditMode ? 'Edit Task' : 'Add Task') }}</h2>
     <button type="button" class="drawer-close-btn" (click)="closeTaskModal()" title="Close (ESC)">✕</button>
   </div>
 
@@ -195,7 +234,7 @@
         <textarea rows="3" placeholder="Enter description" formControlName="description"></textarea>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" *ngIf="!isViewOnlyMode">
         <label>Attach Files</label>
         <div class="file-upload-area" (click)="fileInput.click()" (drop)="onFileDrop($event)" (dragover)="$event.preventDefault()" (dragenter)="$event.preventDefault()">
           <i class="fas fa-cloud-upload-alt"></i>
@@ -269,7 +308,7 @@
         </div>
       </div>
 
-      <div class="form-group checkboxes-group">
+      <div class="form-group checkboxes-group" *ngIf="!isViewOnlyMode">
         <label class="checkbox-wrapper">
           <input type="checkbox" formControlName="paymentReceived" />
           <span class="checkbox-label">Payment Received</span>
@@ -284,7 +323,7 @@
         </label>
       </div>
 
-      <div class="form-group" *ngIf="reminderEnabled">
+      <div class="form-group" *ngIf="reminderEnabled && !isViewOnlyMode">
         <label>Reminder Before</label>
         <select formControlName="reminderBefore">
           <option *ngFor="let option of reminderOptions" [ngValue]="option.value">
@@ -296,8 +335,8 @@
   </div>
 
   <div class="drawer-footer">
-    <button type="button" class="btn-cancel" (click)="closeTaskModal()">Cancel</button>
-    <button type="button" class="btn-save" (click)="saveTask()" [disabled]="loadingSave">
+    <button type="button" class="btn-cancel" (click)="closeTaskModal()">{{ isViewOnlyMode ? 'Close' : 'Cancel' }}</button>
+    <button *ngIf="!isViewOnlyMode" type="button" class="btn-save" (click)="saveTask()" [disabled]="loadingSave">
       {{ isEditMode ? 'Update Task' : 'Save Task' }}
     </button>
   </div>

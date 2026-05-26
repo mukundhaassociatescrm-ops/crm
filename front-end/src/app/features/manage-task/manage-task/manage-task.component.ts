@@ -22,6 +22,10 @@ export class ManageTaskComponent {
   isTaskModalOpen = false;
   isDeleteModalOpen = false;
   isEditMode = false;
+  isViewOnlyMode = false;
+  pageSize = 25;
+  currentPage = 1;
+  readonly pageSizeOptions = [25, 50, 100];
   currentUser: any = null;
   isAdmin = false;
   isEmployee = false;
@@ -125,6 +129,7 @@ export class ManageTaskComponent {
     this.loadTasks();
 
     this.filterForm.valueChanges.subscribe(() => {
+      this.currentPage = 1;
       this.applyFilters();
     });
 
@@ -201,7 +206,12 @@ export class ManageTaskComponent {
           return;
         }
 
-        this.openEditTask(response.data as Task);
+        const task = response.data as Task;
+        if (task.status === 'Completed') {
+          this.openViewTask(task);
+        } else {
+          this.openEditTask(task);
+        }
       },
       error: () => {
         this.showMessage('Unable to open linked task', 'error');
@@ -287,14 +297,14 @@ export class ManageTaskComponent {
     this.filteredTasks = this.tasks.filter((task) => {
       const matchesSearch = !searchTerm
         ? true
-        : [task.title, task.description, task.customerName || '', task.customerPhone || '']
-            .some((value) => value.toLowerCase().includes(searchTerm));
+        : [task.title, task.description, task.customerName || '', task.customerPhone || '', task.displayId || '']
+            .some((value) => String(value).toLowerCase().includes(searchTerm));
 
       const matchesStatus = statusFilter === 'All Status' || task.status === statusFilter;
 
-      const taskDueDate = new Date(task.dueDate);
-      const matchesFromDate = !fromDate || taskDueDate >= fromDate;
-      const matchesToDate = !toDate || taskDueDate <= toDate;
+      const taskDueDate = task.dueDate ? new Date(task.dueDate) : null;
+      const matchesFromDate = !fromDate || (taskDueDate && !Number.isNaN(taskDueDate.getTime()) && taskDueDate >= fromDate);
+      const matchesToDate = !toDate || (taskDueDate && !Number.isNaN(taskDueDate.getTime()) && taskDueDate <= toDate);
 
       const assignedId = typeof task.assignedTo === 'string' ? task.assignedTo : task.assignedTo?._id || '';
       const matchesEmployeeFilter = this.isAdmin
@@ -347,7 +357,17 @@ export class ManageTaskComponent {
     this.isTaskModalOpen = true;
   }
 
-  openEditTask(task: Task) {
+  isTaskCompleted(task: Task): boolean {
+    return String(task.status || '').trim() === 'Completed';
+  }
+
+  openViewTask(task: Task): void {
+    this.openEditTask(task, true);
+  }
+
+  openEditTask(task: Task, viewOnly = false) {
+    const readOnly = viewOnly || this.isTaskCompleted(task);
+    this.isViewOnlyMode = readOnly;
     this.isEditMode = true;
     this.editingTaskId = task._id || null;
     this.editingTaskDisplayId = String(task.displayId || '').trim() || null;
@@ -370,16 +390,23 @@ export class ManageTaskComponent {
       reportSent: !!task.reportSent,
       priority: task.priority,
       status: task.status,
-      dueDate: task.dueDate,
+      dueDate: this.normalizeDueDateForForm(task.dueDate),
       reminderEnabled: !!task.reminderEnabled,
       reminderBefore: Number(task.reminderBefore) || 10
     });
     this.selectedFiles = [];
+    if (readOnly) {
+      this.taskForm.disable({ emitEvent: false });
+    } else {
+      this.taskForm.enable({ emitEvent: false });
+    }
     this.isTaskModalOpen = true;
   }
 
   closeTaskModal() {
     this.isTaskModalOpen = false;
+    this.isViewOnlyMode = false;
+    this.taskForm.enable({ emitEvent: false });
     this.selectedFiles = [];
   }
 
@@ -495,6 +522,12 @@ export class ManageTaskComponent {
       return;
     }
 
+    const normalizedDueDate = this.normalizeDueDateForApi(formValue.dueDate);
+    if (!normalizedDueDate && !this.isEditMode) {
+      this.showMessage('Due date and time is required', 'error');
+      return;
+    }
+
     this.loadingSave = true;
     const payload: Task = {
       title: formValue.title,
@@ -506,7 +539,7 @@ export class ManageTaskComponent {
       reportSent: nextReportSent,
       priority: formValue.priority,
       status: formValue.status,
-      dueDate: formValue.dueDate,
+      dueDate: normalizedDueDate || new Date().toISOString(),
       reminderEnabled: formValue.reminderEnabled,
       reminderBefore: formValue.reminderBefore,
       ...(this.chatTaskOrigin?.createdFromChat && !this.isEditMode
@@ -563,9 +596,11 @@ export class ManageTaskComponent {
               if (item._id !== this.editingTaskId) {
                 return item;
               }
+              const mergedDueDate = normalizedDueDate || updatedTask?.dueDate || item.dueDate;
               return {
                 ...item,
                 ...(updatedTask || {}),
+                dueDate: mergedDueDate,
                 paymentReceived: !!formValue.paymentReceived,
                 reportSent: nextReportSent,
               };
@@ -638,8 +673,100 @@ export class ManageTaskComponent {
     return task._id || `${task.title}-${task.dueDate}`;
   }
 
-  getTaskDisplayId(index: number): string {
-    return `#TSK${index + 1}`;
+  getTaskDisplayId(task: Task, index: number): string {
+    const displayId = String(task.displayId || '').trim();
+    if (displayId) {
+      return displayId;
+    }
+    return `TSK-${index + 1}`;
+  }
+
+  get paginatedTasks(): Task[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.filteredTasks.slice(start, start + this.pageSize);
+  }
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredTasks.length / this.pageSize));
+  }
+
+  get paginationStart(): number {
+    if (!this.filteredTasks.length) {
+      return 0;
+    }
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get paginationEnd(): number {
+    return Math.min(this.currentPage * this.pageSize, this.filteredTasks.length);
+  }
+
+  onPageSizeChange(raw: string | number): void {
+    this.pageSize = Number(raw) || 25;
+    this.currentPage = 1;
+  }
+
+  goToPage(page: number): void {
+    const next = Math.min(Math.max(1, page), this.totalPages);
+    this.currentPage = next;
+  }
+
+  formatTaskDueDate(value: unknown): string {
+    if (!value) {
+      return '—';
+    }
+
+    const date = value instanceof Date ? value : new Date(String(value));
+    if (Number.isNaN(date.getTime())) {
+      return '—';
+    }
+
+    return date.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
+
+  getPriorityDotClass(priority: string | undefined): string {
+    const normalized = String(priority || '').toLowerCase();
+    if (normalized === 'high') {
+      return 'priority-dot priority-dot--high';
+    }
+    if (normalized === 'low') {
+      return 'priority-dot priority-dot--low';
+    }
+    return 'priority-dot priority-dot--medium';
+  }
+
+  private normalizeDueDateForForm(value: unknown): string {
+    if (!value) {
+      return '';
+    }
+
+    const date = value instanceof Date ? value : new Date(String(value));
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return date.toISOString();
+  }
+
+  private normalizeDueDateForApi(value: unknown): string | undefined {
+    const raw = String(value || '').trim();
+    if (!raw) {
+      return undefined;
+    }
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) {
+      return undefined;
+    }
+
+    return parsed.toISOString();
   }
 
   getPriorityClass(priority: string | undefined): string {

@@ -69,6 +69,19 @@ const ensureAdminOwnsEmployee = async (user, employeeId) => {
   return Boolean(employee?._id);
 };
 
+const parseDueDateInput = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+
+  return parsed;
+};
+
 const resolveAssignedIdsForUser = async (user) => {
   const ids = [String(user._id)];
   const role = (user.role || '').toLowerCase();
@@ -140,7 +153,7 @@ exports.createTask = async (req, res, next) => {
       reportSent: status === 'Report Sent' ? true : !!reportSent,
       priority: priority || 'Medium',
       status: status || 'Pending',
-      dueDate,
+      dueDate: parseDueDateInput(dueDate),
       reminderEnabled: reminderEnabled ?? false,
       reminderBefore: reminderBefore || 15,
       createdFromChat: isFromChat,
@@ -468,7 +481,10 @@ exports.updateTask = async (req, res, next) => {
     if (task.status === 'Completed' && !task.reportSent) {
       return res.status(400).json({ success: false, message: 'Mark report as sent before completing the task.' });
     }
-    task.dueDate = dueDate ?? task.dueDate;
+    const parsedDueDate = parseDueDateInput(dueDate);
+    if (parsedDueDate) {
+      task.dueDate = parsedDueDate;
+    }
     if (reminderEnabled !== undefined) task.reminderEnabled = reminderEnabled;
     if (reminderBefore !== undefined) task.reminderBefore = reminderBefore;
 

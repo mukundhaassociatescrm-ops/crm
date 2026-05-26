@@ -116,18 +116,54 @@
 
       <div
         class="wa-media-composer"
-        *ngIf="selectedAttachment as attachment"
+        *ngIf="hasAttachmentDrafts && selectedAttachment as attachment"
         [class.wa-media-composer--drag]="composerDragActive"
         (dragover)="onComposerDragOver($event)"
         (dragleave)="onComposerDragLeave($event)"
         (drop)="onComposerDrop($event)"
       >
         <header class="wa-composer-top">
-          <button type="button" class="wa-composer-close" (click)="clearAllAttachmentDrafts()" aria-label="Remove attachment">
+          <button type="button" class="wa-composer-close" (click)="clearAllAttachmentDrafts()" aria-label="Remove all attachments">
             <i class="fa-solid fa-xmark"></i>
           </button>
-          <p class="wa-composer-filename" [title]="attachment.name">{{ getAttachmentHeaderLabel(attachment) }}</p>
+          <p class="wa-composer-filename" [title]="getAttachmentComposerTitle()">{{ getAttachmentComposerTitle() }}</p>
         </header>
+
+        <div class="wa-composer-tray" *ngIf="attachmentQueue.length > 0">
+          <div
+            class="wa-composer-tray-item"
+            *ngFor="let item of attachmentQueue; let i = index; trackBy: trackAttachmentDraft"
+            [class.active]="isActiveAttachmentDraft(i)"
+            (click)="selectAttachmentDraft(i)"
+          >
+            <button
+              type="button"
+              class="wa-composer-tray-remove"
+              (click)="removeAttachmentDraft(i); $event.stopPropagation()"
+              [attr.aria-label]="'Remove ' + item.name"
+            >
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+            <img
+              *ngIf="item.isImage && item.previewUrl; else trayDocThumbTpl"
+              class="wa-composer-tray-thumb"
+              [src]="item.previewUrl"
+              [alt]="item.name"
+            >
+            <ng-template #trayDocThumbTpl>
+              <div class="wa-composer-tray-doc" [ngClass]="getAttachmentDocumentCardClass(item)">
+                <span class="wa-composer-tray-doc-badge">{{ getAttachmentDocumentBadge(item) }}</span>
+                <i class="fa-solid" [ngClass]="item.isPdf ? 'fa-file-pdf' : (item.isSpreadsheet ? 'fa-file-excel' : 'fa-file-lines')"></i>
+              </div>
+            </ng-template>
+            <span class="wa-composer-tray-name" [title]="item.name">{{ getAttachmentPreviewLabel(i) }}</span>
+          </div>
+
+          <button type="button" class="wa-composer-tray-add" (click)="addAnotherAttachment('document')" aria-label="Add more files">
+            <i class="fa-solid fa-plus"></i>
+            <span>Add</span>
+          </button>
+        </div>
 
         <div class="wa-composer-preview">
           <img
@@ -166,42 +202,39 @@
 
           <div class="wa-composer-toolbar">
             <div class="wa-composer-tools">
-              <label class="wa-type-chip" [class.active]="attachment.isImage" aria-label="Replace with image">
+              <label class="wa-type-chip" [class.active]="attachment.isImage" aria-label="Add images">
                 <input
                   type="file"
                   class="wa-file-input-native"
                   accept="image/*"
-                  (change)="onAttachmentFileChange($event)"
+                  multiple
+                  (change)="onAddMoreFilesChange($event)"
                 >
                 <span>JPG</span>
               </label>
-              <label class="wa-type-chip wa-type-chip--pdf" [class.active]="attachment.isPdf" aria-label="Replace with PDF">
+              <label class="wa-type-chip wa-type-chip--pdf" [class.active]="attachment.isPdf" aria-label="Add PDF files">
                 <input
                   type="file"
                   class="wa-file-input-native"
                   accept=".pdf,application/pdf"
-                  (change)="onAttachmentFileChange($event)"
+                  multiple
+                  (change)="onAddMoreFilesChange($event)"
                 >
                 <span>PDF</span>
               </label>
-              <label class="wa-type-chip wa-type-chip--sheet" [class.active]="attachment.isSpreadsheet" aria-label="Replace with spreadsheet">
+              <label class="wa-type-chip wa-type-chip--sheet" [class.active]="attachment.isSpreadsheet" aria-label="Add spreadsheets">
                 <input
                   type="file"
                   class="wa-file-input-native"
                   accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  (change)="onAttachmentFileChange($event)"
+                  multiple
+                  (change)="onAddMoreFilesChange($event)"
                 >
                 <span>XLSX</span>
               </label>
-              <label class="wa-type-chip wa-type-chip--more" aria-label="Replace with document">
-                <input
-                  type="file"
-                  class="wa-file-input-native"
-                  accept=".pdf,.doc,.docx,.xlsx,.xls,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  (change)="onAttachmentFileChange($event)"
-                >
+              <button type="button" class="wa-type-chip wa-type-chip--more" aria-label="Add more files" (click)="addAnotherAttachment('document')">
                 <i class="fa-solid fa-plus"></i>
-              </label>
+              </button>
             </div>
 
             <div class="wa-composer-send-wrap">
@@ -486,6 +519,7 @@
                       type="file"
                       class="wa-file-input-native"
                       accept="image/*"
+                      multiple
                       (change)="onAttachmentFileChange($event)"
                     >
                     <i class="fa-regular fa-image"></i>
@@ -496,6 +530,7 @@
                       type="file"
                       class="wa-file-input-native"
                       accept=".pdf,.doc,.docx,.xlsx,.xls,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      multiple
                       (change)="onAttachmentFileChange($event)"
                     >
                     <i class="fa-regular fa-file-lines"></i>
@@ -528,7 +563,7 @@
             Verifying WhatsApp session...
           </div>
           <div class="attachment-mode-hint" *ngIf="hasAttachmentDrafts">
-            Add caption in preview bubble and press Send.
+            {{ attachmentQueue.length > 1 ? (attachmentQueue.length + ' files ready — caption applies to first message.') : 'Add caption in preview and press Send.' }}
           </div>
           <div class="upload-progress" *ngIf="isUploadingAttachment">
             Uploading... {{ uploadProgress }}%
