@@ -172,6 +172,11 @@
 
   <div class="drawer-body" [formGroup]="taskForm">
 
+      <div class="task-display-id" *ngIf="isEditMode && editingTaskDisplayId">
+        <span class="task-display-id__label">Task ID</span>
+        <span class="task-display-id__value">{{ editingTaskDisplayId }}</span>
+      </div>
+
       <div class="chat-origin-banner" *ngIf="hasChatOrigin">
         <div>
           <strong>Created from WhatsApp message</strong>

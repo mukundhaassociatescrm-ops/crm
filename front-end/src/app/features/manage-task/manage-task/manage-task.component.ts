@@ -61,6 +61,7 @@ export class ManageTaskComponent {
   readonly taskForm: FormGroup;
 
   editingTaskId: string | null = null;
+  editingTaskDisplayId: string | null = null;
   openActionMenuTaskId: string | null = null;
   chatTaskOrigin: {
     createdFromChat?: boolean;
@@ -326,6 +327,7 @@ export class ManageTaskComponent {
 
     this.isEditMode = false;
     this.editingTaskId = null;
+    this.editingTaskDisplayId = null;
     this.chatTaskOrigin = null;
     this.taskForm.reset({
       title: '',
@@ -348,6 +350,7 @@ export class ManageTaskComponent {
   openEditTask(task: Task) {
     this.isEditMode = true;
     this.editingTaskId = task._id || null;
+    this.editingTaskDisplayId = String(task.displayId || '').trim() || null;
     this.chatTaskOrigin = task.createdFromChat && task.chatMessageId
       ? {
         createdFromChat: true,

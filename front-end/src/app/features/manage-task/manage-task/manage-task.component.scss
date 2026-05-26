@@ -764,6 +764,33 @@ $bp-compact: 1400px;
   color: #1f2937;
 }
 
+.task-display-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 4px 10px;
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.08);
+  white-space: nowrap;
+
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__value {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f766e;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 .drawer-body {
   flex: 1;
   overflow-y: auto;

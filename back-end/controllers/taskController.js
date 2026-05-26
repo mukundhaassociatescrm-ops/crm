@@ -7,7 +7,7 @@ const User = require('../models/User');
 const { scheduleTaskReminder, rescheduleTaskReminder, sendManualReminder } = require('../services/reminderService');
 const ReminderLog = require('../models/ReminderLog');
 const { logActivity, resolveClientIdByPhone } = require('../services/activityHistoryService');
-const { allocateTaskDisplayId } = require('../services/taskDisplayIdService');
+const { allocateTaskDisplayId, stripMutableTaskIdFields } = require('../services/taskDisplayIdService');
 
 const isAdminUser = (user) => String(user?.role || '').toLowerCase() === 'admin';
 
@@ -90,6 +90,7 @@ const resolveAssignedIdsForUser = async (user) => {
 
 exports.createTask = async (req, res, next) => {
   try {
+    stripMutableTaskIdFields(req.body);
     const {
       title,
       description,
@@ -344,6 +345,7 @@ exports.getTaskById = async (req, res, next) => {
 
 exports.updateTask = async (req, res, next) => {
   try {
+    stripMutableTaskIdFields(req.body);
     const task = await Task.findOne({ _id: req.params.id, ...(await buildAdminTaskScope(req.user)) });
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });

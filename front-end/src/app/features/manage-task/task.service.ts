@@ -14,6 +14,7 @@ export interface TaskAttachment {
 
 export interface Task {
   _id?: string;
+  displayId?: string;
   title: string;
   description: string;
   assignedTo: string | { _id?: string; name?: string; fullName?: string; email?: string; phone?: string };
@@ -90,7 +91,10 @@ export class TaskService {
   }
 
   updateTask(id: string, task: Task): Observable<TaskResponse> {
-    return this.http.put<TaskResponse>(`/api/tasks/${id}`, task);
+    const { displayId: _displayId, ...payload } = task as Task & { taskNumber?: string };
+    const sanitized = { ...payload } as Task & { taskNumber?: string };
+    delete sanitized.taskNumber;
+    return this.http.put<TaskResponse>(`/api/tasks/${id}`, sanitized);
   }
 
   uploadTaskFile(file: File): Observable<UploadFileResponse> {

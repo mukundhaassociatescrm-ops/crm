@@ -13,6 +13,8 @@ const parseTaskDisplayNumber = (displayId) => {
 
 const formatTaskDisplayId = (number) => `TSK-${number}`;
 
+const isValidTaskDisplayId = (displayId) => DISPLAY_ID_PATTERN.test(String(displayId || '').trim());
+
 const findMaxTaskDisplayNumber = async () => {
   const tasks = await Task.find({ displayId: { $exists: true, $ne: '' } })
     .select('displayId')
@@ -46,43 +48,73 @@ const allocateTaskDisplayId = async (maxAttempts = 5) => {
   throw new Error('Unable to allocate a unique task display ID.');
 };
 
-const ensureTaskDisplayId = async (taskDoc) => {
-  const existing = String(taskDoc?.displayId || '').trim();
-  if (DISPLAY_ID_PATTERN.test(existing)) {
+/**
+ * Assign displayId only when the persisted task has none.
+ * Always returns the authoritative value from MongoDB.
+ */
+const ensureTaskDisplayId = async (taskId) => {
+  const id = String(taskId || '').trim();
+  if (!id) {
+    return '';
+  }
+
+  const persisted = await Task.findById(id).select('displayId').lean();
+  const existing = String(persisted?.displayId || '').trim();
+  if (isValidTaskDisplayId(existing)) {
     return existing;
   }
 
   const displayId = await allocateTaskDisplayId();
-  await Task.updateOne(
+  const updated = await Task.findOneAndUpdate(
     {
-      _id: taskDoc._id,
+      _id: id,
       $or: [{ displayId: { $exists: false } }, { displayId: null }, { displayId: '' }],
     },
     { $set: { displayId } },
-  );
-  return displayId;
+    { new: true, select: 'displayId' },
+  ).lean();
+
+  if (updated?.displayId && isValidTaskDisplayId(updated.displayId)) {
+    return String(updated.displayId).trim();
+  }
+
+  const refreshed = await Task.findById(id).select('displayId').lean();
+  const resolved = String(refreshed?.displayId || '').trim();
+  if (isValidTaskDisplayId(resolved)) {
+    return resolved;
+  }
+
+  return '';
 };
 
 const ensureTasksHaveDisplayIds = async (tasks = []) => {
   const list = Array.isArray(tasks) ? tasks : [];
-  const missing = list.filter((task) => !parseTaskDisplayNumber(task?.displayId));
-  if (!missing.length) {
-    return list;
+  for (const task of list) {
+    const resolved = await ensureTaskDisplayId(task?._id);
+    if (resolved) {
+      task.displayId = resolved;
+    }
   }
-
-  for (const task of missing) {
-    task.displayId = await ensureTaskDisplayId(task);
-  }
-
   return list;
+};
+
+const stripMutableTaskIdFields = (body = {}) => {
+  if (!body || typeof body !== 'object') {
+    return body;
+  }
+  delete body.displayId;
+  delete body.taskNumber;
+  return body;
 };
 
 module.exports = {
   DISPLAY_ID_PATTERN,
   parseTaskDisplayNumber,
   formatTaskDisplayId,
+  isValidTaskDisplayId,
   generateNextTaskDisplayId,
   allocateTaskDisplayId,
   ensureTaskDisplayId,
   ensureTasksHaveDisplayIds,
+  stripMutableTaskIdFields,
 };

@@ -8,6 +8,7 @@ const taskSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
       index: true,
+      immutable: true,
     },
     title: { type: String, required: [true, 'Task title is required'] },
     description: { type: String, default: '' },
@@ -46,5 +47,22 @@ const taskSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+taskSchema.pre('save', function protectDisplayId(next) {
+  if (!this.isNew && this.isModified('displayId')) {
+    return next(new Error('Task displayId cannot be changed after creation.'));
+  }
+  return next();
+});
+
+taskSchema.pre('findOneAndUpdate', function protectDisplayIdOnUpdate(next) {
+  const update = this.getUpdate() || {};
+  const setPayload = update.$set || update;
+  if (setPayload && (Object.prototype.hasOwnProperty.call(setPayload, 'displayId')
+    || Object.prototype.hasOwnProperty.call(setPayload, 'taskNumber'))) {
+    return next(new Error('Task displayId cannot be changed after creation.'));
+  }
+  return next();
+});
 
 module.exports = mongoose.model('Task', taskSchema);

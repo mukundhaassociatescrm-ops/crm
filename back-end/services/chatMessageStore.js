@@ -429,7 +429,6 @@ const buildDirectionalEndpoints = (normalized) => {
 };
 
 const Task = require('../models/Task');
-const { ensureTasksHaveDisplayIds } = require('./taskDisplayIdService');
 
 const toLinkedTaskView = (taskDoc) => {
   if (!taskDoc) {
@@ -507,12 +506,6 @@ const buildLinkedTaskMap = async (messages) => {
         .lean()
       : [],
   ]);
-
-  const allTasks = [...tasksByMessage, ...tasksById];
-  const uniqueTasks = Array.from(
-    new Map(allTasks.map((task) => [String(task._id), task])).values(),
-  );
-  await ensureTasksHaveDisplayIds(uniqueTasks);
 
   const map = new Map();
   for (const task of tasksByMessage) {
