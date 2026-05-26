@@ -7,6 +7,7 @@ const User = require('../models/User');
 const { scheduleTaskReminder, rescheduleTaskReminder, sendManualReminder } = require('../services/reminderService');
 const ReminderLog = require('../models/ReminderLog');
 const { logActivity, resolveClientIdByPhone } = require('../services/activityHistoryService');
+const { allocateTaskDisplayId } = require('../services/taskDisplayIdService');
 
 const isAdminUser = (user) => String(user?.role || '').toLowerCase() === 'admin';
 
@@ -125,8 +126,10 @@ exports.createTask = async (req, res, next) => {
     const resolvedChatPhone = String(chatPhone || chatId || customerPhone || '').trim();
     const resolvedMessageText = String(messageText || description || '').trim();
     const isFromChat = Boolean(createdFromChat && resolvedChatMessageId);
+    const displayId = await allocateTaskDisplayId();
 
     const task = await Task.create({
+      displayId,
       title,
       description,
       assignedTo,

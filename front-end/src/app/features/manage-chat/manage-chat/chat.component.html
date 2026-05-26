@@ -269,11 +269,12 @@
               type="button"
               class="message-task-badge"
               *ngIf="message.linkedTask && !isMessageDeleted(message)"
+              [attr.aria-label]="getLinkedTaskChipLabel(message)"
               [title]="getLinkedTaskTooltip(message)"
               (click)="openLinkedTask(message, $event)"
             >
-              <i class="fa-solid fa-thumbtack" aria-hidden="true"></i>
-              <span>Task Linked</span>
+              <i class="fa-solid fa-link" aria-hidden="true"></i>
+              <span class="message-task-badge__label">{{ getLinkedTaskChipLabel(message) }}</span>
             </button>
 
             <ng-container *ngIf="isMessageDeleted(message); else activeMessageContentTpl">

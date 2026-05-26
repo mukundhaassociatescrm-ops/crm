@@ -2,6 +2,13 @@ const mongoose = require('mongoose');
 
 const taskSchema = new mongoose.Schema(
   {
+    displayId: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     title: { type: String, required: [true, 'Task title is required'] },
     description: { type: String, default: '' },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },

@@ -26,6 +26,7 @@ export interface ChatConversation {
 
 export interface ChatLinkedTask {
   taskId: string;
+  displayId?: string;
   title: string;
   status: string;
   dueDate?: string | null;

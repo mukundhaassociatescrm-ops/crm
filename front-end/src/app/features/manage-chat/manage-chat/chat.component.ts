@@ -1906,23 +1906,57 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
+  getLinkedTaskChipLabel(message: PendingMessage): string {
+    const task = message.linkedTask;
+    if (!task) {
+      return 'Task Linked';
+    }
+
+    const displayId = String(task.displayId || '').trim();
+    return displayId ? `Task Linked (${displayId})` : 'Task Linked';
+  }
+
   getLinkedTaskTooltip(message: PendingMessage): string {
     const task = message.linkedTask;
     if (!task) {
       return '';
     }
 
-    const parts = [task.title || 'Linked task'];
+    const lines: string[] = [];
+    const title = String(task.title || '').trim();
+    if (title) {
+      lines.push(`Follow up: ${title}`);
+    }
     if (task.status) {
-      parts.push(`Status: ${task.status}`);
+      lines.push(`Status: ${task.status}`);
     }
     if (task.dueDate) {
-      parts.push(`Due: ${new Date(task.dueDate).toLocaleString()}`);
+      const dueLabel = this.formatLinkedTaskDueDate(task.dueDate);
+      if (dueLabel) {
+        lines.push(`Due: ${dueLabel}`);
+      }
     }
     if (task.assigneeName) {
-      parts.push(`Assignee: ${task.assigneeName}`);
+      lines.push(`Assignee: ${task.assigneeName}`);
     }
-    return parts.join(' · ');
+
+    return lines.join('\n');
+  }
+
+  private formatLinkedTaskDueDate(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return date.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
   }
 
   canSoftDeleteMessage(message: PendingMessage): boolean {

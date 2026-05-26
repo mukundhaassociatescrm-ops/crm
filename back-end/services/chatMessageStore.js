@@ -429,6 +429,7 @@ const buildDirectionalEndpoints = (normalized) => {
 };
 
 const Task = require('../models/Task');
+const { ensureTasksHaveDisplayIds } = require('./taskDisplayIdService');
 
 const toLinkedTaskView = (taskDoc) => {
   if (!taskDoc) {
@@ -441,6 +442,7 @@ const toLinkedTaskView = (taskDoc) => {
 
   return {
     taskId: String(taskDoc._id),
+    displayId: String(taskDoc.displayId || '').trim(),
     title: taskDoc.title || '',
     status: taskDoc.status || '',
     dueDate: taskDoc.dueDate || null,
@@ -494,17 +496,23 @@ const buildLinkedTaskMap = async (messages) => {
   const [tasksByMessage, tasksById] = await Promise.all([
     messageIds.length
       ? Task.find({ createdFromChat: true, chatMessageId: { $in: messageIds } })
-        .select('_id title status dueDate assignedTo chatMessageId')
+        .select('_id displayId title status dueDate assignedTo chatMessageId')
         .populate('assignedTo', 'fullName')
         .lean()
       : [],
     linkedTaskIds.length
       ? Task.find({ _id: { $in: linkedTaskIds } })
-        .select('_id title status dueDate assignedTo chatMessageId')
+        .select('_id displayId title status dueDate assignedTo chatMessageId')
         .populate('assignedTo', 'fullName')
         .lean()
       : [],
   ]);
+
+  const allTasks = [...tasksByMessage, ...tasksById];
+  const uniqueTasks = Array.from(
+    new Map(allTasks.map((task) => [String(task._id), task])).values(),
+  );
+  await ensureTasksHaveDisplayIds(uniqueTasks);
 
   const map = new Map();
   for (const task of tasksByMessage) {
@@ -512,8 +520,21 @@ const buildLinkedTaskMap = async (messages) => {
       map.set(task.chatMessageId, toLinkedTaskView(task));
     }
   }
-  for (const task of tasksById) {
-    if (task.chatMessageId && !map.has(task.chatMessageId)) {
+
+  const taskById = new Map(tasksById.map((task) => [String(task._id), task]));
+  for (const message of messages) {
+    const linkedTaskId = message.linkedTaskId ? String(message.linkedTaskId) : '';
+    if (!linkedTaskId) {
+      continue;
+    }
+
+    const task = taskById.get(linkedTaskId);
+    if (task && message.messageId && !map.has(message.messageId)) {
+      map.set(message.messageId, toLinkedTaskView(task));
+      continue;
+    }
+
+    if (task?.chatMessageId && !map.has(task.chatMessageId)) {
       map.set(task.chatMessageId, toLinkedTaskView(task));
     }
   }
