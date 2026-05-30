@@ -21,6 +21,8 @@ import { WorkHistoryComponent } from './features/work-history/work-history.compo
 import { AuthGuard } from './core/auth.guard';
 import { SmsComponent } from './features/sms/sms.component';
 import { ManageSmsTemplatesComponent } from './features/manage-sms-templates/manage-sms-templates.component';
+import { ManagePostersComponent } from './features/manage-posters/manage-posters.component';
+import { PosterLandingComponent } from './features/manage-posters/poster-landing.component';
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
 
@@ -113,6 +115,12 @@ export const routes: Routes = [
         component: ManageSmsTemplatesComponent,
         canActivate: [AuthGuard],
         data: { role: 'admin', breadcrumb: 'Manage SMS Templates', fullscreenPageKey: 'manage-sms-templates' }
+      },
+      {
+        path: 'poster-management',
+        component: ManagePostersComponent,
+        canActivate: [AuthGuard],
+        data: { role: 'admin', breadcrumb: 'Poster Management', fullscreenPageKey: 'poster-management' }
       }
     ]
   }

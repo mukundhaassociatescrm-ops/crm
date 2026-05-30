@@ -112,6 +112,7 @@ const createCampaign = async (payload, userId) => {
     attachmentUrl = '',
     attachmentFilename = '',
     attachmentMimeType = '',
+    posterId = null,
   } = payload;
 
   if (!groupId || !templateId) {
@@ -157,6 +158,7 @@ const createCampaign = async (payload, userId) => {
     attachmentUrl,
     attachmentFilename,
     attachmentMimeType,
+    posterId: posterId || undefined,
     strategy: { ...DEFAULT_AUTOMATION },
     scheduleMode: 'now',
     scheduledAt: null,

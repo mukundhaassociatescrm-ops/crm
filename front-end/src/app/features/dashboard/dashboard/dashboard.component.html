@@ -46,6 +46,12 @@
         <p>Send plain SMS broadcasts through Fast2SMS</p>
       </div>
 
+      <div class="card" *ngIf="isAdmin" (click)="nav('poster-management')">
+        <div class="icon icon-bulk"><i class="fa-solid fa-image"></i></div>
+        <h3>Poster Management</h3>
+        <p>Marketing posters with auto-generated landing pages</p>
+      </div>
+
       <div class="card" *ngIf="isAdmin" (click)="nav('manage-group')">
         <div class="icon icon-group"><i class="fa-solid fa-user-group"></i></div>
         <h3>Manage Groups</h3>

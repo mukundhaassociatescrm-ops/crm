@@ -1,0 +1,60 @@
+<div class="form-backdrop" (click)="cancel()">
+  <div class="form-modal" (click)="$event.stopPropagation()">
+    <header>
+      <h3>{{ modalTitle }}</h3>
+      <button type="button" class="icon-btn" (click)="cancel()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+
+    <form class="form-grid" (ngSubmit)="save()">
+      <label class="field field--full">
+        <span>Poster image <em *ngIf="!isEdit">*</em></span>
+        <input type="file" accept="image/jpeg,image/png,image/webp" (change)="onImageSelected($event)">
+        <div class="preview" *ngIf="imagePreview">
+          <img [src]="imagePreview" alt="Preview">
+        </div>
+      </label>
+
+      <label class="field">
+        <span>Title *</span>
+        <input type="text" [(ngModel)]="title" name="title" (ngModelChange)="onTitleChange()" required>
+      </label>
+
+      <label class="field">
+        <span>Slug</span>
+        <input type="text" [(ngModel)]="slug" name="slug" (ngModelChange)="onSlugChange()" placeholder="auto-generated">
+      </label>
+
+      <label class="field">
+        <span>Category</span>
+        <select [(ngModel)]="category" name="category">
+          <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Status</span>
+        <select [(ngModel)]="isActive" name="isActive">
+          <option [ngValue]="true">Active</option>
+          <option [ngValue]="false">Inactive</option>
+        </select>
+      </label>
+
+      <label class="field field--full">
+        <span>Short description</span>
+        <textarea rows="2" [(ngModel)]="shortDescription" name="shortDescription"></textarea>
+      </label>
+
+      <label class="field field--full">
+        <span>Full content (optional)</span>
+        <textarea rows="5" [(ngModel)]="content" name="content"></textarea>
+      </label>
+
+      <footer class="form-footer">
+        <button type="button" class="btn-secondary" (click)="cancel()" [disabled]="isSaving">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="isSaving">
+          {{ isSaving ? 'Saving…' : (isEdit ? 'Update poster' : 'Create poster') }}
+        </button>
+      </footer>
+    </form>
+  </div>
+</div>

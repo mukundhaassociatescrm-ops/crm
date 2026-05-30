@@ -28,6 +28,23 @@
       </div>
 
       <div class="form-group">
+        <label>Select Poster (optional)</label>
+        <select [(ngModel)]="selectedPosterId" (ngModelChange)="onPosterChanged()" [disabled]="isSending || isLoadingPosters">
+          <option value="">{{ isLoadingPosters ? 'Loading posters…' : '-- No poster --' }}</option>
+          <option *ngFor="let poster of posters" [value]="poster._id">
+            {{ poster.title }} ({{ poster.category }})
+          </option>
+        </select>
+        <p class="field-note" *ngIf="selectedPoster">
+          Landing URL will be inserted into the last template variable:
+          <a [href]="posterLandingUrl" target="_blank" rel="noopener">{{ posterLandingUrl }}</a>
+        </p>
+        <p class="field-note" *ngIf="selectedPoster && templateVariableSlots.length === 0">
+          This template has no variables — include the poster URL manually in an approved DLT template field.
+        </p>
+      </div>
+
+      <div class="form-group">
         <label>Select SMS Template</label>
         <select
           [(ngModel)]="selectedSmsTemplateRecordId"

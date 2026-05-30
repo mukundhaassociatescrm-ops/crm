@@ -10,6 +10,7 @@ import { ChatService, WhatsAppTemplateOption } from '../manage-chat/manage-chat/
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 import { GroupSelectorComponent } from '../../shared/components/group-selector/group-selector.component';
 import { CreateCampaignPayload, WhatsappCampaignService } from './whatsapp-campaign.service';
+import { Poster, PosterService } from '../manage-posters/poster.service';
 
 @Component({
   selector: 'app-manage-bulk-message',
@@ -33,6 +34,9 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
   selectedMediaFile: File | null = null;
   isUploadingMedia = false;
   uploadProgress = 0;
+  posters: Poster[] = [];
+  selectedPosterId = '';
+  isLoadingPosters = false;
 
   private readonly destroy$ = new Subject<void>();
 
@@ -41,10 +45,12 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
     private readonly chatService: ChatService,
     private readonly campaignService: WhatsappCampaignService,
     private readonly router: Router,
+    private readonly posterService: PosterService,
   ) {}
 
   ngOnInit(): void {
     this.loadBulkWhatsAppTemplates();
+    this.loadPosters();
   }
 
   ngOnDestroy(): void {
@@ -125,6 +131,14 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
+  get selectedPoster(): Poster | null {
+    return this.posters.find((item) => item._id === this.selectedPosterId) || null;
+  }
+
+  get usesPosterMedia(): boolean {
+    return Boolean(this.selectedPoster?.imageUrl);
+  }
+
   get canSend(): boolean {
     if (!this.selectedGroup || this.isSending || (this.showMediaAttachment && this.isUploadingMedia)) {
       return false;
@@ -156,10 +170,18 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
     this.bulkTemplateVariables = { ...this.bulkTemplateVariables, [index]: value };
   }
 
+  onPosterChanged(): void {
+    if (this.selectedPosterId) {
+      this.selectedMediaFile = null;
+      this.uploadProgress = 0;
+    }
+  }
+
   onMediaSelected(event: Event): void {
     const file = (event.target as HTMLInputElement).files?.[0] || null;
     if (file) {
       this.selectedMediaFile = file;
+      this.selectedPosterId = '';
     }
   }
 
@@ -168,8 +190,21 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
     this.uploadProgress = 0;
   }
 
+  clearPosterSelection(): void {
+    this.selectedPosterId = '';
+  }
+
   sendCampaign(): void {
     if (!this.canSend) {
+      return;
+    }
+    if (this.selectedPoster?.imageUrl) {
+      this.launchCampaign({
+        attachmentUrl: this.selectedPoster.imageUrl,
+        attachmentFilename: this.selectedPoster.imageFilename || `${this.selectedPoster.slug}.jpg`,
+        attachmentMimeType: this.inferPosterMimeType(this.selectedPoster.imageUrl),
+        posterId: this.selectedPoster._id,
+      });
       return;
     }
     if (this.selectedMediaFile) {
@@ -177,6 +212,31 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
       return;
     }
     this.launchCampaign();
+  }
+
+  private inferPosterMimeType(url: string): string {
+    const lower = String(url || '').toLowerCase();
+    if (lower.includes('.png')) {
+      return 'image/png';
+    }
+    if (lower.includes('.webp')) {
+      return 'image/webp';
+    }
+    return 'image/jpeg';
+  }
+
+  private loadPosters(): void {
+    this.isLoadingPosters = true;
+    this.posterService.listActive().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res) => {
+        this.isLoadingPosters = false;
+        this.posters = res.success ? res.data || [] : [];
+      },
+      error: () => {
+        this.isLoadingPosters = false;
+        this.posters = [];
+      },
+    });
   }
 
   private loadBulkWhatsAppTemplates(): void {

@@ -54,8 +54,23 @@
       </div>
     </div>
 
-    <!-- Media attachment hidden until media-header templates are enabled (backend still supports attachments). -->
-    <div class="form-group media-section-hidden" *ngIf="showMediaAttachment">
+    <div class="form-group">
+      <label>Select Poster (optional)</label>
+      <select [(ngModel)]="selectedPosterId" (ngModelChange)="onPosterChanged()" [disabled]="isSending || isLoadingPosters">
+        <option value="">{{ isLoadingPosters ? 'Loading posters…' : '-- No poster --' }}</option>
+        <option *ngFor="let poster of posters" [value]="poster._id">
+          {{ poster.title }} ({{ poster.category }})
+        </option>
+      </select>
+      <div class="poster-media-preview" *ngIf="selectedPoster">
+        <img [src]="selectedPoster.imageUrl" [alt]="selectedPoster.title" loading="lazy">
+        <p>Poster image will be used as campaign media. Landing: {{ selectedPoster.landingUrl }}</p>
+        <button type="button" class="btn-link" (click)="clearPosterSelection()">Clear poster</button>
+      </div>
+    </div>
+
+    <!-- Manual file upload when no poster is selected. -->
+    <div class="form-group" *ngIf="showMediaAttachment && !usesPosterMedia">
       <label>Media attachment</label>
       <div class="media-uploader" [class.has-media]="selectedMediaFile">
         <ng-container *ngIf="!selectedMediaFile; else mediaTpl">

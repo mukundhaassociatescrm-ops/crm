@@ -21,6 +21,7 @@ import {
   SmsTemplate,
   SmsTemplateService,
 } from '../manage-sms-templates/sms-template.service';
+import { Poster, PosterService } from '../manage-posters/poster.service';
 
 @Component({
   selector: 'app-bulk-sms',
@@ -36,12 +37,17 @@ export class BulkSmsComponent {
   selectedSmsTemplateRecordId = '';
   templateVariables: Record<number, string> = {};
   isLoadingTemplates = false;
+  posters: Poster[] = [];
+  selectedPosterId = '';
+  isLoadingPosters = false;
 
   constructor(
     private readonly toastr: ToastrService,
     private readonly smsTemplateService: SmsTemplateService,
+    private readonly posterService: PosterService,
   ) {
     this.loadSmsTemplates();
+    this.loadPosters();
   }
 
   get selectedSmsTemplate(): SmsTemplate | null {
@@ -63,14 +69,30 @@ export class BulkSmsComponent {
     return `${count} variable${count === 1 ? '' : 's'} required`;
   }
 
+  get selectedPoster(): Poster | null {
+    return this.posters.find((item) => item._id === this.selectedPosterId) || null;
+  }
+
+  get posterLandingUrl(): string {
+    const poster = this.selectedPoster;
+    if (!poster) {
+      return '';
+    }
+    return poster.landingUrl || this.posterService.buildLandingUrl(poster.slug);
+  }
+
   get templatePreview(): string {
     if (!this.selectedSmsTemplate) {
       return 'Select a DLT template to preview the message.';
     }
-    return renderSmsTemplatePreview(
+    const base = renderSmsTemplatePreview(
       getSmsTemplateContent(this.selectedSmsTemplate),
       this.templateVariables,
     );
+    if (!this.posterLandingUrl) {
+      return base;
+    }
+    return `${base}\n\n${this.posterLandingUrl}`;
   }
 
   get templateReadinessIssues(): string[] {
@@ -113,8 +135,13 @@ export class BulkSmsComponent {
     this.selectedGroup = group;
   }
 
+  onPosterChanged(): void {
+    this.applyPosterUrlToVariables();
+  }
+
   onSmsTemplateChanged(): void {
     this.syncTemplateVariableMap();
+    this.applyPosterUrlToVariables();
     console.log('[BULK SMS TEMPLATE SELECTED]', {
       templateRecordId: this.selectedSmsTemplateRecordId,
       dltMessage: resolveBulkDltMessageParam(this.selectedSmsTemplate),
@@ -204,6 +231,37 @@ export class BulkSmsComponent {
       nextMap[slot.index] = this.templateVariables[slot.index] || '';
     });
     this.templateVariables = nextMap;
+  }
+
+  private applyPosterUrlToVariables(): void {
+    if (!this.posterLandingUrl) {
+      return;
+    }
+
+    const slots = this.templateVariableSlots;
+    if (!slots.length) {
+      return;
+    }
+
+    const targetSlot = slots[slots.length - 1];
+    this.templateVariables = {
+      ...this.templateVariables,
+      [targetSlot.index]: this.posterLandingUrl,
+    };
+  }
+
+  private loadPosters(): void {
+    this.isLoadingPosters = true;
+    this.posterService.listActive().subscribe({
+      next: (res) => {
+        this.isLoadingPosters = false;
+        this.posters = res.success ? res.data || [] : [];
+      },
+      error: () => {
+        this.isLoadingPosters = false;
+        this.posters = [];
+      },
+    });
   }
 
   private loadSmsTemplates(): void {

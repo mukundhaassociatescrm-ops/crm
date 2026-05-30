@@ -48,6 +48,7 @@ export type CreateCampaignPayload = {
   templateBody?: string;
   params?: string[];
   attachmentUrl?: string;
+  posterId?: string;
   attachmentFilename?: string;
   attachmentMimeType?: string;
 };

@@ -1,0 +1,45 @@
+<div class="landing-page">
+  <div class="loading" *ngIf="isLoading">Loading…</div>
+
+  <div class="not-found" *ngIf="!isLoading && notFound">
+    <img src="assets/Logo.png" alt="Mukundha Associates" class="brand-logo">
+    <h1>Poster not found</h1>
+    <p>This link may be inactive or expired.</p>
+  </div>
+
+  <article class="landing-card" *ngIf="!isLoading && poster">
+    <header class="brand">
+      <img src="assets/Logo.png" alt="Mukundha Associates" class="brand-logo">
+      <p class="brand-name">Mukundha Associates</p>
+    </header>
+
+    <h1>{{ poster.title }}</h1>
+    <span class="category">{{ poster.category }}</span>
+
+    <div class="poster-image-wrap">
+      <img [src]="poster.imageUrl" [alt]="poster.title" loading="eager">
+    </div>
+
+    <p class="short" *ngIf="poster.shortDescription">{{ poster.shortDescription }}</p>
+    <div class="content" *ngIf="poster.content">{{ poster.content }}</div>
+
+    <section class="contact-block">
+      <h2>Contact Details</h2>
+      <p><strong>WhatsApp:</strong> 9363069948</p>
+      <p><strong>Call:</strong> 8508169948, 6379680872</p>
+      <p class="address">
+        <strong>Address:</strong>
+        TF7, C Block, 3rd Floor, Ramani's Jewel Manor Apartment, Samy Iyer New Street, Coimbatore - 641001
+      </p>
+    </section>
+
+    <div class="cta-row">
+      <a class="btn btn-whatsapp" [href]="whatsappLink" target="_blank" rel="noopener">
+        <i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp
+      </a>
+      <a class="btn btn-call" [href]="primaryCallLink">
+        <i class="fa-solid fa-phone"></i> Call Now
+      </a>
+    </div>
+  </article>
+</div>

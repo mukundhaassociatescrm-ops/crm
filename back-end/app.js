@@ -138,6 +138,7 @@ app.use('/api/history', historyRoutes);
 app.use('/api/sms', smsRoutes);
 app.use('/api/whatsapp-campaigns', whatsappCampaignRoutes);
 app.use('/api/communication', communicationRoutes);
+app.use('/api/posters', require('./routes/posterRoutes'));
 app.use('/webhook', webhookRoutes);
 app.use(errorHandler);
 

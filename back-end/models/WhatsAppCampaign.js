@@ -41,6 +41,7 @@ const whatsAppCampaignSchema = new mongoose.Schema(
     attachmentUrl: { type: String, trim: true, default: '' },
     attachmentFilename: { type: String, trim: true, default: '' },
     attachmentMimeType: { type: String, trim: true, default: '' },
+    posterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Poster', default: null },
     strategy: { type: campaignStrategySchema, default: () => ({}) },
     scheduleMode: { type: String, enum: ['now', 'scheduled'], default: 'now' },
     scheduledAt: { type: Date, default: null },
