@@ -23,6 +23,10 @@ import { SmsComponent } from './features/sms/sms.component';
 import { ManageSmsTemplatesComponent } from './features/manage-sms-templates/manage-sms-templates.component';
 import { ManagePostersComponent } from './features/manage-posters/manage-posters.component';
 import { PosterLandingComponent } from './features/manage-posters/poster-landing.component';
+import { ModuleHubComponent } from './shared/hub/module-hub.component';
+
+const adminHub = { role: 'admin' as const };
+
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
 
@@ -38,51 +42,110 @@ export const routes: Routes = [
     canActivateChild: [AuthGuard],
     children: [
       { path: 'dashboard', component: DashboardComponent, data: { breadcrumb: 'Dashboard' } },
-      { path: 'manage-employee', component: ManageEmployeeComponent, data: { role: 'admin', breadcrumb: 'Manage Employee', fullscreenPageKey: 'manage-employee' } },
-      { path: 'manage-task', component: ManageTaskComponent, canActivate: [AuthGuard], data: { breadcrumb: 'Manage Task', fullscreenPageKey: 'manage-task' } },
+      { path: 'manage-employee', component: ManageEmployeeComponent, data: { ...adminHub, breadcrumb: 'Employees', fullscreenPageKey: 'manage-employee' } },
+      { path: 'manage-task', component: ManageTaskComponent, canActivate: [AuthGuard], data: { breadcrumb: 'Tasks', fullscreenPageKey: 'manage-task' } },
       { path: 'task-reminders', component: TaskRemindersComponent, canActivate: [AuthGuard], data: { breadcrumb: 'Task Reminders', fullscreenPageKey: 'task-reminders' } },
-      { path: 'manage-chat', component: ManageChatComponent, canActivate: [AuthGuard], data: { role: 'admin', breadcrumb: 'Manage Chat', fullscreenPageKey: 'manage-chat' } },
+
       {
-        path: 'manage-group',
-        component: ManageGroupComponent,
-        data: { role: 'admin', breadcrumb: 'Manage Group', fullscreenPageKey: 'manage-group' }
+        path: 'communication',
+        component: ModuleHubComponent,
+        data: { ...adminHub, hubId: 'communication', breadcrumb: 'Communication' },
+        children: [
+          { path: '', redirectTo: 'chats', pathMatch: 'full' },
+          {
+            path: 'chats',
+            component: ManageChatComponent,
+            data: { ...adminHub, breadcrumb: 'Chats', fullscreenPageKey: 'manage-chat' },
+          },
+          {
+            path: 'whatsapp-campaigns',
+            component: ManageBulkMessageComponent,
+            data: { ...adminHub, breadcrumb: 'WhatsApp Campaigns', fullscreenPageKey: 'whatsapp-campaigns' },
+          },
+          {
+            path: 'whatsapp-campaigns/:id',
+            component: CampaignDashboardComponent,
+            data: { ...adminHub, breadcrumb: 'Campaign detail', fullscreenPageKey: 'whatsapp-campaigns' },
+          },
+          {
+            path: 'campaign-tracking',
+            component: CampaignHistoryComponent,
+            data: { ...adminHub, breadcrumb: 'Campaign Tracking', fullscreenPageKey: 'whatsapp-campaigns' },
+          },
+          {
+            path: 'campaign-tracking/:id',
+            component: CampaignDashboardComponent,
+            data: { ...adminHub, breadcrumb: 'Campaign detail', fullscreenPageKey: 'whatsapp-campaigns' },
+          },
+          {
+            path: 'bulk-sms',
+            component: BulkSmsComponent,
+            data: { ...adminHub, breadcrumb: 'Bulk SMS', fullscreenPageKey: 'bulk-sms' },
+          },
+          {
+            path: 'quick-sms',
+            component: SmsComponent,
+            data: { ...adminHub, breadcrumb: 'Quick SMS', fullscreenPageKey: 'sms' },
+          },
+        ],
       },
+
       {
-        path: 'whatsapp-campaigns',
-        component: ManageBulkMessageComponent,
-        data: { role: 'admin', breadcrumb: 'WhatsApp Campaigns', fullscreenPageKey: 'whatsapp-campaigns' }
+        path: 'customer-management',
+        component: ModuleHubComponent,
+        data: { ...adminHub, hubId: 'customer-management', breadcrumb: 'Customer Management' },
+        children: [
+          { path: '', redirectTo: 'groups', pathMatch: 'full' },
+          {
+            path: 'groups',
+            component: ManageGroupComponent,
+            data: { ...adminHub, breadcrumb: 'Groups', fullscreenPageKey: 'manage-group' },
+          },
+          {
+            path: 'clients',
+            component: ManageClientComponent,
+            data: { ...adminHub, breadcrumb: 'Clients', fullscreenPageKey: 'manage-client' },
+          },
+        ],
       },
+
       {
-        path: 'whatsapp-campaign-tracking',
-        component: CampaignHistoryComponent,
-        data: { role: 'admin', breadcrumb: 'Campaign tracking', fullscreenPageKey: 'whatsapp-campaigns' }
+        path: 'marketing',
+        component: ModuleHubComponent,
+        data: { ...adminHub, hubId: 'marketing', breadcrumb: 'Marketing' },
+        children: [
+          { path: '', redirectTo: 'posters', pathMatch: 'full' },
+          {
+            path: 'posters',
+            component: ManagePostersComponent,
+            data: { ...adminHub, breadcrumb: 'Poster Management', fullscreenPageKey: 'poster-management' },
+          },
+        ],
       },
-      {
-        path: 'whatsapp-campaign-tracking/:id',
-        component: CampaignDashboardComponent,
-        data: { role: 'admin', breadcrumb: 'Campaign detail', fullscreenPageKey: 'whatsapp-campaigns' }
-      },
-      {
-        path: 'whatsapp-campaigns/:id',
-        component: CampaignDashboardComponent,
-        data: { role: 'admin', breadcrumb: 'Campaign detail', fullscreenPageKey: 'whatsapp-campaigns' }
-      },
-      {
-        path: 'bulk-sms',
-        component: BulkSmsComponent,
-        data: { role: 'admin', breadcrumb: 'Bulk SMS', fullscreenPageKey: 'bulk-sms' }
-      },
-      {
-        path: 'manage-bulk-message',
-        redirectTo: 'whatsapp-campaigns',
-        pathMatch: 'full'
-      },
+
+      // Legacy URLs — backward compatibility (preserve bookmarks & external links)
+      { path: 'manage-chat', redirectTo: 'communication/chats', pathMatch: 'full' },
+      { path: 'chat', redirectTo: 'communication/chats', pathMatch: 'full' },
+      { path: 'whatsapp-campaigns', redirectTo: 'communication/whatsapp-campaigns', pathMatch: 'full' },
+      { path: 'whatsapp-campaigns/:id', redirectTo: 'communication/whatsapp-campaigns/:id' },
+      { path: 'whatsapp-campaign-tracking', redirectTo: 'communication/campaign-tracking', pathMatch: 'full' },
+      { path: 'whatsapp-campaign-tracking/:id', redirectTo: 'communication/campaign-tracking/:id' },
+      { path: 'campaign-tracking', redirectTo: 'communication/campaign-tracking', pathMatch: 'full' },
+      { path: 'campaign-tracking/:id', redirectTo: 'communication/campaign-tracking/:id' },
+      { path: 'bulk-sms', redirectTo: 'communication/bulk-sms', pathMatch: 'full' },
+      { path: 'sms', redirectTo: 'communication/quick-sms', pathMatch: 'full' },
+      { path: 'manage-bulk-message', redirectTo: 'communication/whatsapp-campaigns', pathMatch: 'full' },
+      { path: 'manage-group', redirectTo: 'customer-management/groups', pathMatch: 'full' },
+      { path: 'groups', redirectTo: 'customer-management/groups', pathMatch: 'full' },
+      { path: 'clients', redirectTo: 'customer-management/clients', pathMatch: 'full' },
+      { path: 'poster-management', redirectTo: 'marketing/posters', pathMatch: 'full' },
+
       {
         path: 'manage-report',
         component: ManageReportComponent,
-        data: { role: 'admin', breadcrumb: 'Manage Report', fullscreenPageKey: 'manage-report' }
+        data: { ...adminHub, breadcrumb: 'Reports', fullscreenPageKey: 'manage-report' }
       },
-        {
+      {
         path: 'employee-dashboard',
         component: EmployeeDashboardComponent,
         data: { role: 'employee', breadcrumb: 'Employee Dashboard' }
@@ -94,36 +157,17 @@ export const routes: Routes = [
         data: { breadcrumb: 'My Profile' }
       },
       {
-        path: 'clients',
-        component: ManageClientComponent,
-        canActivate: [AuthGuard],
-        data: { role: 'admin', breadcrumb: 'Manage Clients', fullscreenPageKey: 'manage-client' }
-      },
-      {
         path: 'work-history',
         component: WorkHistoryComponent,
         canActivate: [AuthGuard],
-        data: { role: 'admin', breadcrumb: 'Work History', fullscreenPageKey: 'work-history' }
-      },
-      {
-        path: 'sms',
-        component: SmsComponent,
-        canActivate: [AuthGuard],
-        data: { role: 'admin', breadcrumb: 'SMS', fullscreenPageKey: 'sms' }
+        data: { ...adminHub, breadcrumb: 'Work History', fullscreenPageKey: 'work-history' }
       },
       {
         path: 'manage-sms-templates',
         component: ManageSmsTemplatesComponent,
         canActivate: [AuthGuard],
-        data: { role: 'admin', breadcrumb: 'Manage SMS Templates', fullscreenPageKey: 'manage-sms-templates' }
+        data: { ...adminHub, breadcrumb: 'Manage SMS Templates', fullscreenPageKey: 'manage-sms-templates' }
       },
-      {
-        path: 'poster-management',
-        component: ManagePostersComponent,
-        canActivate: [AuthGuard],
-        data: { role: 'admin', breadcrumb: 'Poster Management', fullscreenPageKey: 'poster-management' }
-      }
     ]
   }
 ];
-

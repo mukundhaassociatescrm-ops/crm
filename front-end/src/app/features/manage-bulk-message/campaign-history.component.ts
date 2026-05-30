@@ -70,7 +70,7 @@ export class CampaignHistoryComponent implements OnInit, OnDestroy {
   }
 
   openCampaign(c: CampaignSummary): void {
-    this.router.navigate(['/whatsapp-campaign-tracking', c.id]);
+    this.router.navigate(['/communication/campaign-tracking', c.id]);
   }
 
   private load(): void {

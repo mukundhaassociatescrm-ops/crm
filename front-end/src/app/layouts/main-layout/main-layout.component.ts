@@ -53,12 +53,16 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
 
   private resolveFullscreenPageKey(): string | null {
     let child = this.route.firstChild;
-    while (child?.firstChild) {
+
+    while (child) {
+      const pageKey = child.snapshot.data?.['fullscreenPageKey'];
+      if (typeof pageKey === 'string' && pageKey.trim()) {
+        return pageKey.trim();
+      }
       child = child.firstChild;
     }
 
-    const pageKey = child?.snapshot.data?.['fullscreenPageKey'];
-    return typeof pageKey === 'string' && pageKey.trim() ? pageKey.trim() : null;
+    return null;
   }
 
   get userInitials(): string {
@@ -91,7 +95,17 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   }
 
 get isChatRoute(): boolean {
-  return this.router.url.includes('manage-chat');
+  const url = this.router.url.split('?')[0];
+  return url.includes('/communication/chats') || url.includes('/manage-chat');
+}
+
+get isHubRoute(): boolean {
+  const url = this.router.url.split('?')[0];
+  return (
+    url.startsWith('/communication') ||
+    url.startsWith('/customer-management') ||
+    url.startsWith('/marketing')
+  );
 }
 
 get isReminderRoute(): boolean {

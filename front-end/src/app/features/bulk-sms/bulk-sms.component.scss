@@ -16,33 +16,34 @@
 }
 
 .header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   padding-right: 54px;
   flex-shrink: 0;
+}
+
+.header-copy {
+  min-width: 0;
+}
+
+.header-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
 
   h2 {
-    margin: 0 0 6px;
+    margin: 0;
     color: #111827;
     font-size: 28px;
     font-weight: 700;
   }
-
-  p {
-    margin: 0;
-    color: #64748b;
-    font-size: 14px;
-  }
 }
 
-.header-aside {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
+.header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
 }
 
 .module-badge {
@@ -62,9 +63,10 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 400px);
+  gap: 14px;
   overflow: hidden;
+  align-items: stretch;
 }
 
 .form-panel,
@@ -79,8 +81,9 @@
 .form-panel {
   display: flex;
   flex-direction: column;
-  padding: 30px;
+  padding: 24px 28px;
   gap: 16px;
+  max-width: none;
 }
 
 .dlt-notice {
@@ -320,6 +323,13 @@
   font-size: 12px;
 }
 
+@media (max-width: 1100px) {
+  .bulk-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+    gap: 12px;
+  }
+}
+
 @media (max-width: 1024px) {
   .bulk-sms-wrapper {
     padding: 14px;
@@ -327,14 +337,17 @@
 
   .bulk-layout {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 12px;
   }
 }
 
 @media (max-width: 640px) {
   .header {
-    flex-direction: column;
     padding-right: 48px;
+  }
+
+  .header-title-row h2 {
+    font-size: 22px;
   }
 
   .form-panel,

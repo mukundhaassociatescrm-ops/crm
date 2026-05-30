@@ -221,6 +221,10 @@
   overflow: hidden;
 }
 
+.page-content--hub {
+  overflow: auto;
+}
+
 .page-content > *:not(router-outlet) {
   display: block;
   height: 100%;

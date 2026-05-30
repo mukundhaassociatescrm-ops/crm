@@ -226,7 +226,7 @@ export class ManageTaskComponent {
       return;
     }
 
-    this.router.navigate(['/manage-chat'], {
+    this.router.navigate(['/communication/chats'], {
       queryParams: {
         phone,
         highlightMessage: messageId,

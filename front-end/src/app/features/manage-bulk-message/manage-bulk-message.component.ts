@@ -304,9 +304,9 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
         this.campaignLabel = '';
         this.removeSelectedMedia();
         if (id) {
-          this.router.navigate(['/whatsapp-campaign-tracking', id]);
+          this.router.navigate(['/communication/campaign-tracking', id]);
         } else {
-          this.router.navigate(['/whatsapp-campaign-tracking']);
+          this.router.navigate(['/communication/campaign-tracking']);
         }
       },
       error: (error) => {

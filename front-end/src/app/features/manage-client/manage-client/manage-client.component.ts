@@ -264,7 +264,7 @@ export class ManageClientComponent implements OnInit {
   // ─── Open Chat ────────────────────────────────────────────────────────────────
 
   openChat(client: Client): void {
-    this.router.navigate(['/manage-chat'], {
+    this.router.navigate(['/communication/chats'], {
       state: {
         targetPhone: client.mobile,
         startChat: true,

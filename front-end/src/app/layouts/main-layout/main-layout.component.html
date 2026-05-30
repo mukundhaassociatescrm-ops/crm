@@ -49,7 +49,7 @@
 
     <div
       class="page-content"
-      [ngClass]="{ 'no-padding': isChatRoute || fullscreenActive }">
+      [ngClass]="{ 'no-padding': isChatRoute || fullscreenActive, 'page-content--hub': isHubRoute && !isChatRoute && !fullscreenActive }">
       <router-outlet></router-outlet>
     </div>
   </div>

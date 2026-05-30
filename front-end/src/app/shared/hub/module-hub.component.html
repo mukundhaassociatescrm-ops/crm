@@ -1,0 +1,38 @@
+<section class="module-hub" *ngIf="hubConfig">
+  <header class="module-hub__header">
+    <h1 class="module-hub__title">{{ hubConfig.title }}</h1>
+    <p class="module-hub__subtitle">Choose a section below</p>
+  </header>
+
+  <nav class="module-hub__nav" [attr.aria-label]="hubConfig.title + ' sections'">
+    <div class="module-hub__tabs" role="tablist">
+      <a
+        *ngFor="let tab of visibleTabs"
+        class="module-hub__tab"
+        [class.module-hub__tab--active]="isTabActive(tab)"
+        [routerLink]="tabLink(tab)"
+        routerLinkActive="module-hub__tab--active"
+        [routerLinkActiveOptions]="{ exact: false }"
+        role="tab"
+        [attr.aria-selected]="isTabActive(tab)">
+        <i *ngIf="tab.icon" class="fa-solid" [ngClass]="tab.icon"></i>
+        <span>{{ tab.label }}</span>
+      </a>
+
+      <span
+        *ngFor="let tab of futureTabs"
+        class="module-hub__tab module-hub__tab--soon"
+        role="tab"
+        [attr.aria-disabled]="true"
+        [title]="tab.label + ' — coming soon'">
+        <i *ngIf="tab.icon" class="fa-solid" [ngClass]="tab.icon"></i>
+        <span>{{ tab.label }}</span>
+        <small class="module-hub__soon">Soon</small>
+      </span>
+    </div>
+  </nav>
+
+  <div class="module-hub__content">
+    <router-outlet></router-outlet>
+  </div>
+</section>

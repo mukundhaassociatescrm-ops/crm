@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { ToastrService } from 'ngx-toastr';
 import { catchError, finalize, of } from 'rxjs';
@@ -36,7 +35,7 @@ type SmsSendResponse =
 @Component({
   selector: 'app-sms',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, FullscreenToggleComponent, SmsWalletBalanceComponent],
+  imports: [CommonModule, FormsModule, FullscreenToggleComponent],
   templateUrl: './sms.component.html',
   styleUrl: './sms.component.scss',
 })

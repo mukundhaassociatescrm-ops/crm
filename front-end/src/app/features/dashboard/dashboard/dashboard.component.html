@@ -10,77 +10,62 @@
 
     <div class="cards-grid">
 
-      <div class="card" *ngIf="isAdmin" (click)="nav('manage-chat')">
+      <div class="card card--hub" *ngIf="isAdmin" (click)="nav('communication')">
         <div class="icon icon-chat"><i class="fa-solid fa-comments"></i></div>
-        <h3>Manage Chat</h3>
-        <p>View and manage employee or client chats</p>
+        <h3>
+          Communication
+          <span class="card-badge" *ngIf="badges.communicationUnread > 0">{{ badges.communicationUnread }}</span>
+        </h3>
+        <p>Chats, WhatsApp campaigns, SMS, and delivery tracking</p>
+        <div class="card-tags">
+          <span>Chats</span>
+          <span>WhatsApp</span>
+          <span>SMS</span>
+        </div>
+      </div>
+
+      <div class="card card--hub" *ngIf="isAdmin" (click)="nav('customer-management')">
+        <div class="icon icon-group"><i class="fa-solid fa-users"></i></div>
+        <h3>
+          Customer Management
+          <span class="card-badge card-badge--muted" *ngIf="badges.clientCount > 0">{{ badges.clientCount }}</span>
+        </h3>
+        <p>Organize contact groups and client records</p>
+        <div class="card-tags">
+          <span>Groups</span>
+          <span>Clients</span>
+        </div>
+      </div>
+
+      <div class="card card--hub" *ngIf="isAdmin" (click)="nav('marketing')">
+        <div class="icon icon-poster"><i class="fa-solid fa-bullhorn"></i></div>
+        <h3>
+          Marketing
+          <span class="card-badge card-badge--muted" *ngIf="badges.posterCount > 0">{{ badges.posterCount }}</span>
+        </h3>
+        <p>Posters and campaign landing pages</p>
+        <div class="card-tags">
+          <span>Posters</span>
+        </div>
       </div>
 
       <div class="card" *ngIf="isPrimaryAdmin" (click)="nav('manage-task')">
         <div class="icon icon-task"><i class="fa-solid fa-clipboard-check"></i></div>
-        <h3>Manage Task</h3>
+        <h3>Tasks</h3>
         <p>Create, assign, and track tasks</p>
       </div>
 
       <div class="card" *ngIf="isPrimaryAdmin" (click)="nav('manage-employee')">
         <div class="icon icon-employee"><i class="fa-solid fa-user-tie"></i></div>
-        <h3>Manage Employee</h3>
+        <h3>Employees</h3>
         <p>Add, update, and manage employee details</p>
-      </div>
-
-      <div class="card" *ngIf="isAdmin" (click)="nav('whatsapp-campaigns')">
-        <div class="icon icon-bulk"><i class="fa-solid fa-envelopes-bulk"></i></div>
-        <h3>WhatsApp Campaigns</h3>
-        <p>Start template campaigns to customer groups</p>
-      </div>
-
-      <div class="card" *ngIf="isAdmin" (click)="nav('whatsapp-campaign-tracking')">
-        <div class="icon icon-bulk"><i class="fa-solid fa-chart-line"></i></div>
-        <h3>Campaign Tracking</h3>
-        <p>Delivery status, queue progress, and recipient details</p>
-      </div>
-
-      <div class="card" *ngIf="isAdmin" (click)="nav('bulk-sms')">
-        <div class="icon icon-bulk-sms"><i class="fa-solid fa-comment-sms"></i></div>
-        <h3>Bulk SMS</h3>
-        <p>Send plain SMS broadcasts through Fast2SMS</p>
-      </div>
-
-      <div class="card" *ngIf="isAdmin" (click)="nav('poster-management')">
-        <div class="icon icon-bulk"><i class="fa-solid fa-image"></i></div>
-        <h3>Poster Management</h3>
-        <p>Marketing posters with auto-generated landing pages</p>
-      </div>
-
-      <div class="card" *ngIf="isAdmin" (click)="nav('manage-group')">
-        <div class="icon icon-group"><i class="fa-solid fa-user-group"></i></div>
-        <h3>Manage Groups</h3>
-        <p>Create and edit contact groups</p>
       </div>
 
       <div class="card" *ngIf="isAdmin" (click)="nav('manage-report')">
         <div class="icon icon-report"><i class="fa-solid fa-file-invoice"></i></div>
-        <h3>Manage Report</h3>
+        <h3>Reports</h3>
         <p>Create, preview, and download invoice reports</p>
       </div>
-
-      <div class="card" *ngIf="isAdmin" (click)="nav('clients')">
-        <div class="icon icon-client"><i class="fa-solid fa-address-book"></i></div>
-        <h3>Manage Clients</h3>
-        <p>Add, edit, and manage client contacts</p>
-      </div>
-
-      <div class="card" *ngIf="isAdmin" (click)="nav('sms')">
-        <div class="icon icon-sms"><i class="fa-solid fa-message"></i></div>
-        <h3>SMS</h3>
-        <p>Pick a client and compose an SMS</p>
-      </div>
-
-      <!-- <div class="card" *ngIf="isAdmin" (click)="nav('manage-sms-templates')">
-        <div class="icon icon-sms-templates"><i class="fa-solid fa-arrows-rotate"></i></div>
-        <h3>Manage SMS Templates</h3>
-        <p>Sync DLT templates from Fast2SMS for Single and Bulk SMS</p>
-      </div> -->
 
       <div class="card" *ngIf="isAdmin" (click)="nav('work-history')">
         <div class="icon icon-history"><i class="fa-solid fa-timeline"></i></div>

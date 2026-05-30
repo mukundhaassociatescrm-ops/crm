@@ -60,7 +60,7 @@ export class CampaignDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.campaignId = String(this.route.snapshot.paramMap.get('id') || '');
     if (!this.campaignId) {
-      this.router.navigate(['/whatsapp-campaign-tracking']);
+      this.router.navigate(['/communication/campaign-tracking']);
       return;
     }
 

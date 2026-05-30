@@ -5,7 +5,6 @@ import { ToastrService } from 'ngx-toastr';
 import { finalize } from 'rxjs';
 import { Group } from '../manage-group/group.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
-import { SmsWalletBalanceComponent } from '../../shared/components/sms-wallet-balance/sms-wallet-balance.component';
 import { GroupSelectorComponent } from '../../shared/components/group-selector/group-selector.component';
 import {
   buildSmsVariablesArray,
@@ -26,7 +25,7 @@ import { Poster, PosterService } from '../manage-posters/poster.service';
 @Component({
   selector: 'app-bulk-sms',
   standalone: true,
-  imports: [CommonModule, FormsModule, FullscreenToggleComponent, GroupSelectorComponent, SmsWalletBalanceComponent],
+  imports: [CommonModule, FormsModule, FullscreenToggleComponent, GroupSelectorComponent],
   templateUrl: './bulk-sms.component.html',
   styleUrl: './bulk-sms.component.scss',
 })
