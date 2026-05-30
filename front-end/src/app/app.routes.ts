@@ -28,6 +28,7 @@ export const routes: Routes = [
 
   { path: 'login', component: LoginComponent },
   { path: 'contact-us', component: ContactUsComponent },
+  { path: 'posters/:slug', component: PosterLandingComponent },
   { path: 'superadmin/create-admin', component: SuperadminCreateAdminComponent },
 
   {

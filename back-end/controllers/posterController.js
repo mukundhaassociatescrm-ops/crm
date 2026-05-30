@@ -1,19 +1,17 @@
 const Poster = require('../models/Poster');
 const { POSTER_CATEGORIES } = require('../models/Poster');
 const { slugifyText } = require('../utils/slugify');
+const { buildPosterLandingHtml, buildPosterNotFoundHtml } = require('../services/posterLandingHtml');
 
-const getPublicBaseUrl = (req) => {
+/** Marketing site origin for landing links — never the API host. */
+const getPublicSiteUrl = () => {
   if (process.env.PUBLIC_SITE_URL) {
     return String(process.env.PUBLIC_SITE_URL).replace(/\/$/, '');
   }
-  if (process.env.PUBLIC_BASE_URL) {
-    return String(process.env.PUBLIC_BASE_URL).replace(/\/$/, '');
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://mukundhaassociates.com';
   }
-  const host = req.get('host') || `localhost:${process.env.PORT || 3000}`;
-  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
-  const isLocalHost = /localhost|127\.0\.0\.1/.test(host);
-  const protocol = forwardedProto || (isLocalHost ? 'http' : 'https');
-  return `${protocol}://${host}`;
+  return 'http://localhost:4200';
 };
 
 const getApiBaseUrl = (req) => {
@@ -29,7 +27,7 @@ const getApiBaseUrl = (req) => {
 
 const buildLandingPath = (slug) => `/posters/${encodeURIComponent(slug)}`;
 
-const buildLandingUrl = (req, slug) => `${getPublicBaseUrl(req)}${buildLandingPath(slug)}`;
+const buildLandingUrl = (_req, slug) => `${getPublicSiteUrl()}${buildLandingPath(slug)}`;
 
 const toPosterView = (doc, req) => {
   const item = doc.toObject ? doc.toObject() : doc;
@@ -117,6 +115,33 @@ exports.getPosterById = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Poster not found.' });
     }
     return res.json({ success: true, data: toPosterView(poster, req) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** GET /posters/:slug — public HTML landing page (also works on API host). */
+exports.renderPublicLandingPage = async (req, res, next) => {
+  try {
+    const slug = String(req.params.slug || '').trim().toLowerCase();
+    if (!slug) {
+      return res.status(400).type('html').send(buildPosterNotFoundHtml());
+    }
+
+    const poster = await Poster.findOneAndUpdate(
+      { slug, isActive: true },
+      { $inc: { viewCount: 1 } },
+      { new: true },
+    ).lean();
+
+    if (!poster) {
+      return res.status(404).type('html').send(buildPosterNotFoundHtml());
+    }
+
+    return res
+      .status(200)
+      .type('html')
+      .send(buildPosterLandingHtml(poster, { siteUrl: getPublicSiteUrl() }));
   } catch (error) {
     next(error);
   }

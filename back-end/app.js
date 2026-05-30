@@ -122,6 +122,9 @@ app.get('/', (req, res) => {
   res.send({ success: true, message: 'API is running', version: '1.0.0' });
 });
 
+const { renderPublicLandingPage } = require('./controllers/posterController');
+app.get('/posters/:slug', renderPublicLandingPage);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/tasks', taskRoutes);
