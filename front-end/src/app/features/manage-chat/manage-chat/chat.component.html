@@ -6,6 +6,7 @@
         <input
           type="text"
           [(ngModel)]="searchTerm"
+          (ngModelChange)="onSearchTermChange()"
           placeholder="Search phone number or message"
         >
       </label>
@@ -46,15 +47,27 @@
       </button>
     </div>
 
-    <div class="panel-state" *ngIf="isLoadingConversations && !conversations.length">
-      Loading conversations...
+    <div class="conversation-list conversation-list--skeleton" *ngIf="isLoadingConversations && !conversations.length">
+      <div class="conversation-skeleton" *ngFor="let row of conversationSkeletonRows">
+        <span class="skeleton-avatar"></span>
+        <span class="skeleton-lines">
+          <span class="skeleton-line skeleton-line--title"></span>
+          <span class="skeleton-line skeleton-line--sub"></span>
+        </span>
+      </div>
     </div>
 
-    <div class="conversation-list" *ngIf="!isLoadingConversations || conversations.length">
+    <cdk-virtual-scroll-viewport
+      *ngIf="!isLoadingConversations || conversations.length"
+      class="conversation-list"
+      [itemSize]="conversationRowHeightPx"
+    >
+      <div class="panel-state small" *ngIf="isSearchingConversations">Searching…</div>
+
       <button
         type="button"
         class="conversation-card"
-        *ngFor="let conversation of filteredConversations; trackBy: trackConversation"
+        *cdkVirtualFor="let conversation of displayedConversations; trackBy: trackConversation"
         [class.active]="selectedConversation?._id === conversation._id"
         [class.unread]="getUnreadCount(conversation._id) > 0"
         (click)="selectConversation(conversation)"
@@ -64,7 +77,7 @@
           <div class="conversation-row">
             <h3>{{ conversation.clientName || conversation.phoneNumber }}</h3>
             <div class="conversation-right-meta">
-              <time>{{ conversation.updatedAt | date:'shortTime' }}</time>
+              <time>{{ (conversation.lastMessageAt || conversation.updatedAt) | date:'shortTime' }}</time>
               <span class="conversation-unread" *ngIf="getUnreadCount(conversation._id) > 0">{{ getUnreadCount(conversation._id) }}</span>
             </div>
           </div>
@@ -73,10 +86,10 @@
         </div>
       </button>
 
-      <div class="panel-state" *ngIf="!filteredConversations.length">
+      <div class="panel-state" *ngIf="!isSearchingConversations && !displayedConversations.length">
         No conversations found.
       </div>
-    </div>
+    </cdk-virtual-scroll-viewport>
   </aside>
 
   <section class="chat-panel" [class.empty]="!selectedConversation">
@@ -328,7 +341,7 @@
             <ng-container *ngIf="isFileMessage(message); else textMessageTpl">
               <div class="file-message-card">
                 <ng-container *ngIf="isVideoFileMessage(message); else nonVideoFileTpl">
-                  <div class="video-message-card" *ngIf="logVideoPlayerRender(message)" [class.video-error]="hasVideoError(message)">
+                  <div class="video-message-card" *ngIf="shouldLoadMessageMedia(message) && logVideoPlayerRender(message)" [class.video-error]="hasVideoError(message)">
                     <div class="video-preview-shell">
                       <div class="video-loading-overlay" *ngIf="isVideoLoading(message)">
                         <span class="image-loading-spinner"></span>
@@ -404,24 +417,36 @@
                 </ng-template>
                 <ng-template #nonAudioFileTpl>
                 <ng-container *ngIf="shouldRenderImagePreview(message)">
-                  <div class="image-loading-skeleton" *ngIf="!isInlineImageLoaded(message)">
-                    <span class="image-loading-spinner"></span>
-                  </div>
                   <button
                     type="button"
-                    class="image-preview-link"
-                    [class.image-hidden]="!isInlineImageLoaded(message)"
-                    (click)="openFileViewer(message, $event)"
-                    aria-label="Open image preview"
+                    class="media-load-placeholder"
+                    *ngIf="!shouldLoadMessageMedia(message)"
+                    (click)="revealMessageMedia(message)"
                   >
-                    <img
-                      class="image-preview"
-                      [src]="message.fileUrl || message.mediaUrl"
-                      [alt]="message.filename || 'Image attachment'"
-                      (load)="onInlineImageLoad(message)"
-                      (error)="onInlineImageError(message)"
-                    >
+                    <i class="fa-regular fa-image"></i>
+                    <span>Tap to load image</span>
                   </button>
+                  <ng-container *ngIf="shouldLoadMessageMedia(message)">
+                    <div class="image-loading-skeleton" *ngIf="!isInlineImageLoaded(message)">
+                      <span class="image-loading-spinner"></span>
+                    </div>
+                    <button
+                      type="button"
+                      class="image-preview-link"
+                      [class.image-hidden]="!isInlineImageLoaded(message)"
+                      (click)="openFileViewer(message, $event)"
+                      aria-label="Open image preview"
+                    >
+                      <img
+                        class="image-preview"
+                        loading="lazy"
+                        [src]="message.fileUrl || message.mediaUrl"
+                        [alt]="message.filename || 'Image attachment'"
+                        (load)="onInlineImageLoad(message)"
+                        (error)="onInlineImageError(message)"
+                      >
+                    </button>
+                  </ng-container>
                 </ng-container>
                 <p class="image-caption" *ngIf="shouldRenderImagePreview(message) && message.text && message.text !== message.filename && message.text !== 'image' && message.text !== 'Attachment'">
                   {{ getMessageDisplayText(message) }}

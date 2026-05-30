@@ -20,6 +20,8 @@ export interface ChatConversation {
   lastMessage: string;
   unreadCount?: number;
   lastReadAt?: string | null;
+  /** Last inbound/outbound message time — inbox sort key (not read/select). */
+  lastMessageAt?: string | null;
   updatedAt: string;
   createdAt?: string;
 }
@@ -286,8 +288,10 @@ export class ChatService {
     });
   }
 
-  getConversations(): Observable<ApiListResponse<ChatConversation[]>> {
-    return this.http.get<ApiListResponse<ChatConversation[]>>('/api/chat/conversations');
+  getConversations(search = ''): Observable<ApiListResponse<ChatConversation[]>> {
+    const term = String(search || '').trim();
+    const params = term ? new HttpParams().set('search', term) : undefined;
+    return this.http.get<ApiListResponse<ChatConversation[]>>('/api/chat/conversations', { params });
   }
 
   searchCustomers(query: string): Observable<ApiListResponse<Customer[]>> {
@@ -316,11 +320,33 @@ export class ChatService {
     );
   }
 
-  getMessages(conversationId: string): Observable<ApiListResponse<ChatMessage[]>> {
-    return this.http.get<ApiListResponse<any[]>>(`/api/chat/${encodeURIComponent(conversationId)}`).pipe(
+  getMessages(
+    conversationId: string,
+    options?: { limit?: number; before?: string | null },
+  ): Observable<ApiListResponse<ChatMessage[]> & { hasMore?: boolean; oldestTimestamp?: string | null }> {
+    let params = new HttpParams();
+    if (options?.limit) {
+      params = params.set('limit', String(options.limit));
+    }
+    if (options?.before) {
+      params = params.set('before', options.before);
+    }
+
+    return this.http.get<ApiListResponse<any[]>>(
+      `/api/chat/${encodeURIComponent(conversationId)}`,
+      { params: params.keys().length ? params : undefined },
+    ).pipe(
       map((response) => ({
         ...response,
-        data: (response.data || []).reduce<ChatMessage[]>((acc, item) => {
+        hasMore: Boolean((response as { hasMore?: boolean }).hasMore),
+        oldestTimestamp: (response as { oldestTimestamp?: string | null }).oldestTimestamp || null,
+        data: this.normalizeMessageRows(conversationId, response.data || []),
+      })),
+    );
+  }
+
+  private normalizeMessageRows(conversationId: string, rows: any[]): ChatMessage[] {
+    return (rows || []).reduce<ChatMessage[]>((acc, item) => {
           const normalizedText = String(item.text || '').trim();
           const rawMediaUrl = String(item.mediaUrl || '').trim();
           const rawFileUrl = String(item.fileUrl || rawMediaUrl || item.url || '').trim();
@@ -377,9 +403,7 @@ export class ChatService {
           acc.push(mappedMessage);
 
           return acc;
-        }, []),
-      }))
-    );
+        }, []);
   }
 
   softDeleteMessage(messageId: string, restore = false): Observable<ApiListResponse<ChatMessage>> {

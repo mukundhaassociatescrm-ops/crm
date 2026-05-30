@@ -1,3 +1,4 @@
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
@@ -62,7 +63,7 @@ interface ActiveFileViewer {
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, FullscreenToggleComponent],
+  imports: [CommonModule, FormsModule, ScrollingModule, FullscreenToggleComponent],
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.scss'
 })
@@ -70,10 +71,17 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('messageScroller') private messageScroller?: ElementRef<HTMLDivElement>;
 
   conversations: ChatConversation[] = [];
+  displayedConversations: ChatConversation[] = [];
   selectedConversation: ChatConversation | null = null;
   messages: PendingMessage[] = [];
   searchTerm = '';
   conversationFilter: 'all' | 'unread' = 'all';
+  readonly conversationRowHeightPx = 72;
+  readonly conversationSkeletonRows = Array.from({ length: 10 }, (_, index) => index);
+  readonly messageSkeletonRows = Array.from({ length: 8 }, (_, index) => index);
+  isSearchingConversations = false;
+  hasMoreMessages = false;
+  isLoadingOlderMessages = false;
   draftMessage = '';
   attachmentCaption = '';
   isLoadingConversations = false;
@@ -315,6 +323,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   private hasHydratedConversationNotifications = false;
   private audioContext: AudioContext | null = null;
   private hasUserUnlockedAudio = false;
+  private readonly conversationSearch$ = new Subject<string>();
+  private isServerConversationSearch = false;
+  private oldestMessageCursor: string | null = null;
+  private readonly revealedMediaMessageIds = new Set<string>();
+  private readonly MESSAGE_PAGE_SIZE = 50;
+  private readonly CONVERSATION_POLL_SOCKET_MS = 120000;
+  private readonly CONVERSATION_POLL_FALLBACK_MS = 20000;
+  private readonly MESSAGE_POLL_SOCKET_MS = 45000;
+  private readonly MESSAGE_POLL_FALLBACK_MS = 8000;
   constructor(
     private readonly chatService: ChatService,
     private readonly sanitizer: DomSanitizer,
@@ -384,6 +401,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         this.trySelectTargetConversation();
       });
 
+    this.setupConversationSearch();
     this.startConversationPolling();
     this.startMessagePolling();
     this.startRealtimeUpdates();
@@ -446,9 +464,20 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get filteredConversations(): ChatConversation[] {
-    const term = this.searchTerm.trim().toLowerCase();
+    return this.displayedConversations;
+  }
 
-    return this.conversations.filter((conversation) => {
+  onSearchTermChange(): void {
+    this.conversationSearch$.next(this.searchTerm);
+  }
+
+  private updateDisplayedConversations(): void {
+    if (this.isServerConversationSearch) {
+      return;
+    }
+
+    const term = this.searchTerm.trim().toLowerCase();
+    this.displayedConversations = this.conversations.filter((conversation) => {
       if (this.conversationFilter === 'unread' && this.getUnreadCount(conversation._id) <= 0) {
         return false;
       }
@@ -459,6 +488,47 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
       return [conversation.clientName || '', conversation.phoneNumber, conversation.lastMessage]
         .some((value) => (value || '').toLowerCase().includes(term));
+    });
+  }
+
+  private setupConversationSearch(): void {
+    this.conversationSearch$.pipe(
+      map((value) => String(value || '').trim()),
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap((term) => {
+        if (term.length < 2) {
+          this.isServerConversationSearch = false;
+          this.isSearchingConversations = false;
+          this.updateDisplayedConversations();
+          return of(null);
+        }
+
+        this.isSearchingConversations = true;
+        this.isServerConversationSearch = true;
+        return this.chatService.getConversations(term).pipe(
+          catchError(() => of({ success: false, data: [] as ChatConversation[] })),
+        );
+      }),
+      takeUntil(this.destroy$),
+    ).subscribe((response) => {
+      if (!response) {
+        return;
+      }
+
+      this.isSearchingConversations = false;
+      if (!response.success) {
+        this.displayedConversations = [];
+        return;
+      }
+
+      const sorted = this.sortConversationsForInbox(response.data || []);
+      this.displayedConversations = sorted.filter((conversation) => {
+        if (this.conversationFilter === 'unread' && this.getUnreadCount(conversation._id) <= 0) {
+          return false;
+        }
+        return true;
+      });
     });
   }
 
@@ -792,15 +862,25 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.pendingMessages = [];
     this.messages = [];
+    this.hasMoreMessages = false;
+    this.isLoadingOlderMessages = false;
+    this.oldestMessageCursor = null;
+    this.revealedMediaMessageIds.clear();
     this.isLoadingMessages = true;
     this.showScrollToBottomButton = false;
     this.unreadNewMessages = 0;
     this.forceScrollOnNextMessageUpdate = true;
+    this.loadInitialMessagesForSelection(conversation._id);
     this.selectedConversation$.next(conversation._id);
   }
 
   setConversationFilter(filter: 'all' | 'unread'): void {
     this.conversationFilter = filter;
+    if (this.isServerConversationSearch) {
+      this.conversationSearch$.next(this.searchTerm);
+      return;
+    }
+    this.updateDisplayedConversations();
   }
 
   openNewChatModal(): void {
@@ -1093,12 +1173,13 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
           }
 
+          const messageActivityAt = new Date().toISOString();
           const targetConversation: ChatConversation = {
             ...baseConversation,
             clientName: selectedName || baseConversation.clientName,
             phoneNumber: baseConversation.phoneNumber.startsWith('+') ? baseConversation.phoneNumber : `+${normalizedPhone}`,
             lastMessage: templateDisplay.displayText,
-            updatedAt: new Date().toISOString(),
+            lastMessageAt: messageActivityAt,
           };
 
           if (!existingConversation) {
@@ -1112,10 +1193,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
                 ...item,
                 clientName: targetConversation.clientName || item.clientName,
                 lastMessage: targetConversation.lastMessage,
-                updatedAt: targetConversation.updatedAt,
+                lastMessageAt: targetConversation.lastMessageAt,
               };
             }));
           }
+          this.updateDisplayedConversations();
 
           this.showNewChatModal = false;
           this.targetConversationPhone = normalizedPhone;
@@ -1730,6 +1812,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   onMessageStreamScroll(): void {
     this.closeMessageMenu();
+    this.revealMediaNearViewport();
+
+    const container = this.messageScroller?.nativeElement;
+    if (container && container.scrollTop < 140 && this.hasMoreMessages && !this.isLoadingOlderMessages) {
+      this.loadOlderMessages();
+    }
 
     if (!this.isNearBottom()) {
       return;
@@ -1737,6 +1825,24 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.showScrollToBottomButton = false;
     this.unreadNewMessages = 0;
+  }
+
+  shouldLoadMessageMedia(message: PendingMessage): boolean {
+    const messageId = message.messageId || '';
+    if (!messageId) {
+      return true;
+    }
+    if (message.isPending) {
+      return true;
+    }
+    return this.revealedMediaMessageIds.has(messageId);
+  }
+
+  revealMessageMedia(message: PendingMessage): void {
+    const messageId = message.messageId || '';
+    if (messageId) {
+      this.revealedMediaMessageIds.add(messageId);
+    }
   }
 
   scrollToLatest(): void {
@@ -2798,7 +2904,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         this.templateSentAwaitingReply = true;
         console.log('[MESSAGE SEND TYPE]', 'template');
         this.syncSelectedConversationPreview(templateDisplay.displayText, selectedConversation._id);
-        this.selectedConversation$.next(selectedConversation._id);
+        this.refreshActiveConversationMessages(selectedConversation._id);
         this.refreshSessionStatusFromBackend(selectedConversation.phoneNumber);
         this.refreshConversationsFromApi(true);
       },
@@ -3189,16 +3295,62 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     return `Follow up: ${clipped}`;
   }
 
+  private applyConversationsResponse(conversationsToRender: ChatConversation[]): void {
+    if (!conversationsToRender.length) {
+      this.conversations = [];
+      this.updateDisplayedConversations();
+      this.trySelectTargetConversation();
+      return;
+    }
+
+    const previousSelectionId = this.selectedConversation?._id;
+    const previousSelectionPhone = this.selectedConversation
+      ? this.normalizePhone(this.selectedConversation.phoneNumber)
+      : '';
+
+    this.maybeNotifyForUnreadCountChanges(conversationsToRender);
+    this.conversations = this.sortConversationsForInbox(conversationsToRender);
+    this.updateDisplayedConversations();
+    this.lastConversationFetchAt = Date.now();
+
+    if (this.trySelectTargetConversation()) {
+      return;
+    }
+
+    if (previousSelectionId) {
+      const refreshedSelection = this.conversations.find((item) => item._id === previousSelectionId);
+      if (refreshedSelection) {
+        this.selectedConversation = refreshedSelection;
+        return;
+      }
+    }
+
+    if (previousSelectionPhone) {
+      const refreshedByPhone = this.conversations.find(
+        (item) => this.normalizePhone(item.phoneNumber) === previousSelectionPhone,
+      );
+      if (refreshedByPhone) {
+        this.selectConversationInternal(refreshedByPhone, false);
+      }
+    }
+  }
+
   private startConversationPolling(): void {
-    interval(15000).pipe(
-      startWith(0),
+    this.chatService.onSocketConnectionState().pipe(
+      startWith(this.socketConnected),
+      switchMap(() => {
+        const pollMs = this.socketConnected
+          ? this.CONVERSATION_POLL_SOCKET_MS
+          : this.CONVERSATION_POLL_FALLBACK_MS;
+        return interval(pollMs).pipe(startWith(0));
+      }),
       switchMap(() => {
         this.isLoadingConversations = !this.conversations.length;
         return this.chatService.getConversations().pipe(
-          catchError(() => of({ success: false, data: [] as ChatConversation[] }))
+          catchError(() => of({ success: false, data: [] as ChatConversation[] })),
         );
       }),
-      takeUntil(this.destroy$)
+      takeUntil(this.destroy$),
     ).subscribe((response) => {
       this.isLoadingConversations = false;
 
@@ -3207,44 +3359,184 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         ? this.mockConversations
         : [];
       const conversationsToRender = apiConversations.length ? apiConversations : fallbackConversations;
+      this.applyConversationsResponse(conversationsToRender);
+    });
+  }
 
-      if (!conversationsToRender.length) {
-        this.conversations = [];
-        if (this.trySelectTargetConversation()) {
+  private loadInitialMessagesForSelection(conversationId: string): void {
+    if (this.isMockConversation(conversationId)) {
+      this.isLoadingMessages = false;
+      this.messages = this.mergePendingMessages(
+        this.withMockMetadata(this.mockMessagesByConversation[conversationId] || []),
+      );
+      this.primeMediaRevealForTail();
+      return;
+    }
+
+    this.chatService.getMessages(conversationId, { limit: this.MESSAGE_PAGE_SIZE })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((response) => {
+        this.isLoadingMessages = false;
+        if (!response.success) {
           return;
         }
+        this.applyMessagePage(response, false);
+      });
+  }
+
+  private loadOlderMessages(): void {
+    const conversationId = this.selectedConversation?._id;
+    if (!conversationId || this.isMockConversation(conversationId) || !this.oldestMessageCursor) {
+      return;
+    }
+
+    const container = this.messageScroller?.nativeElement;
+    const previousScrollHeight = container?.scrollHeight || 0;
+
+    this.isLoadingOlderMessages = true;
+    this.chatService.getMessages(conversationId, {
+      limit: this.MESSAGE_PAGE_SIZE,
+      before: this.oldestMessageCursor,
+    }).pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.isLoadingOlderMessages = false;
+          if (!response.success) {
+            return;
+          }
+
+          const existingIds = new Set(this.messages.map((message) => message.messageId));
+          const older = this.mergePendingMessages(this.withMockMetadata(response.data))
+            .filter((message) => !existingIds.has(message.messageId));
+
+          this.messages = [...older, ...this.messages];
+          this.hasMoreMessages = Boolean(response.hasMore);
+          this.oldestMessageCursor = response.oldestTimestamp || this.messages[0]?.timestamp || null;
+          older.forEach((message) => {
+            if (message.messageId) {
+              this.revealedMediaMessageIds.add(message.messageId);
+            }
+          });
+
+          if (!container) {
+            return;
+          }
+
+          requestAnimationFrame(() => {
+            container.scrollTop = container.scrollHeight - previousScrollHeight;
+          });
+        },
+        error: () => {
+          this.isLoadingOlderMessages = false;
+        },
+      });
+  }
+
+  private applyMessagePage(
+    response: { data: ChatMessage[]; hasMore?: boolean; oldestTimestamp?: string | null },
+    prependOnly: boolean,
+  ): void {
+    const incoming = this.mergePendingMessages(this.withMockMetadata(response.data || []));
+    if (prependOnly) {
+      const existingIds = new Set(this.messages.map((message) => message.messageId));
+      const olderOnly = incoming.filter((message) => !existingIds.has(message.messageId));
+      this.messages = [...olderOnly, ...this.messages];
+    } else {
+      this.messages = this.mergeTailWithLoadedHistory(incoming);
+    }
+
+    this.hasMoreMessages = Boolean(response.hasMore);
+    this.oldestMessageCursor = response.oldestTimestamp || this.messages[0]?.timestamp || null;
+    this.primeMediaRevealForTail();
+
+    if (this.forceScrollOnNextMessageUpdate) {
+      this.forceScrollOnNextMessageUpdate = false;
+      this.queueScrollToBottom(true, true);
+    }
+  }
+
+  private mergeTailWithLoadedHistory(incoming: PendingMessage[]): PendingMessage[] {
+    if (!incoming.length) {
+      return this.messages;
+    }
+
+    const oldestIncomingMs = new Date(incoming[0].timestamp).getTime();
+    const preservedPrefix = this.messages.filter((message) => {
+      const messageMs = new Date(message.timestamp).getTime();
+      if (Number.isNaN(messageMs) || Number.isNaN(oldestIncomingMs)) {
+        return false;
+      }
+      if (messageMs >= oldestIncomingMs) {
+        return false;
+      }
+      return !incoming.some((item) => item.messageId && item.messageId === message.messageId);
+    });
+
+    return [...preservedPrefix, ...incoming];
+  }
+
+  private refreshActiveConversationMessages(conversationId: string): void {
+    if (!conversationId || this.isMockConversation(conversationId)) {
+      return;
+    }
+
+    this.chatService.getMessages(conversationId, { limit: this.MESSAGE_PAGE_SIZE })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((response) => {
+        if (!response.success) {
+          return;
+        }
+
+        const previousLastMessageId = this.messages[this.messages.length - 1]?.messageId || '';
+        this.applyMessagePage(response, false);
+        const latestMessage = this.messages[this.messages.length - 1] || null;
+        const nextLastMessageId = latestMessage?.messageId || '';
+        const hasNewTailMessage = Boolean(nextLastMessageId && nextLastMessageId !== previousLastMessageId);
+
+        if (this.pendingHighlightMessageId) {
+          this.queueHighlightMessage(this.pendingHighlightMessageId);
+        }
+
+        if (!hasNewTailMessage) {
+          return;
+        }
+
+        if (latestMessage && previousLastMessageId) {
+          this.maybeNotifyIncomingMessage(latestMessage, this.selectedConversation?.phoneNumber || '');
+        }
+
+        if (this.isNearBottom()) {
+          this.queueScrollToBottom();
+        } else {
+          this.unreadNewMessages += 1;
+          this.showScrollToBottomButton = true;
+        }
+      });
+  }
+
+  private primeMediaRevealForTail(count = 28): void {
+    this.messages.slice(-count).forEach((message) => {
+      if (message.messageId) {
+        this.revealedMediaMessageIds.add(message.messageId);
+      }
+    });
+  }
+
+  private revealMediaNearViewport(): void {
+    const root = this.messageScroller?.nativeElement;
+    if (!root) {
+      return;
+    }
+
+    const rootRect = root.getBoundingClientRect();
+    root.querySelectorAll<HTMLElement>('[data-message-id]').forEach((element) => {
+      const rect = element.getBoundingClientRect();
+      if (rect.bottom < rootRect.top - 240 || rect.top > rootRect.bottom + 240) {
         return;
       }
-
-      const previousSelectionId = this.selectedConversation?._id;
-      const previousSelectionPhone = this.selectedConversation ? this.normalizePhone(this.selectedConversation.phoneNumber) : '';
-      this.maybeNotifyForUnreadCountChanges(conversationsToRender);
-      this.conversations = this.sortConversationsForInbox(conversationsToRender);
-      this.lastConversationFetchAt = Date.now();
-
-      if (this.trySelectTargetConversation()) {
-        return;
-      }
-
-      if (previousSelectionId) {
-        const refreshedSelection = this.conversations.find((item) => item._id === previousSelectionId);
-        if (refreshedSelection) {
-          this.selectedConversation = refreshedSelection;
-          return;
-        }
-      }
-
-      if (previousSelectionPhone) {
-        const refreshedByPhone = this.conversations.find((item) => this.normalizePhone(item.phoneNumber) === previousSelectionPhone);
-        if (refreshedByPhone) {
-          // Preserve selection when server-side _id differs from adhoc conversation id.
-          this.selectConversationInternal(refreshedByPhone, false);
-          return;
-        }
-      }
-
-      if (!this.selectedConversation && this.conversations.length) {
-        this.selectConversation(this.conversations[0]);
+      const messageId = element.getAttribute('data-message-id');
+      if (messageId) {
+        this.revealedMediaMessageIds.add(messageId);
       }
     });
   }
@@ -3268,6 +3560,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     const selectedMatch = match || this.buildAdhocConversation(this.targetConversationPhone);
     if (!match && selectedMatch) {
       this.conversations = this.sortConversationsForInbox([selectedMatch, ...this.conversations]);
+      this.updateDisplayedConversations();
     }
 
     if (!selectedMatch) {
@@ -3295,7 +3588,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       phoneNumber: formattedPhone,
       lastMessage: '',
       unreadCount: 0,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(0).toISOString(),
     };
   }
 
@@ -3316,39 +3609,48 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private startMessagePolling(): void {
     this.selectedConversation$.pipe(
+      distinctUntilChanged(),
       switchMap((conversationId) => {
+        if (!conversationId) {
+          return EMPTY;
+        }
+
         if (this.isMockConversation(conversationId)) {
-          return interval(4000).pipe(
+          return interval(this.MESSAGE_POLL_FALLBACK_MS).pipe(
             startWith(0),
-            switchMap(() => {
-              this.isLoadingMessages = !this.messages.length;
-              return of({
-                success: true,
-                data: [...(this.mockMessagesByConversation[conversationId] || [])],
-              });
-            })
+            map(() => ({
+              success: true,
+              data: [...(this.mockMessagesByConversation[conversationId] || [])],
+              hasMore: false,
+              oldestTimestamp: null,
+            })),
           );
         }
 
-        return interval(4000).pipe(
-          startWith(0),
+        return this.chatService.onSocketConnectionState().pipe(
+          startWith(this.socketConnected),
           switchMap(() => {
-            this.isLoadingMessages = !this.messages.length;
-            return this.chatService.getMessages(conversationId).pipe(
-              catchError(() => of({ success: false, data: [] as ChatMessage[] }))
-            );
-          })
+            const pollMs = this.socketConnected
+              ? this.MESSAGE_POLL_SOCKET_MS
+              : this.MESSAGE_POLL_FALLBACK_MS;
+            return interval(pollMs);
+          }),
+          switchMap(() => this.chatService.getMessages(conversationId, { limit: this.MESSAGE_PAGE_SIZE }).pipe(
+            catchError(() => of({ success: false, data: [] as ChatMessage[], hasMore: false, oldestTimestamp: null })),
+          )),
         );
       }),
-      takeUntil(this.destroy$)
+      takeUntil(this.destroy$),
     ).subscribe((response) => {
-      this.isLoadingMessages = false;
-      if (!response.success) {
+      if (!response?.success) {
+        this.isLoadingMessages = false;
         return;
       }
 
       const previousLastMessageId = this.messages[this.messages.length - 1]?.messageId || '';
-      this.messages = this.mergePendingMessages(this.withMockMetadata(response.data));
+      this.applyMessagePage(response, false);
+      this.isLoadingMessages = false;
+
       const latestMessage = this.messages[this.messages.length - 1] || null;
       const nextLastMessageId = latestMessage?.messageId || '';
       const hasNewTailMessage = Boolean(nextLastMessageId && nextLastMessageId !== previousLastMessageId);
@@ -3357,17 +3659,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         this.queueHighlightMessage(this.pendingHighlightMessageId);
       }
 
-      if (this.forceScrollOnNextMessageUpdate) {
-        this.forceScrollOnNextMessageUpdate = false;
-        this.queueScrollToBottom(true, true); // instant jump on conversation open
-        return;
-      }
-
       if (!hasNewTailMessage) {
         return;
       }
 
-       if (latestMessage && previousLastMessageId) {
+      if (latestMessage && previousLastMessageId) {
         this.maybeNotifyIncomingMessage(latestMessage, this.selectedConversation?.phoneNumber || '');
       }
 
@@ -3399,6 +3695,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         const previousSelectionPhone = this.selectedConversation ? this.normalizePhone(this.selectedConversation.phoneNumber) : '';
         this.lastConversationFetchAt = Date.now();
         this.conversations = this.sortConversationsForInbox(response.data);
+        this.updateDisplayedConversations();
 
         if (this.selectedConversation?._id) {
           const refreshedSelection = this.conversations.find((item) => item._id === this.selectedConversation?._id) || null;
@@ -3412,67 +3709,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
           }
         }
       });
-  }
-
-  private startMessagePollingLegacy(): void {
-    this.selectedConversation$.pipe(
-      switchMap((conversationId) => {
-        if (this.isMockConversation(conversationId)) {
-          return interval(4000).pipe(
-            startWith(0),
-            switchMap(() => {
-              this.isLoadingMessages = !this.messages.length;
-              return of({
-                success: true,
-                data: [...(this.mockMessagesByConversation[conversationId] || [])],
-              });
-            })
-          );
-        }
-
-        return interval(4000).pipe(
-          startWith(0),
-          switchMap(() => {
-            this.isLoadingMessages = !this.messages.length;
-            return this.chatService.getMessages(conversationId).pipe(
-              catchError(() => of({ success: false, data: [] as ChatMessage[] }))
-            );
-          })
-        );
-      }),
-      takeUntil(this.destroy$)
-    ).subscribe((response) => {
-      this.isLoadingMessages = false;
-      if (!response.success) {
-        return;
-      }
-
-      const previousLastMessageId = this.messages[this.messages.length - 1]?.messageId || '';
-      this.messages = this.mergePendingMessages(this.withMockMetadata(response.data));
-      const nextLastMessageId = this.messages[this.messages.length - 1]?.messageId || '';
-      const hasNewTailMessage = Boolean(nextLastMessageId && nextLastMessageId !== previousLastMessageId);
-
-      if (this.pendingHighlightMessageId) {
-        this.queueHighlightMessage(this.pendingHighlightMessageId);
-      }
-
-      if (this.forceScrollOnNextMessageUpdate) {
-        this.forceScrollOnNextMessageUpdate = false;
-        this.queueScrollToBottom(true, true); // instant jump on conversation open
-        return;
-      }
-
-      if (!hasNewTailMessage) {
-        return;
-      }
-
-      if (this.isNearBottom()) {
-        this.queueScrollToBottom();
-      } else {
-        this.unreadNewMessages += 1;
-        this.showScrollToBottomButton = true;
-      }
-    });
   }
 
   private startRealtimeUpdates(): void {
@@ -3490,6 +3726,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       messageId: event?.messageId,
       status: event?.status,
     });
+    const eventPhone = this.normalizePhone(event.phone || event.destination || event.source || '');
+
     if (event?.eventType === 'status') {
       const statusMessage = this.messages.find((message) => message.messageId === event.messageId);
       console.log('[UI TEMPLATE STATUS UPDATE]', {
@@ -3510,10 +3748,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       if (event.messageId && event.status) {
         this.applyLocalMessageStatus(event.messageId, event.status);
       }
+      return;
     }
-    this.refreshConversationsFromApi();
 
-    const eventPhone = this.normalizePhone(event.phone || event.destination || event.source || '');
+    this.patchConversationFromRealtimeEvent(event, eventPhone);
     if (!eventPhone) {
       return;
     }
@@ -3544,7 +3782,31 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    this.selectedConversation$.next(this.selectedConversation._id);
+    this.refreshActiveConversationMessages(this.selectedConversation._id);
+  }
+
+  private patchConversationFromRealtimeEvent(event: RealtimeChatEvent, eventPhone: string): void {
+    if (!eventPhone) {
+      return;
+    }
+
+    const preview = String(event.text || '').trim();
+    const activityAt = event.timestamp || new Date().toISOString();
+    this.conversations = this.sortConversationsForInbox(this.conversations.map((conversation) => {
+      if (this.normalizePhone(conversation.phoneNumber) !== eventPhone) {
+        return conversation;
+      }
+
+      return {
+        ...conversation,
+        lastMessage: preview || conversation.lastMessage,
+        lastMessageAt: activityAt,
+      };
+    }));
+
+    if (!this.isServerConversationSearch) {
+      this.updateDisplayedConversations();
+    }
   }
 
   private normalizePhone(value: string): string {
@@ -4398,7 +4660,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     return new Date(Date.now() - minutes * 60 * 1000).toISOString();
   }
 
-  private syncSelectedConversationPreview(text: string, conversationId: string): void {
+  private bumpConversationMessageActivity(
+    conversationId: string,
+    patch: { lastMessage: string; lastMessageAt?: string },
+  ): void {
+    const activityAt = patch.lastMessageAt || new Date().toISOString();
     this.conversations = this.sortConversationsForInbox(this.conversations.map((conversation) => {
       if (conversation._id !== conversationId) {
         return conversation;
@@ -4406,10 +4672,14 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
       return {
         ...conversation,
-        lastMessage: text,
-        updatedAt: new Date().toISOString(),
+        lastMessage: patch.lastMessage,
+        lastMessageAt: activityAt,
       };
     }));
+
+    if (!this.isServerConversationSearch) {
+      this.updateDisplayedConversations();
+    }
 
     if (this.selectedConversation?._id === conversationId) {
       const refreshedSelection = this.conversations.find((conversation) => conversation._id === conversationId) || null;
@@ -4495,7 +4765,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    this.conversations = this.sortConversationsForInbox(this.conversations.map((conversation) => {
+    this.conversations = this.conversations.map((conversation) => {
       if (this.normalizePhone(conversation.phoneNumber) !== phone) {
         return conversation;
       }
@@ -4504,7 +4774,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
         ...conversation,
         unreadCount: Number(conversation.unreadCount || 0) + 1,
       };
-    }));
+    });
   }
 
   private markConversationAsRead(conversation: ChatConversation, optimistic = false): void {
@@ -4558,16 +4828,21 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       });
   }
 
-  private sortConversationsForInbox(items: ChatConversation[]): ChatConversation[] {
-    return [...items].sort((a, b) => {
-      const unreadA = Number(a.unreadCount || 0) > 0 ? 1 : 0;
-      const unreadB = Number(b.unreadCount || 0) > 0 ? 1 : 0;
-      if (unreadA !== unreadB) {
-        return unreadB - unreadA;
-      }
+  private getConversationActivityTimestamp(conversation: ChatConversation): number {
+    const raw = conversation.lastMessageAt || conversation.updatedAt;
+    const time = new Date(raw).getTime();
+    return Number.isNaN(time) ? 0 : time;
+  }
 
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    });
+  private sortConversationsForInbox(items: ChatConversation[]): ChatConversation[] {
+    return [...items].sort(
+      (a, b) => this.getConversationActivityTimestamp(b) - this.getConversationActivityTimestamp(a),
+    );
+  }
+
+  /** @deprecated Use bumpConversationMessageActivity — kept for call-site clarity. */
+  private syncSelectedConversationPreview(text: string, conversationId: string): void {
+    this.bumpConversationMessageActivity(conversationId, { lastMessage: text });
   }
 
   private loadDraftCache(): void {

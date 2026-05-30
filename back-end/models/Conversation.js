@@ -23,6 +23,12 @@ const conversationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    /** Last real message activity — used for inbox sort (not read/select/UI). */
+    lastMessageAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );

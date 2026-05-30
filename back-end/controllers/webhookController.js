@@ -154,28 +154,49 @@ exports.verifyWebhook = async (req, res) => {
 
 const persistWebhookEvent = async (event) => {
   const canonicalPhone = normalizePhone(event.conversationPhone);
-  const existingConversation = await Conversation.findOne({ phoneNumber: canonicalPhone });
-  const conversation = await Conversation.findOneAndUpdate(
-    { phoneNumber: canonicalPhone },
-    {
-      $set: {
-        lastMessage: event.text || existingConversation?.lastMessage || '',
-        updatedAt: event.timestamp || new Date(),
-      },
-      $setOnInsert: {
-        phoneNumber: canonicalPhone,
-        createdAt: event.timestamp || new Date(),
-      },
-    },
-    {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
-      timestamps: false,
-    }
-  );
-
   const existingMessage = await Message.findOne({ messageId: event.messageId });
+  const activityAt = event.timestamp || new Date();
+  let conversation = await Conversation.findOne({ phoneNumber: canonicalPhone });
+
+  if (!existingMessage) {
+    const previewText = String(event.text || '').trim();
+    conversation = await Conversation.findOneAndUpdate(
+      { phoneNumber: canonicalPhone },
+      {
+        $set: {
+          lastMessage: previewText || conversation?.lastMessage || '',
+          lastMessageAt: activityAt,
+        },
+        $setOnInsert: {
+          phoneNumber: canonicalPhone,
+          createdAt: activityAt,
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+        timestamps: false,
+      }
+    );
+  } else if (!conversation) {
+    conversation = await Conversation.findOneAndUpdate(
+      { phoneNumber: canonicalPhone },
+      {
+        $setOnInsert: {
+          phoneNumber: canonicalPhone,
+          createdAt: activityAt,
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+        timestamps: false,
+      }
+    );
+  }
+
   if (existingMessage) {
     existingMessage.status = event.status;
     existingMessage.timestamp = event.timestamp || existingMessage.timestamp;

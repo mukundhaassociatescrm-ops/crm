@@ -164,6 +164,7 @@ const mergeDuplicateConversations = async (canonicalPhone, conversations) => {
   let mergedLastMessage = String(primary.lastMessage || '');
   let mergedLastReadAt = primary.lastReadAt || null;
   let mergedUpdatedAt = primary.updatedAt || primary.createdAt || new Date();
+  let mergedLastMessageAt = primary.lastMessageAt || primary.updatedAt || primary.createdAt || null;
 
   for (const duplicate of duplicates) {
     await Message.updateMany(
@@ -180,6 +181,9 @@ const mergeDuplicateConversations = async (canonicalPhone, conversations) => {
     }
     if (duplicate.updatedAt && new Date(duplicate.updatedAt) > new Date(mergedUpdatedAt)) {
       mergedUpdatedAt = duplicate.updatedAt;
+    }
+    if (duplicate.lastMessageAt && (!mergedLastMessageAt || new Date(duplicate.lastMessageAt) > new Date(mergedLastMessageAt))) {
+      mergedLastMessageAt = duplicate.lastMessageAt;
     }
 
     await Conversation.deleteOne({ _id: duplicate._id });
@@ -388,9 +392,13 @@ const findOrCreateConversation = async (phone, previewText = '', options = {}) =
   }
 
   const incrementUnreadBy = Math.max(0, Number(options.incrementUnreadBy || 0));
+  const messageAt = options.messageAt ? toDate(options.messageAt) : null;
   const update = {};
   if (previewText) {
-    update.$set = { lastMessage: previewText };
+    update.$set = {
+      lastMessage: previewText,
+      lastMessageAt: messageAt && !Number.isNaN(messageAt.getTime()) ? messageAt : new Date(),
+    };
   }
   if (incrementUnreadBy > 0) {
     update.$inc = { unreadCount: incrementUnreadBy };
@@ -630,6 +638,7 @@ const saveMessage = async (message) => {
 
   const conversation = await findOrCreateConversation(phone, previewText, {
     incrementUnreadBy: normalized.direction === 'in' ? 1 : 0,
+    messageAt: normalized.timestamp,
   });
 
   const created = await Message.create({
@@ -758,19 +767,46 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
   return toMessageView(fallback, targetPhone);
 };
 
-const getMessagesByPhone = async (phone) => {
+const DEFAULT_MESSAGE_PAGE_SIZE = 50;
+const MAX_MESSAGE_PAGE_SIZE = 100;
+
+const getMessagesByPhone = async (phone, options = {}) => {
   const { canonicalPhone, conversation } = await resolveConversationByPhone(phone);
   if (!canonicalPhone || !conversation?._id) {
-    return [];
+    return { messages: [], hasMore: false, oldestTimestamp: null };
   }
 
-  const messages = await Message.find({ conversationId: conversation._id }).sort({ timestamp: 1 }).lean();
-  const linkedTaskMap = await buildLinkedTaskMap(messages);
-  return messages.map((item) => toMessageView(
+  const limit = Math.min(
+    Math.max(Number(options.limit) || DEFAULT_MESSAGE_PAGE_SIZE, 1),
+    MAX_MESSAGE_PAGE_SIZE,
+  );
+  const beforeRaw = options.before;
+  const before = beforeRaw ? toDate(beforeRaw) : null;
+
+  const query = { conversationId: conversation._id };
+  if (before && !Number.isNaN(before.getTime())) {
+    query.timestamp = { $lt: before };
+  }
+
+  const batch = await Message.find(query)
+    .sort({ timestamp: -1 })
+    .limit(limit + 1)
+    .lean();
+
+  const hasMore = batch.length > limit;
+  const page = (hasMore ? batch.slice(0, limit) : batch).reverse();
+  const linkedTaskMap = await buildLinkedTaskMap(page);
+  const messages = page.map((item) => toMessageView(
     item,
     conversation.phoneNumber || canonicalPhone,
     linkedTaskMap.get(item.messageId) || null,
   ));
+
+  return {
+    messages,
+    hasMore,
+    oldestTimestamp: page[0]?.timestamp || null,
+  };
 };
 
 const isOutgoingMessage = (messageDoc) => OUTBOUND_DIRECTIONS.includes(String(messageDoc?.direction || '').toLowerCase());
@@ -838,8 +874,16 @@ const toggleMessageImportant = async ({ messageId, important }) => {
   };
 };
 
-const getConversationSummaries = async () => {
-  const conversations = await Conversation.find({}).sort({ unreadCount: -1, updatedAt: -1 });
+const getConversationSummaries = async ({ search = '' } = {}) => {
+  const term = String(search || '').trim();
+  let dbFilter = {};
+  if (term) {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const rx = new RegExp(escaped, 'i');
+    dbFilter = { $or: [{ phoneNumber: rx }, { lastMessage: rx }] };
+  }
+
+  const conversations = await Conversation.find(dbFilter).sort({ lastMessageAt: -1, updatedAt: -1 });
   const groupedByCanonical = new Map();
 
   for (const conversation of conversations) {
@@ -865,7 +909,7 @@ const getConversationSummaries = async () => {
     }
   }
 
-  const mergedConversations = await Conversation.find({}).sort({ unreadCount: -1, updatedAt: -1 }).lean();
+  const mergedConversations = await Conversation.find(dbFilter).sort({ lastMessageAt: -1, updatedAt: -1 }).lean();
   return mergedConversations
     .filter(shouldShowInChatList)
     .map((item) => {
@@ -877,6 +921,7 @@ const getConversationSummaries = async () => {
         lastMessage: item.lastMessage || '',
         unreadCount: Number(item.unreadCount || 0),
         lastReadAt: item.lastReadAt || null,
+        lastMessageAt: item.lastMessageAt || item.updatedAt || null,
         updatedAt: item.updatedAt,
         createdAt: item.createdAt,
       };
@@ -898,7 +943,7 @@ const markConversationAsRead = async (phone) => {
         phoneNumber: canonicalPhone,
       },
     },
-    { new: true },
+    { new: true, timestamps: false },
   ).lean();
 };
 

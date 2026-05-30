@@ -1322,7 +1322,10 @@ exports.getChatByPhone = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'phone is required.' });
     }
 
-    const messages = (await getMessagesByPhone(phone)).map((item) => ({
+    const limit = Math.min(Math.max(Number.parseInt(String(req.query.limit || '50'), 10) || 50, 1), 100);
+    const before = String(req.query.before || '').trim() || undefined;
+    const page = await getMessagesByPhone(phone, { limit, before });
+    const messages = (page.messages || []).map((item) => ({
       phone: item.phone,
       text: item.text,
       type: item.type || 'text',
@@ -1347,6 +1350,8 @@ exports.getChatByPhone = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       data: messages,
+      hasMore: Boolean(page.hasMore),
+      oldestTimestamp: page.oldestTimestamp || null,
     });
   } catch (error) {
     next(error);
@@ -1395,7 +1400,8 @@ exports.toggleChatMessageImportant = async (req, res, next) => {
 // Returns chat conversation summaries for sidebar listing.
 exports.getChatConversations = async (req, res, next) => {
   try {
-    const rawConversations = await getConversationSummaries();
+    const search = String(req.query.search || '').trim();
+    const rawConversations = await getConversationSummaries({ search });
     const phoneKeys = [...new Set(rawConversations.map((item) => normalizePhone(item.phoneNumber)).filter(Boolean))];
 
     const lookupValues = [...new Set(phoneKeys.flatMap((phone) => {
@@ -1429,10 +1435,12 @@ exports.getChatConversations = async (req, res, next) => {
       const normalizedPhone = normalizePhone(item.phoneNumber);
       const matchedName = nameByPhone.get(normalizedPhone) || '';
 
+      const lastMessageAt = item.lastMessageAt || item.updatedAt;
       return {
         ...item,
         clientName: matchedName,
         unreadCount: Number(item.unreadCount || 0),
+        lastMessageAt: lastMessageAt ? new Date(lastMessageAt).toISOString() : null,
         updatedAt: new Date(item.updatedAt).toISOString(),
       };
     });

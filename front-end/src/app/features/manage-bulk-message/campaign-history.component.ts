@@ -49,7 +49,7 @@ export class CampaignHistoryComponent implements OnInit, OnDestroy {
   }
 
   queuedCount(c: CampaignSummary): number {
-    return (c.stats?.queued || 0) + (c.stats?.waitingDailyLimit || 0);
+    return (c.stats.queued || 0) + (c.stats.waitingDailyLimit || 0);
   }
 
   onSearchChange(): void {

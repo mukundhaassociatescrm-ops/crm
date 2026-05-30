@@ -48,10 +48,10 @@
             <span class="sub">{{ c.groupName }}</span>
           </td>
           <td>{{ c.templateName || c.templateId }}</td>
-          <td>{{ c.stats?.total || 0 }}</td>
-          <td class="num delivered">{{ c.stats?.delivered || 0 }}</td>
+          <td>{{ c.stats.total || 0 }}</td>
+          <td class="num delivered">{{ c.stats.delivered || 0 }}</td>
           <td class="num queued">{{ queuedCount(c) }}</td>
-          <td class="num failed">{{ c.stats?.failed || 0 }}</td>
+          <td class="num failed">{{ c.stats.failed || 0 }}</td>
           <td>{{ (c.startedAt || c.createdAt) | date:'short' }}</td>
         </tr>
         <tr *ngIf="!campaigns.length && !isLoading">
