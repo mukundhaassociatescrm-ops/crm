@@ -284,6 +284,7 @@
           class="message-row"
           *ngFor="let message of messages; let i = index; trackBy: trackMessage"
           [id]="getMessageDomId(message)"
+          [attr.data-message-id]="message.messageId || null"
           [class.outgoing]="message.direction === 'outgoing'"
           [class.image-row]="isImageFileMessage(message) && !isMessageDeleted(message)"
           [class.message-row--highlighted]="highlightedMessageId === message.messageId"
@@ -408,7 +409,7 @@
                 </ng-container>
                 </ng-template>
                 <ng-template #nonAudioFileTpl>
-                <ng-container *ngIf="shouldRenderImagePreview(message)">
+                <div class="image-message-card" *ngIf="shouldRenderImagePreview(message)">
                   <button
                     type="button"
                     class="media-load-placeholder"
@@ -418,31 +419,36 @@
                     <i class="fa-regular fa-image"></i>
                     <span>Tap to load image</span>
                   </button>
-                  <ng-container *ngIf="shouldLoadMessageMedia(message)">
-                    <div class="image-loading-skeleton" *ngIf="!isInlineImageLoaded(message)">
+                  <div class="image-preview-shell" *ngIf="shouldLoadMessageMedia(message)">
+                    <div class="image-loading-skeleton" *ngIf="!isInlineImageLoaded(message)" aria-hidden="true">
                       <span class="image-loading-spinner"></span>
                     </div>
                     <button
                       type="button"
                       class="image-preview-link"
-                      [class.image-hidden]="!isInlineImageLoaded(message)"
+                      [class.image-preview-link--loaded]="isInlineImageLoaded(message)"
                       (click)="openFileViewer(message, $event)"
                       aria-label="Open image preview"
                     >
                       <img
                         class="image-preview"
-                        loading="lazy"
-                        [src]="message.fileUrl || message.mediaUrl"
-                        [alt]="message.filename || 'Image attachment'"
+                        [class.image-preview--loading]="!isInlineImageLoaded(message)"
+                        loading="eager"
+                        decoding="async"
+                        [src]="getInlineImageSourceUrl(message)"
+                        [alt]="getImageFileName(message) || 'Image attachment'"
                         (load)="onInlineImageLoad(message)"
                         (error)="onInlineImageError(message)"
                       >
                     </button>
-                  </ng-container>
-                </ng-container>
-                <p class="image-caption" *ngIf="shouldRenderImagePreview(message) && message.text && message.text !== message.filename && message.text !== 'image' && message.text !== 'Attachment'">
-                  {{ getMessageDisplayText(message) }}
-                </p>
+                  </div>
+                  <p class="image-message-filename" *ngIf="shouldShowImageFileName(message)">
+                    {{ getImageFileName(message) }}
+                  </p>
+                  <p class="image-caption" *ngIf="message.text && message.text !== message.filename && message.text !== getImageFileName(message) && message.text !== 'image' && message.text !== 'Attachment'">
+                    {{ getMessageDisplayText(message) }}
+                  </p>
+                </div>
                 <button type="button" class="file-message-header file-preview-link" *ngIf="!shouldRenderImagePreview(message)" (click)="openFileViewer(message, $event)">
                   <div class="doc-icon-wrap" [class.pdf-icon]="isPdfFileMessage(message)">
                     <i class="fa-solid" [class.fa-file-pdf]="isPdfFileMessage(message)" [class.fa-file]="!isPdfFileMessage(message)"></i>

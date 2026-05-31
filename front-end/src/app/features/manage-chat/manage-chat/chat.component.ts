@@ -866,6 +866,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.isLoadingOlderMessages = false;
     this.oldestMessageCursor = null;
     this.revealedMediaMessageIds.clear();
+    this.clearInlineImageLoadState();
     this.isLoadingMessages = true;
     this.showScrollToBottomButton = false;
     this.unreadNewMessages = 0;
@@ -2445,8 +2446,56 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.queueScrollToBottom(true, true);
   }
 
+  getInlineImageSourceUrl(message: PendingMessage): string {
+    return this.normalizeFileUrl(String(message.fileUrl || message.mediaUrl || ''));
+  }
+
+  getImageFileName(message: PendingMessage): string {
+    const fromFilename = String(message.filename || '').trim();
+    if (fromFilename && !this.isGenericImageMediaLabel(fromFilename)) {
+      return fromFilename;
+    }
+
+    const fileUrl = this.normalizeFileUrl(String(message.fileUrl || message.mediaUrl || ''));
+    const fromUrl = fileUrl
+      ? decodeURIComponent(fileUrl.split('?')[0].split('/').pop() || '').trim()
+      : '';
+    if (fromUrl && !this.isGenericImageMediaLabel(fromUrl)) {
+      return fromUrl;
+    }
+
+    const fromText = String(message.text || '').trim();
+    if (fromText && !this.isGenericImageMediaLabel(fromText) && /\.[a-z0-9]{2,5}$/i.test(fromText)) {
+      return fromText;
+    }
+
+    return fromFilename || fromUrl || '';
+  }
+
+  shouldShowImageFileName(message: PendingMessage): boolean {
+    return Boolean(this.getImageFileName(message));
+  }
+
+  private isGenericImageMediaLabel(value: string): boolean {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) {
+      return true;
+    }
+
+    if (/\.(png|jpe?g|gif|webp|heic|bmp|svg)$/i.test(normalized)) {
+      return false;
+    }
+
+    return ['image', 'attachment', 'document', 'file', 'photo', 'picture', 'video', 'audio', 'sticker'].includes(normalized);
+  }
+
   isInlineImageLoaded(message: PendingMessage): boolean {
     return this.loadedInlineImageMessageIds.has(this.getMessageMenuId(message));
+  }
+
+  private clearInlineImageLoadState(): void {
+    this.loadedInlineImageMessageIds.clear();
+    this.brokenInlineImageMessageIds.clear();
   }
 
   onAttachmentCaptionKeydown(event: KeyboardEvent): void {
@@ -3286,7 +3335,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       : '';
 
     this.maybeNotifyForUnreadCountChanges(conversationsToRender);
-    this.conversations = this.sortConversationsForInbox(conversationsToRender);
+    this.conversations = this.mergeInboxConversations(conversationsToRender);
     this.updateDisplayedConversations();
     this.lastConversationFetchAt = Date.now();
 
@@ -3671,7 +3720,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const previousSelectionPhone = this.selectedConversation ? this.normalizePhone(this.selectedConversation.phoneNumber) : '';
         this.lastConversationFetchAt = Date.now();
-        this.conversations = this.sortConversationsForInbox(response.data);
+        this.conversations = this.mergeInboxConversations(response.data);
         this.updateDisplayedConversations();
 
         if (this.selectedConversation?._id) {
@@ -3767,19 +3816,38 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const preview = String(event.text || '').trim();
-    const activityAt = event.timestamp || new Date().toISOString();
-    this.conversations = this.sortConversationsForInbox(this.conversations.map((conversation) => {
-      if (this.normalizePhone(conversation.phoneNumber) !== eventPhone) {
-        return conversation;
-      }
+    const index = this.conversations.findIndex(
+      (conversation) => this.normalizePhone(conversation.phoneNumber) === eventPhone,
+    );
+    if (index < 0) {
+      return;
+    }
 
-      return {
-        ...conversation,
-        lastMessage: preview || conversation.lastMessage,
-        lastMessageAt: activityAt,
-      };
-    }));
+    const existing = this.conversations[index];
+    const preview = String(event.text || '').trim();
+    const isMessageActivity = event.eventType === 'incoming' || event.eventType === 'outgoing';
+    const updated: ChatConversation = {
+      ...existing,
+      ...(preview ? { lastMessage: preview } : {}),
+      ...(isMessageActivity
+        ? { lastMessageAt: event.timestamp || new Date().toISOString() }
+        : {}),
+    };
+
+    const prevActivity = this.getConversationActivityTimestamp(existing);
+    const nextActivity = this.getConversationActivityTimestamp(updated);
+    const shouldPromote = isMessageActivity && nextActivity > prevActivity;
+
+    if (shouldPromote) {
+      this.conversations = [
+        updated,
+        ...this.conversations.filter((_, itemIndex) => itemIndex !== index),
+      ];
+    } else {
+      this.conversations = this.conversations.map((conversation, itemIndex) =>
+        (itemIndex === index ? updated : conversation),
+      );
+    }
 
     if (!this.isServerConversationSearch) {
       this.updateDisplayedConversations();
@@ -4809,6 +4877,51 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     const raw = conversation.lastMessageAt || conversation.updatedAt;
     const time = new Date(raw).getTime();
     return Number.isNaN(time) ? 0 : time;
+  }
+
+  private mergeConversationFields(existing: ChatConversation, incoming: ChatConversation): ChatConversation {
+    return {
+      ...existing,
+      ...incoming,
+      lastMessageAt: incoming.lastMessageAt ?? existing.lastMessageAt,
+      updatedAt: incoming.updatedAt ?? existing.updatedAt,
+    };
+  }
+
+  private mergeInboxConversations(incoming: ChatConversation[]): ChatConversation[] {
+    if (!this.conversations.length) {
+      return this.sortConversationsForInbox(incoming);
+    }
+
+    const incomingById = new Map(incoming.map((item) => [item._id, item]));
+    const preserved: ChatConversation[] = [];
+    const promoted: ChatConversation[] = [];
+
+    for (const existing of this.conversations) {
+      const next = incomingById.get(existing._id);
+      if (!next) {
+        continue;
+      }
+
+      const merged = this.mergeConversationFields(existing, next);
+      const prevActivity = this.getConversationActivityTimestamp(existing);
+      const nextActivity = this.getConversationActivityTimestamp(merged);
+      if (nextActivity > prevActivity) {
+        promoted.push(merged);
+      } else {
+        preserved.push(merged);
+      }
+      incomingById.delete(existing._id);
+    }
+
+    const newcomers = [...incomingById.values()].sort(
+      (a, b) => this.getConversationActivityTimestamp(b) - this.getConversationActivityTimestamp(a),
+    );
+    promoted.sort(
+      (a, b) => this.getConversationActivityTimestamp(b) - this.getConversationActivityTimestamp(a),
+    );
+
+    return [...promoted, ...newcomers, ...preserved];
   }
 
   private sortConversationsForInbox(items: ChatConversation[]): ChatConversation[] {
