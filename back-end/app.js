@@ -38,6 +38,7 @@ const historyRoutes = require('./routes/historyRoutes');
 const smsRoutes = require('./routes/smsRoutes');
 const whatsappCampaignRoutes = require('./routes/whatsappCampaignRoutes');
 const communicationRoutes = require('./routes/communicationRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -141,6 +142,7 @@ app.use('/api/history', historyRoutes);
 app.use('/api/sms', smsRoutes);
 app.use('/api/whatsapp-campaigns', whatsappCampaignRoutes);
 app.use('/api/communication', communicationRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/posters', require('./routes/posterRoutes'));
 app.use('/webhook', webhookRoutes);
 app.use(errorHandler);

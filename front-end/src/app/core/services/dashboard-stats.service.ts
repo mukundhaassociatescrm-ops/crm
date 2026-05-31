@@ -1,58 +1,89 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, catchError, forkJoin, map, of } from 'rxjs';
-import { ChatService } from '../../features/manage-chat/manage-chat/chat.service';
-import { ClientService } from '../../features/manage-client/client.service';
-import { PosterService } from '../../features/manage-posters/poster.service';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, catchError, of } from 'rxjs';
 
-export interface DashboardHubBadges {
-  communicationUnread: number;
-  clientCount: number;
-  posterCount: number;
+export type DashboardActivityKind =
+  | 'task-created'
+  | 'task-completed'
+  | 'task-assigned'
+  | 'task-updated'
+  | 'client-added'
+  | 'campaign-sent'
+  | 'poster-viewed'
+  | 'report-sent'
+  | 'payment-received';
+
+export interface DashboardKpis {
+  totalClients: number;
+  activeEmployees: number;
+  totalTasks: number;
+  pendingTasks: number;
+  inProgressTasks: number;
+  completedTasks: number;
+  unreadChats: number;
+  whatsappMessagesToday: number;
+  smsSentToday: number;
+  activeCampaigns: number;
 }
+
+export interface DashboardActivityItem {
+  id: string;
+  kind: DashboardActivityKind;
+  title: string;
+  subtitle: string;
+  createdAt: string;
+}
+
+export interface DashboardInsights {
+  kpis: DashboardKpis;
+  activity: DashboardActivityItem[];
+}
+
+export interface DashboardOverviewResponse {
+  success: boolean;
+  data: DashboardInsights;
+}
+
+const EMPTY_KPIS: DashboardKpis = {
+  totalClients: 0,
+  activeEmployees: 0,
+  totalTasks: 0,
+  pendingTasks: 0,
+  inProgressTasks: 0,
+  completedTasks: 0,
+  unreadChats: 0,
+  whatsappMessagesToday: 0,
+  smsSentToday: 0,
+  activeCampaigns: 0,
+};
+
+const EMPTY_INSIGHTS: DashboardInsights = {
+  kpis: EMPTY_KPIS,
+  activity: [],
+};
 
 @Injectable({ providedIn: 'root' })
 export class DashboardStatsService {
-  private readonly badgesSubject = new BehaviorSubject<DashboardHubBadges>({
-    communicationUnread: 0,
-    clientCount: 0,
-    posterCount: 0,
-  });
+  private readonly insightsSubject = new BehaviorSubject<DashboardInsights>(EMPTY_INSIGHTS);
+  private readonly loadingSubject = new BehaviorSubject<boolean>(false);
 
-  readonly badges$ = this.badgesSubject.asObservable();
+  readonly insights$ = this.insightsSubject.asObservable();
+  readonly loading$ = this.loadingSubject.asObservable();
 
-  constructor(
-    private readonly chatService: ChatService,
-    private readonly clientService: ClientService,
-    private readonly posterService: PosterService,
-  ) {}
+  constructor(private readonly http: HttpClient) {}
 
   refresh(): void {
-    forkJoin({
-      conversations: this.chatService.getConversations().pipe(
-        map((response) => {
-          const rows = response?.data || [];
-          return rows.reduce((sum, row) => sum + Math.max(0, Number(row.unreadCount) || 0), 0);
-        }),
-        catchError(() => of(0)),
-      ),
-      clients: this.clientService.getClients({ page: 1, limit: 1 }).pipe(
-        map((response) => Number(response?.pagination?.total) || 0),
-        catchError(() => of(0)),
-      ),
-      posters: this.posterService.list({ page: 1, limit: 1 }).pipe(
-        map((response) => Number(response?.pagination?.total) || (response?.data?.length ?? 0)),
-        catchError(() => of(0)),
-      ),
-    }).subscribe(({ conversations, clients, posters }) => {
-      this.badgesSubject.next({
-        communicationUnread: conversations,
-        clientCount: clients,
-        posterCount: posters,
-      });
+    this.loadingSubject.next(true);
+
+    this.http.get<DashboardOverviewResponse>('/api/dashboard/overview').pipe(
+      catchError(() => of({ success: false, data: EMPTY_INSIGHTS })),
+    ).subscribe((response) => {
+      this.insightsSubject.next(response?.data || EMPTY_INSIGHTS);
+      this.loadingSubject.next(false);
     });
   }
 
-  get snapshot(): DashboardHubBadges {
-    return this.badgesSubject.value;
+  get snapshot(): DashboardInsights {
+    return this.insightsSubject.value;
   }
 }

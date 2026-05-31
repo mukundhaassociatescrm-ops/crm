@@ -1,28 +1,44 @@
-import { NgIf } from '@angular/common';
+import { DatePipe, NgClass, NgFor, NgIf } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { DashboardHubBadges, DashboardStatsService } from '../../../core/services/dashboard-stats.service';
+import {
+  DashboardActivityItem,
+  DashboardInsights,
+  DashboardStatsService,
+} from '../../../core/services/dashboard-stats.service';
 import { AuthService } from '../../auth/auth.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [NgIf],
+  imports: [NgIf, NgFor, NgClass, DatePipe],
   templateUrl: './dashboard.component.html',
-  styleUrl: './dashboard.component.scss'
+  styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   public displayName = 'Admin';
   public userRole: 'admin' | 'employee' = 'employee';
   public temporaryAdmin = false;
-  public badges: DashboardHubBadges = {
-    communicationUnread: 0,
-    clientCount: 0,
-    posterCount: 0,
+  public loading = true;
+  public insights: DashboardInsights = {
+    kpis: {
+      totalClients: 0,
+      activeEmployees: 0,
+      totalTasks: 0,
+      pendingTasks: 0,
+      inProgressTasks: 0,
+      completedTasks: 0,
+      unreadChats: 0,
+      whatsappMessagesToday: 0,
+      smsSentToday: 0,
+      activeCampaigns: 0,
+    },
+    activity: [],
   };
 
-  private badgesSub?: Subscription;
+  private insightsSub?: Subscription;
+  private loadingSub?: Subscription;
 
   constructor(
     private router: Router,
@@ -37,16 +53,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.temporaryAdmin = this.authService.isTemporaryAdmin();
 
     if (this.isAdmin) {
-      this.badges = this.dashboardStats.snapshot;
+      this.insights = this.dashboardStats.snapshot;
+      this.loading = true;
       this.dashboardStats.refresh();
-      this.badgesSub = this.dashboardStats.badges$.subscribe((badges) => {
-        this.badges = badges;
+      this.insightsSub = this.dashboardStats.insights$.subscribe((insights) => {
+        this.insights = insights;
       });
+      this.loadingSub = this.dashboardStats.loading$.subscribe((loading) => {
+        this.loading = loading;
+      });
+    } else {
+      this.loading = false;
     }
   }
 
   ngOnDestroy(): void {
-    this.badgesSub?.unsubscribe();
+    this.insightsSub?.unsubscribe();
+    this.loadingSub?.unsubscribe();
   }
 
   get isAdmin(): boolean {
@@ -57,24 +80,72 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.userRole === 'employee';
   }
 
-  get isPrimaryAdmin(): boolean {
-    return this.isAdmin && !this.temporaryAdmin;
-  }
-
-  get showMyTask(): boolean {
+  get showMyTaskLink(): boolean {
     return this.isEmployee || this.temporaryAdmin;
   }
 
-  public goToMyTask(): void {
-    if (this.temporaryAdmin || this.isEmployee) {
-      this.router.navigate(['employee-dashboard']);
-      return;
-    }
-
-    this.router.navigate(['manage-task']);
+  get kpis() {
+    return this.insights.kpis;
   }
 
-  public nav(route: string): void {
-    this.router.navigate([route]);
+  get activity(): DashboardActivityItem[] {
+    return this.insights.activity;
+  }
+
+  get todayMessagesTotal(): number {
+    return this.kpis.whatsappMessagesToday + this.kpis.smsSentToday;
+  }
+
+  public refresh(): void {
+    if (this.isAdmin) {
+      this.dashboardStats.refresh();
+    }
+  }
+
+  public goToMyTask(): void {
+    this.router.navigate(['employee-dashboard']);
+  }
+
+  public activityIcon(kind: DashboardActivityItem['kind']): string {
+    switch (kind) {
+      case 'task-created':
+        return 'fa-solid fa-plus';
+      case 'task-completed':
+        return 'fa-solid fa-circle-check';
+      case 'task-assigned':
+        return 'fa-solid fa-user-check';
+      case 'client-added':
+        return 'fa-solid fa-user-plus';
+      case 'campaign-sent':
+        return 'fa-solid fa-paper-plane';
+      case 'poster-viewed':
+        return 'fa-solid fa-eye';
+      case 'report-sent':
+        return 'fa-regular fa-file-lines';
+      case 'payment-received':
+        return 'fa-solid fa-indian-rupee-sign';
+      default:
+        return 'fa-solid fa-clock-rotate-left';
+    }
+  }
+
+  public activityTone(kind: DashboardActivityItem['kind']): string {
+    switch (kind) {
+      case 'task-completed':
+      case 'payment-received':
+        return 'tone-success';
+      case 'campaign-sent':
+      case 'report-sent':
+        return 'tone-primary';
+      case 'client-added':
+        return 'tone-purple';
+      case 'poster-viewed':
+        return 'tone-pink';
+      case 'task-created':
+      case 'task-assigned':
+        return 'tone-warning';
+      default:
+        return 'tone-muted';
+    }
   }
 }

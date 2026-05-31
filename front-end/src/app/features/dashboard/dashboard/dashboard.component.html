@@ -2,84 +2,191 @@
 
   <div class="dashboard-container">
 
-    <div class="welcome-section">
-      <h1>Welcome Back, {{ displayName }} 👋</h1>
-      <p *ngIf="isAdmin">Manage your business operations efficiently</p>
-      <p *ngIf="isEmployee">Track and update your day-to-day work from one place</p>
+    <div class="dashboard-header">
+      <div class="welcome-section">
+        <h1>Welcome Back, {{ displayName }}</h1>
+        <p *ngIf="isAdmin">Monitor business activity and team performance at a glance.</p>
+        <p *ngIf="isEmployee">Track and update your day-to-day work from one place.</p>
+      </div>
+
+      <div class="header-actions">
+        <button type="button" class="refresh-btn" *ngIf="isAdmin" (click)="refresh()" [disabled]="loading">
+          <i class="fa-solid fa-rotate-right" [class.fa-spin]="loading"></i>
+          Refresh
+        </button>
+        <button type="button" class="my-task-btn" *ngIf="showMyTaskLink" (click)="goToMyTask()">
+          <i class="fa-solid fa-list-check"></i>
+          My Tasks
+        </button>
+      </div>
     </div>
 
-    <div class="cards-grid">
+    <ng-container *ngIf="isAdmin">
 
-      <div class="card card--hub" *ngIf="isAdmin" (click)="nav('communication')">
-        <div class="icon icon-chat"><i class="fa-solid fa-comments"></i></div>
-        <h3>
-          Communication
-          <span class="card-badge" *ngIf="badges.communicationUnread > 0">{{ badges.communicationUnread }}</span>
-        </h3>
-        <p>Chats, WhatsApp campaigns, SMS, and delivery tracking</p>
-        <div class="card-tags">
-          <span>Chats</span>
-          <span>WhatsApp</span>
-          <span>SMS</span>
+      <div class="loading-state" *ngIf="loading && !activity.length">
+        <i class="fa-solid fa-spinner fa-spin"></i>
+        Loading dashboard insights...
+      </div>
+
+      <section class="kpi-section" *ngIf="!loading || activity.length">
+        <div class="kpi-grid">
+          <article class="metric-card">
+            <div class="metric-card__icon tone-purple"><i class="fa-solid fa-users"></i></div>
+            <div class="metric-card__body">
+              <span class="metric-card__label">Total Clients</span>
+              <strong class="metric-card__value">{{ kpis.totalClients }}</strong>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-card__icon tone-success"><i class="fa-solid fa-user-tie"></i></div>
+            <div class="metric-card__body">
+              <span class="metric-card__label">Active Employees</span>
+              <strong class="metric-card__value">{{ kpis.activeEmployees }}</strong>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-card__icon tone-warning"><i class="fa-solid fa-clipboard-list"></i></div>
+            <div class="metric-card__body">
+              <span class="metric-card__label">Total Tasks</span>
+              <strong class="metric-card__value">{{ kpis.totalTasks }}</strong>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-card__icon tone-danger"><i class="fa-solid fa-hourglass-half"></i></div>
+            <div class="metric-card__body">
+              <span class="metric-card__label">Pending Tasks</span>
+              <strong class="metric-card__value">{{ kpis.pendingTasks }}</strong>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-card__icon tone-primary"><i class="fa-solid fa-comments"></i></div>
+            <div class="metric-card__body">
+              <span class="metric-card__label">Unread Chats</span>
+              <strong class="metric-card__value">{{ kpis.unreadChats }}</strong>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-card__icon tone-whatsapp"><i class="fa-brands fa-whatsapp"></i></div>
+            <div class="metric-card__body">
+              <span class="metric-card__label">WhatsApp Today</span>
+              <strong class="metric-card__value">{{ kpis.whatsappMessagesToday }}</strong>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-card__icon tone-sms"><i class="fa-solid fa-comment-sms"></i></div>
+            <div class="metric-card__body">
+              <span class="metric-card__label">SMS Sent Today</span>
+              <strong class="metric-card__value">{{ kpis.smsSentToday }}</strong>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-card__icon tone-campaign"><i class="fa-solid fa-bullhorn"></i></div>
+            <div class="metric-card__body">
+              <span class="metric-card__label">Active Campaigns</span>
+              <strong class="metric-card__value">{{ kpis.activeCampaigns }}</strong>
+            </div>
+          </article>
         </div>
-      </div>
+      </section>
 
-      <div class="card card--hub" *ngIf="isAdmin" (click)="nav('customer-management')">
-        <div class="icon icon-group"><i class="fa-solid fa-users"></i></div>
-        <h3>
-          Customer Management
-          <span class="card-badge card-badge--muted" *ngIf="badges.clientCount > 0">{{ badges.clientCount }}</span>
-        </h3>
-        <p>Organize contact groups and client records</p>
-        <div class="card-tags">
-          <span>Groups</span>
-          <span>Clients</span>
+      <div class="dashboard-panels">
+
+        <section class="panel panel--activity">
+          <div class="panel__head">
+            <h2>Recent Activity</h2>
+            <span class="panel__hint">Latest business events</span>
+          </div>
+
+          <div class="activity-list" *ngIf="activity.length; else emptyActivity">
+            <article class="activity-item" *ngFor="let item of activity">
+              <div class="activity-item__icon" [ngClass]="activityTone(item.kind)">
+                <i [class]="activityIcon(item.kind)"></i>
+              </div>
+              <div class="activity-item__content">
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.subtitle }}</p>
+              </div>
+              <time>{{ item.createdAt | date:'MMM d, h:mm a' }}</time>
+            </article>
+          </div>
+
+          <ng-template #emptyActivity>
+            <div class="panel-empty">No recent activity yet.</div>
+          </ng-template>
+        </section>
+
+        <div class="panel-stack">
+
+          <section class="panel panel--stats">
+            <div class="panel__head">
+              <h2>Tasks</h2>
+            </div>
+            <div class="stat-rows">
+              <div class="stat-row">
+                <span>Pending</span>
+                <strong>{{ kpis.pendingTasks }}</strong>
+              </div>
+              <div class="stat-row">
+                <span>In Progress</span>
+                <strong>{{ kpis.inProgressTasks }}</strong>
+              </div>
+              <div class="stat-row">
+                <span>Completed</span>
+                <strong>{{ kpis.completedTasks }}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel panel--stats">
+            <div class="panel__head">
+              <h2>Communication</h2>
+            </div>
+            <div class="stat-rows">
+              <div class="stat-row">
+                <span>Unread chats</span>
+                <strong>{{ kpis.unreadChats }}</strong>
+              </div>
+              <div class="stat-row">
+                <span>Today's messages</span>
+                <strong>{{ todayMessagesTotal }}</strong>
+              </div>
+              <div class="stat-row stat-row--split">
+                <div>
+                  <span>WhatsApp</span>
+                  <strong>{{ kpis.whatsappMessagesToday }}</strong>
+                </div>
+                <div>
+                  <span>SMS</span>
+                  <strong>{{ kpis.smsSentToday }}</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+
         </div>
+
       </div>
 
-      <div class="card card--hub" *ngIf="isAdmin" (click)="nav('marketing')">
-        <div class="icon icon-poster"><i class="fa-solid fa-bullhorn"></i></div>
-        <h3>
-          Marketing
-          <span class="card-badge card-badge--muted" *ngIf="badges.posterCount > 0">{{ badges.posterCount }}</span>
-        </h3>
-        <p>Posters and campaign landing pages</p>
-        <div class="card-tags">
-          <span>Posters</span>
-        </div>
-      </div>
+    </ng-container>
 
-      <div class="card" *ngIf="isPrimaryAdmin" (click)="nav('manage-task')">
-        <div class="icon icon-task"><i class="fa-solid fa-clipboard-check"></i></div>
-        <h3>Tasks</h3>
-        <p>Create, assign, and track tasks</p>
+    <section class="employee-note" *ngIf="isEmployee">
+      <div class="employee-note__icon"><i class="fa-solid fa-gauge-high"></i></div>
+      <div>
+        <h2>Your workspace</h2>
+        <p>Use the sidebar to navigate modules. Open My Tasks to view assignments and update progress.</p>
+        <button type="button" class="my-task-btn" (click)="goToMyTask()">
+          <i class="fa-solid fa-list-check"></i>
+          Go to My Tasks
+        </button>
       </div>
-
-      <div class="card" *ngIf="isPrimaryAdmin" (click)="nav('manage-employee')">
-        <div class="icon icon-employee"><i class="fa-solid fa-user-tie"></i></div>
-        <h3>Employees</h3>
-        <p>Add, update, and manage employee details</p>
-      </div>
-
-      <div class="card" *ngIf="isAdmin" (click)="nav('manage-report')">
-        <div class="icon icon-report"><i class="fa-solid fa-file-invoice"></i></div>
-        <h3>Reports</h3>
-        <p>Create, preview, and download invoice reports</p>
-      </div>
-
-      <div class="card" *ngIf="isAdmin" (click)="nav('work-history')">
-        <div class="icon icon-history"><i class="fa-solid fa-timeline"></i></div>
-        <h3>Work History</h3>
-        <p>Track chronological client and task activities</p>
-      </div>
-
-      <div class="card" *ngIf="showMyTask" (click)="goToMyTask()">
-        <div class="icon icon-my-task"><i class="fa-solid fa-list-check"></i></div>
-        <h3>My Task</h3>
-        <p>View assigned tasks and update status</p>
-      </div>
-
-    </div>
+    </section>
 
   </div>
 
