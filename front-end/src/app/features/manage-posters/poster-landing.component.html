@@ -16,56 +16,97 @@
       <span class="brand-name">Mukundha Associates</span>
     </header>
 
-    <section class="hero">
-      <p class="hero-category" *ngIf="poster.category">{{ poster.category }}</p>
-      <h1 class="hero-title" *ngIf="displayTitle">{{ displayTitle }}</h1>
+    <div class="landing-grid">
+      <section class="poster-column">
+        <p class="hero-category" *ngIf="poster.category">{{ poster.category }}</p>
+        <h1 class="hero-title" *ngIf="displayTitle">{{ displayTitle }}</h1>
 
-      <div class="hero-poster">
-        <img
-          class="poster-image"
-          [src]="poster.imageUrl"
-          [alt]="displayTitle || 'Mukundha Associates poster'"
-          loading="eager"
+        <button
+          type="button"
+          class="poster-frame"
+          (click)="openZoom()"
+          aria-label="View poster full size"
         >
-      </div>
+          <img
+            class="poster-image"
+            [src]="poster.imageUrl"
+            [alt]="displayTitle || 'Mukundha Associates poster'"
+            loading="eager"
+          >
+        </button>
 
-      <p class="hero-lead" *ngIf="poster.shortDescription">{{ poster.shortDescription }}</p>
-    </section>
+        <p class="hero-lead" *ngIf="poster.shortDescription">{{ poster.shortDescription }}</p>
+      </section>
 
-    <section class="cta-panel" aria-labelledby="cta-heading">
-      <h2 id="cta-heading">Need assistance?</h2>
+      <aside class="contact-column" aria-label="Contact information">
+        <div class="contact-card">
+          <h2 class="contact-card__heading">Need Assistance?</h2>
+          <p class="contact-card__brand">Mukundha Associates</p>
 
-      <ul class="contact-list">
-        <li>
-          <span class="contact-label">WhatsApp:</span>
-          <a class="contact-value" [href]="whatsappLink" target="_blank" rel="noopener noreferrer">93630 69948</a>
-        </li>
-        <li>
-          <span class="contact-label">Call:</span>
-          <a class="contact-value" href="tel:+918508169948">85081 69948</a>
-        </li>
-        <li>
-          <span class="contact-label">Call:</span>
-          <a class="contact-value" href="tel:+916379680872">63796 80872</a>
-        </li>
-      </ul>
+          <ul class="service-list">
+            <li *ngFor="let service of services">
+              <i class="fa-solid fa-check" aria-hidden="true"></i>
+              {{ service }}
+            </li>
+          </ul>
 
-      <div class="cta-actions">
-        <a class="btn btn-whatsapp" [href]="whatsappLink" target="_blank" rel="noopener noreferrer">
-          <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
-          WhatsApp Now
-        </a>
-        <a class="btn btn-call" [href]="primaryCallLink">
-          <i class="fa-solid fa-phone" aria-hidden="true"></i>
-          Call Now
-        </a>
-      </div>
+          <ul class="phone-list">
+            <li>
+              <i class="fa-solid fa-phone" aria-hidden="true"></i>
+              <a href="tel:+918508169948">85081 69948</a>
+            </li>
+            <li>
+              <i class="fa-solid fa-phone" aria-hidden="true"></i>
+              <a href="tel:+916379680872">63796 80872</a>
+            </li>
+            <li>
+              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+              <a [href]="whatsappLink" target="_blank" rel="noopener noreferrer">93630 69948</a>
+            </li>
+          </ul>
 
-      <p class="cta-address">
-        TF7, C Block, 3rd Floor, Ramani's Jewel Manor Apartment, Samy Iyer New Street, Coimbatore - 641001
-      </p>
-    </section>
+          <div class="cta-actions">
+            <a class="btn btn-whatsapp" [href]="whatsappLink" target="_blank" rel="noopener noreferrer">
+              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+              WhatsApp Now
+            </a>
+            <a class="btn btn-call" [href]="primaryCallLink">
+              <i class="fa-solid fa-phone" aria-hidden="true"></i>
+              Call Now
+            </a>
+          </div>
+
+          <div class="office-address">
+            <h3>Office Address</h3>
+            <p>
+              TF7, C Block,<br>
+              Ramani's Jewel Manor,<br>
+              Coimbatore
+            </p>
+          </div>
+        </div>
+      </aside>
+    </div>
   </main>
+
+  <div
+    class="zoom-overlay"
+    *ngIf="zoomOpen && poster"
+    (click)="closeZoom()"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Poster full size view"
+  >
+    <button type="button" class="zoom-close" (click)="closeZoom(); $event.stopPropagation()" aria-label="Close">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+    <img
+      class="zoom-image"
+      [src]="poster.imageUrl"
+      [alt]="displayTitle || 'Mukundha Associates poster'"
+      (click)="$event.stopPropagation()"
+    >
+  </div>
 
   <a
     *ngIf="!isLoading && poster"

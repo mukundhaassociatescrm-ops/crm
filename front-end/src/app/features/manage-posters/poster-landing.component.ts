@@ -20,6 +20,14 @@ export class PosterLandingComponent implements OnInit, OnDestroy {
 
   readonly whatsappNumber = '919363069948';
   readonly callNumbers = ['918508169948', '916379680872'];
+  readonly services = [
+    'Income Tax Return Filing',
+    'GST Filing',
+    'Accounting Services',
+    'Tax Consultation',
+  ];
+
+  zoomOpen = false;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -75,6 +83,14 @@ export class PosterLandingComponent implements OnInit, OnDestroy {
 
   get primaryCallLink(): string {
     return `tel:+${this.callNumbers[0]}`;
+  }
+
+  openZoom(): void {
+    this.zoomOpen = true;
+  }
+
+  closeZoom(): void {
+    this.zoomOpen = false;
   }
 
   private isSlugLikeTitle(title: string): boolean {
