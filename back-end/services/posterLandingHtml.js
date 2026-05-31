@@ -6,17 +6,33 @@ const escapeHtml = (value) => String(value || '')
 
 const formatMultiline = (value) => escapeHtml(value).replace(/\r?\n/g, '<br>');
 
+const isSlugLikeTitle = (title, slug) => {
+  const normalized = String(title || '').trim().toLowerCase();
+  const slugNorm = String(slug || '').trim().toLowerCase();
+  if (!normalized) return true;
+  if (slugNorm && normalized === slugNorm) return true;
+  if (/^template-\d+$/i.test(normalized)) return true;
+  return false;
+};
+
 const buildPosterLandingHtml = (poster) => {
-  const title = escapeHtml(poster.title);
+  const rawTitle = String(poster.title || '').trim();
+  const displayTitle = isSlugLikeTitle(rawTitle, poster.slug) ? '' : escapeHtml(rawTitle);
+  const whatsappLabel = displayTitle || 'your poster';
   const category = escapeHtml(poster.category);
   const shortDescription = poster.shortDescription ? formatMultiline(poster.shortDescription) : '';
   const imageUrl = escapeHtml(poster.imageUrl);
-  const whatsappLink = 'https://wa.me/919363069948?text=' + encodeURIComponent(`Hi Mukundha Associates, I viewed "${poster.title}".`);
+  const imageAlt = displayTitle || 'Mukundha Associates poster';
+  const pageTitle = displayTitle || 'Mukundha Associates';
+  const whatsappLink = 'https://wa.me/919363069948?text=' + encodeURIComponent(`Hi Mukundha Associates, I viewed "${whatsappLabel}".`);
   const callLink = 'tel:+918508169948';
   const callLink2 = 'tel:+916379680872';
 
   const categoryBlock = category
     ? `<p class="hero-category">${category}</p>`
+    : '';
+  const titleBlock = displayTitle
+    ? `<h1 class="hero-title">${displayTitle}</h1>`
     : '';
   const leadBlock = shortDescription
     ? `<p class="hero-lead">${shortDescription}</p>`
@@ -27,23 +43,25 @@ const buildPosterLandingHtml = (poster) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title} | Mukundha Associates</title>
-  <meta name="description" content="${escapeHtml(poster.shortDescription || poster.title)}">
+  <title>${pageTitle} | Mukundha Associates</title>
+  <meta name="description" content="${escapeHtml(poster.shortDescription || rawTitle || 'Mukundha Associates')}">
   <style>
     * { box-sizing: border-box; }
-    html, body { overflow-x: hidden; }
-    body {
+    html, body {
       margin: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    body {
       font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
       background: linear-gradient(165deg, #ecfdf5 0%, #f8fafc 28%, #ffffff 72%);
       color: #0f172a;
       line-height: 1.5;
-      min-height: 100vh;
-      min-height: 100dvh;
       padding: 10px 12px 96px;
     }
-    .landing {
-      width: min(100%, 1280px);
+    .poster-container {
+      width: 95%;
+      max-width: 1600px;
       margin: 0 auto;
     }
     .landing-top {
@@ -82,18 +100,19 @@ const buildPosterLandingHtml = (poster) => {
       padding: 0 8px;
     }
     .hero-poster {
-      width: 90%;
-      max-width: 1200px;
-      margin: 0 auto 14px;
+      width: 100%;
+      margin: 0 auto 16px;
       border-radius: 12px;
-      overflow: hidden;
       background: #fff;
       box-shadow: 0 4px 6px rgba(15, 23, 42, 0.04), 0 20px 40px rgba(15, 23, 42, 0.1);
     }
-    .hero-poster img {
+    .poster-image {
       display: block;
       width: 100%;
+      max-width: 1400px;
       height: auto;
+      margin: 0 auto;
+      border-radius: 12px;
     }
     .hero-lead {
       margin: 0 auto;
@@ -194,7 +213,8 @@ const buildPosterLandingHtml = (poster) => {
     .fab-whatsapp svg { width: 28px; height: 28px; fill: currentColor; }
     @media (max-width: 640px) {
       body { padding: 8px 10px 88px; }
-      .hero-poster { width: 100%; border-radius: 10px; }
+      .poster-container { width: 100%; }
+      .poster-image, .hero-poster { width: 100%; max-width: none; border-radius: 10px; }
       .cta-actions { grid-template-columns: 1fr; }
       .btn { width: 100%; min-height: 52px; }
       .fab-whatsapp { right: 12px; bottom: 12px; width: 52px; height: 52px; }
@@ -203,16 +223,16 @@ const buildPosterLandingHtml = (poster) => {
   </style>
 </head>
 <body>
-  <main class="landing">
+  <main class="poster-container">
     <header class="landing-top">
       <span class="brand-name">Mukundha Associates</span>
     </header>
 
     <section class="hero">
       ${categoryBlock}
-      <h1 class="hero-title">${title}</h1>
+      ${titleBlock}
       <div class="hero-poster">
-        <img src="${imageUrl}" alt="${title}" loading="eager">
+        <img class="poster-image" src="${imageUrl}" alt="${imageAlt}" loading="eager">
       </div>
       ${leadBlock}
     </section>
@@ -282,4 +302,5 @@ module.exports = {
   buildPosterLandingHtml,
   buildPosterNotFoundHtml,
   escapeHtml,
+  isSlugLikeTitle,
 };

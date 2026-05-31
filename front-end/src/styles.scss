@@ -9,6 +9,21 @@ html, body {
   overflow: hidden;
 }
 
+/* Public poster landing — normal document scroll (outside CRM shell) */
+html.poster-landing-page,
+body.poster-landing-page {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html.poster-landing-page app-root {
+  display: block;
+  height: auto;
+  min-height: 100%;
+}
+
 * {
   box-sizing: border-box;
 }

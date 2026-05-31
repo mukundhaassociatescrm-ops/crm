@@ -10,7 +10,7 @@
     <p>This link may be inactive or expired.</p>
   </div>
 
-  <main class="landing" *ngIf="!isLoading && poster">
+  <main class="poster-container" *ngIf="!isLoading && poster">
     <header class="landing-top">
       <img src="assets/Logo.png" alt="Mukundha Associates" class="brand-logo">
       <span class="brand-name">Mukundha Associates</span>
@@ -18,10 +18,15 @@
 
     <section class="hero">
       <p class="hero-category" *ngIf="poster.category">{{ poster.category }}</p>
-      <h1 class="hero-title">{{ poster.title }}</h1>
+      <h1 class="hero-title" *ngIf="displayTitle">{{ displayTitle }}</h1>
 
       <div class="hero-poster">
-        <img [src]="poster.imageUrl" [alt]="poster.title" loading="eager">
+        <img
+          class="poster-image"
+          [src]="poster.imageUrl"
+          [alt]="displayTitle || 'Mukundha Associates poster'"
+          loading="eager"
+        >
       </div>
 
       <p class="hero-lead" *ngIf="poster.shortDescription">{{ poster.shortDescription }}</p>
