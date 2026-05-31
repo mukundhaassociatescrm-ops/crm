@@ -92,7 +92,7 @@
         <tbody>
           <tr *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId">
             <td class="col-id">
-              <span class="task-id-pill">{{ getTaskDisplayId(task, (currentPage - 1) * pageSize + i) }}</span>
+              <span class="task-id-pill">{{ getTaskDisplayId(task) }}</span>
             </td>
             <td class="col-title">
               <span class="task-title" [title]="task.title">{{ task.title }}</span>
@@ -163,7 +163,7 @@
   <div class="task-card-list" *ngIf="filteredTasks.length > 0">
     <article class="task-card" *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId">
       <header class="task-card__header">
-        <span class="task-card__id">{{ getTaskDisplayId(task, (currentPage - 1) * pageSize + i) }}</span>
+        <span class="task-card__id">{{ getTaskDisplayId(task) }}</span>
         <span class="task-card__due">{{ formatTaskDueDate(task.dueDate) }}</span>
         <div *ngIf="isAdmin" class="task-card__actions">
           <button
@@ -328,7 +328,11 @@
       <div class="form-group">
         <label>Due Date & Time</label>
         <div class="date-time-row">
-          <app-date-time-picker formControlName="dueDate" [defaultToCurrentTime]="true" placeholder="Select due date and time"></app-date-time-picker>
+          <app-date-time-picker
+            formControlName="dueDate"
+            [defaultToCurrentTime]="!isEditMode && !isViewOnlyMode"
+            placeholder="Select due date and time"
+          ></app-date-time-picker>
         </div>
       </div>
 

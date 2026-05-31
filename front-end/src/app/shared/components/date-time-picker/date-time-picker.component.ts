@@ -27,6 +27,7 @@ export class DateTimePickerComponent implements ControlValueAccessor, AfterViewI
   private onChange: (value: string) => void = () => {};
   private onTouched: () => void = () => {};
   private pendingValue: string | null = null;
+  private hasExternalValue = false;
   isDisabled = false;
 
   ngAfterViewInit(): void {
@@ -48,10 +49,11 @@ export class DateTimePickerComponent implements ControlValueAccessor, AfterViewI
         if (this.pendingValue) {
           this.setPickerDate(this.pendingValue);
           this.pendingValue = null;
+          this.hasExternalValue = true;
           return;
         }
 
-        if (this.defaultToCurrentTime) {
+        if (this.defaultToCurrentTime && !this.hasExternalValue) {
           const now = new Date();
           this.flatpickrInstance?.setDate(now, false);
           this.onChange(this.toIsoLocal(now));
@@ -62,9 +64,13 @@ export class DateTimePickerComponent implements ControlValueAccessor, AfterViewI
 
   writeValue(value: string | null): void {
     if (!value) {
+      this.hasExternalValue = false;
+      this.pendingValue = null;
       this.flatpickrInstance?.clear();
       return;
     }
+
+    this.hasExternalValue = true;
 
     if (!this.flatpickrInstance) {
       this.pendingValue = value;

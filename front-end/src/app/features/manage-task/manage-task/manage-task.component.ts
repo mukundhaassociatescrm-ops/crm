@@ -67,6 +67,7 @@ export class ManageTaskComponent {
 
   editingTaskId: string | null = null;
   editingTaskDisplayId: string | null = null;
+  editingTaskOriginalDueDate: string | null = null;
   openActionMenuTaskId: string | null = null;
   chatTaskOrigin: {
     createdFromChat?: boolean;
@@ -458,6 +459,9 @@ export class ManageTaskComponent {
     this.isEditMode = true;
     this.editingTaskId = task._id || null;
     this.editingTaskDisplayId = String(task.displayId || '').trim() || null;
+    this.editingTaskOriginalDueDate = task.dueDate
+      ? (this.normalizeDueDateForApi(task.dueDate) || null)
+      : null;
     this.chatTaskOrigin = task.createdFromChat && task.chatMessageId
       ? {
         createdFromChat: true,
@@ -467,7 +471,10 @@ export class ManageTaskComponent {
         messageText: task.messageText || task.description || '',
       }
       : null;
-    this.taskForm.reset({
+    this.selectedFiles = [];
+    this.isTaskModalOpen = true;
+
+    const formValues = {
       title: task.title,
       description: task.description,
       assignedTo: typeof task.assignedTo === 'string' ? task.assignedTo : task.assignedTo?._id || task.assignedTo?.fullName || task.assignedTo?.name || '',
@@ -479,20 +486,27 @@ export class ManageTaskComponent {
       status: task.status,
       dueDate: this.normalizeDueDateForForm(task.dueDate),
       reminderEnabled: !!task.reminderEnabled,
-      reminderBefore: Number(task.reminderBefore) || 10
+      reminderBefore: Number(task.reminderBefore) || 10,
+    };
+
+    // Patch after drawer mounts so the datetime picker receives the stored due date.
+    setTimeout(() => {
+      this.taskForm.reset(formValues);
+      if (readOnly) {
+        this.taskForm.disable({ emitEvent: false });
+      } else {
+        this.taskForm.enable({ emitEvent: false });
+      }
     });
-    this.selectedFiles = [];
-    if (readOnly) {
-      this.taskForm.disable({ emitEvent: false });
-    } else {
-      this.taskForm.enable({ emitEvent: false });
-    }
-    this.isTaskModalOpen = true;
   }
 
   closeTaskModal() {
     this.isTaskModalOpen = false;
     this.isViewOnlyMode = false;
+    this.isEditMode = false;
+    this.editingTaskId = null;
+    this.editingTaskDisplayId = null;
+    this.editingTaskOriginalDueDate = null;
     this.taskForm.enable({ emitEvent: false });
     this.selectedFiles = [];
   }
@@ -615,6 +629,10 @@ export class ManageTaskComponent {
       return;
     }
 
+    const dueDateForSave = this.isEditMode
+      ? (normalizedDueDate || this.editingTaskOriginalDueDate || undefined)
+      : (normalizedDueDate || new Date().toISOString());
+
     this.loadingSave = true;
     const payload: Task = {
       title: formValue.title,
@@ -626,7 +644,7 @@ export class ManageTaskComponent {
       reportSent: nextReportSent,
       priority: formValue.priority,
       status: formValue.status,
-      dueDate: normalizedDueDate || new Date().toISOString(),
+      dueDate: dueDateForSave || '',
       reminderEnabled: formValue.reminderEnabled,
       reminderBefore: formValue.reminderBefore,
       ...(this.chatTaskOrigin?.createdFromChat && !this.isEditMode
@@ -760,12 +778,8 @@ export class ManageTaskComponent {
     return task._id || `${task.title}-${task.dueDate}`;
   }
 
-  getTaskDisplayId(task: Task, index: number): string {
-    const displayId = String(task.displayId || '').trim();
-    if (displayId) {
-      return displayId;
-    }
-    return `TSK-${index + 1}`;
+  getTaskDisplayId(task: Task): string {
+    return String(task.displayId || '').trim() || '—';
   }
 
   get paginatedTasks(): Task[] {
@@ -839,7 +853,13 @@ export class ManageTaskComponent {
       return '';
     }
 
-    return date.toISOString();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
   }
 
   private normalizeDueDateForApi(value: unknown): string | undefined {

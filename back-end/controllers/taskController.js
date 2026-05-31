@@ -7,7 +7,7 @@ const User = require('../models/User');
 const { scheduleTaskReminder, rescheduleTaskReminder, sendManualReminder } = require('../services/reminderService');
 const ReminderLog = require('../models/ReminderLog');
 const { logActivity, resolveClientIdByPhone } = require('../services/activityHistoryService');
-const { allocateTaskDisplayId, stripMutableTaskIdFields } = require('../services/taskDisplayIdService');
+const { allocateTaskDisplayId, ensureTaskDisplayId, ensureTasksHaveDisplayIds, stripMutableTaskIdFields } = require('../services/taskDisplayIdService');
 
 const isAdminUser = (user) => String(user?.role || '').toLowerCase() === 'admin';
 
@@ -255,6 +255,7 @@ exports.getTasks = async (req, res, next) => {
     }
 
     const tasks = await Task.find(query).populate('assignedTo', 'fullName email phone').sort({ dueDate: 1, createdAt: -1 });
+    await ensureTasksHaveDisplayIds(tasks);
     res.status(200).json({ success: true, count: tasks.length, data: tasks });
   } catch (error) {
     next(error);
@@ -350,6 +351,12 @@ exports.getTaskById = async (req, res, next) => {
         return res.status(403).json({ success: false, message: 'Forbidden: not assigned to this task' });
       }
     }
+
+    const displayId = await ensureTaskDisplayId(task._id);
+    if (displayId) {
+      task.displayId = displayId;
+    }
+
     res.status(200).json({ success: true, data: task });
   } catch (error) {
     next(error);
