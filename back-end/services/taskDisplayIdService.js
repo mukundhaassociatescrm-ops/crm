@@ -15,6 +15,17 @@ const formatTaskDisplayId = (number) => `TSK-${number}`;
 
 const isValidTaskDisplayId = (displayId) => DISPLAY_ID_PATTERN.test(String(displayId || '').trim());
 
+const applyDisplayIdToTask = (task, displayId) => {
+  if (!task || !displayId) {
+    return;
+  }
+  if (typeof task.set === 'function') {
+    task.set('displayId', displayId);
+    return;
+  }
+  task.displayId = displayId;
+};
+
 const findMaxTaskDisplayNumber = async () => {
   const tasks = await Task.find({ displayId: { $exists: true, $ne: '' } })
     .select('displayId')
@@ -66,12 +77,9 @@ const ensureTaskDisplayId = async (taskId) => {
 
   const displayId = await allocateTaskDisplayId();
   const updated = await Task.findOneAndUpdate(
-    {
-      _id: id,
-      $or: [{ displayId: { $exists: false } }, { displayId: null }, { displayId: '' }],
-    },
+    { _id: id },
     { $set: { displayId } },
-    { new: true, select: 'displayId' },
+    { new: true, select: 'displayId', runValidators: true },
   ).lean();
 
   if (updated?.displayId && isValidTaskDisplayId(updated.displayId)) {
@@ -91,9 +99,7 @@ const ensureTasksHaveDisplayIds = async (tasks = []) => {
   const list = Array.isArray(tasks) ? tasks : [];
   for (const task of list) {
     const resolved = await ensureTaskDisplayId(task?._id);
-    if (resolved) {
-      task.displayId = resolved;
-    }
+    applyDisplayIdToTask(task, resolved);
   }
   return list;
 };

@@ -254,7 +254,10 @@ exports.getTasks = async (req, res, next) => {
       if (toDate) query.dueDate.$lte = new Date(toDate);
     }
 
-    const tasks = await Task.find(query).populate('assignedTo', 'fullName email phone').sort({ dueDate: 1, createdAt: -1 });
+    const tasks = await Task.find(query)
+      .populate('assignedTo', 'fullName email phone')
+      .sort({ dueDate: 1, createdAt: -1 })
+      .lean();
     await ensureTasksHaveDisplayIds(tasks);
     res.status(200).json({ success: true, count: tasks.length, data: tasks });
   } catch (error) {
@@ -339,7 +342,8 @@ exports.getUpcomingReminders = async (req, res, next) => {
 exports.getTaskById = async (req, res, next) => {
   try {
     const task = await Task.findOne({ _id: req.params.id, ...(await buildAdminTaskScope(req.user)) })
-      .populate('assignedTo', 'fullName email phone');
+      .populate('assignedTo', 'fullName email phone')
+      .lean();
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }

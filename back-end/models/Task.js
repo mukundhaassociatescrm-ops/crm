@@ -34,7 +34,6 @@ const taskSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
       index: true,
-      immutable: true,
     },
     title: { type: String, required: [true, 'Task title is required'] },
     description: { type: String, default: '' },
