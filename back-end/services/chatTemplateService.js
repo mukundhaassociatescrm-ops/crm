@@ -84,6 +84,140 @@ const extractVariables = (body) => {
   return indexes.sort((a, b) => a - b);
 };
 
+const parseTemplateDataObject = (data) => {
+  if (!data) {
+    return null;
+  }
+
+  if (typeof data === 'object') {
+    return data;
+  }
+
+  const trimmed = String(data).trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+};
+
+const normalizeHeaderType = (value) => {
+  const raw = normalizeText(value).toUpperCase();
+  if (['IMAGE', 'VIDEO', 'DOCUMENT', 'TEXT'].includes(raw)) {
+    return raw;
+  }
+  if (raw === 'MEDIA') {
+    return 'IMAGE';
+  }
+  return 'NONE';
+};
+
+const extractHeaderType = (rawTemplate) => {
+  const parsedData = parseTemplateDataObject(rawTemplate?.data);
+  const directType = normalizeHeaderType(rawTemplate?.templateType || rawTemplate?.headerType || rawTemplate?.mediaType);
+  if (directType !== 'NONE') {
+    return directType;
+  }
+
+  let containerMeta = rawTemplate?.containerMeta;
+  if (typeof containerMeta === 'string') {
+    try {
+      containerMeta = JSON.parse(containerMeta);
+    } catch {
+      containerMeta = null;
+    }
+  }
+
+  if (containerMeta && typeof containerMeta === 'object') {
+    const fromMeta = normalizeHeaderType(
+      containerMeta.headerType
+      || containerMeta.header?.type
+      || containerMeta.header?.format
+      || containerMeta.format,
+    );
+    if (fromMeta !== 'NONE') {
+      return fromMeta;
+    }
+
+    const metaComponents = Array.isArray(containerMeta.data) ? containerMeta.data : [];
+    const metaHeader = metaComponents.find((component) => (
+      normalizeText(component?.type).toUpperCase() === 'HEADER'
+    ));
+    if (metaHeader) {
+      const fromMetaHeader = normalizeHeaderType(
+        metaHeader.format
+        || metaHeader.sub_type
+        || metaHeader.subType
+        || metaHeader.header_type,
+      );
+      if (fromMetaHeader !== 'NONE') {
+        return fromMetaHeader;
+      }
+    }
+  }
+
+  if (parsedData && typeof parsedData === 'object') {
+    const fromData = normalizeHeaderType(
+      parsedData.headerType
+      || parsedData.headerFormat
+      || parsedData.header?.format
+      || parsedData.header?.type
+      || parsedData.type,
+    );
+    if (fromData !== 'NONE') {
+      return fromData;
+    }
+
+    const components = Array.isArray(parsedData.components)
+      ? parsedData.components
+      : (Array.isArray(rawTemplate?.components) ? rawTemplate.components : []);
+
+    const headerComponent = components.find((component) => (
+      normalizeText(component?.type || component?.component_type).toUpperCase() === 'HEADER'
+    ));
+
+    if (headerComponent) {
+      const fromHeader = normalizeHeaderType(
+        headerComponent.format
+        || headerComponent.sub_type
+        || headerComponent.subType
+        || headerComponent.header_type,
+      );
+      if (fromHeader !== 'NONE') {
+        return fromHeader;
+      }
+    }
+  }
+
+  const dataString = typeof rawTemplate?.data === 'string' ? rawTemplate.data : '';
+  if (/"(header(format|type)|format)"\s*:\s*"IMAGE"/i.test(dataString)) {
+    return 'IMAGE';
+  }
+
+  return 'NONE';
+};
+
+const templateRequiresImageHeader = (template) => {
+  if (!template) {
+    return false;
+  }
+
+  if (normalizeHeaderType(template?.headerType) === 'IMAGE' || template?.requiresImageHeader === true) {
+    return true;
+  }
+
+  const forcedNames = String(process.env.WHATSAPP_IMAGE_HEADER_TEMPLATE_NAMES || '')
+    .split(',')
+    .map((value) => normalizeText(value).toLowerCase())
+    .filter(Boolean);
+  const templateName = normalizeText(template?.name).toLowerCase();
+  return forcedNames.length > 0 && forcedNames.includes(templateName);
+};
+
 const resolveGupshupAppId = () => normalizeText(process.env.GUPSHUP_APP_ID);
 
 const resolveGupshupApiKey = () => normalizeText(process.env.GUPSHUP_API_KEY || process.env.GUPSHUP_APIKEY);
@@ -155,6 +289,7 @@ const normalizeTemplate = (rawTemplate) => {
   const language = normalizeLanguage(rawTemplate?.language || rawTemplate?.languageCode || rawTemplate?.locale);
   const body = extractTemplateBody(rawTemplate);
   const variables = extractVariables(body);
+  const headerType = normalizeHeaderType(rawTemplate?.headerType || rawTemplate?.templateType);
 
   return {
     id,
@@ -164,6 +299,8 @@ const normalizeTemplate = (rawTemplate) => {
     language: language || 'en',
     body,
     variables,
+    headerType,
+    requiresImageHeader: headerType === 'IMAGE',
   };
 };
 
@@ -250,6 +387,8 @@ const readFallbackTemplatesFromEnv = () => {
         language: template.language,
         body: template.body,
         variables: template.variables,
+        headerType: template.headerType || 'NONE',
+        requiresImageHeader: templateRequiresImageHeader(template),
       }));
   } catch (error) {
     console.warn('[chatTemplateService] Failed to parse WHATSAPP_FALLBACK_TEMPLATES_JSON:', error?.message || error);
@@ -520,8 +659,29 @@ const invalidateTemplateCache = () => {
   cacheByLanguage.clear();
 };
 
+const findTemplateById = async (templateId) => {
+  const key = normalizeText(templateId);
+  if (!key) {
+    return null;
+  }
+
+  const cachedAll = readCache('');
+  if (cachedAll) {
+    const hit = cachedAll.find((template) => template.id === key);
+    if (hit) {
+      return hit;
+    }
+  }
+
+  const result = await getApprovedTemplates({ forceRefresh: false });
+  return (result.templates || []).find((template) => template.id === key) || null;
+};
+
 module.exports = {
   getApprovedTemplates,
   unwrapTemplateResult,
   invalidateTemplateCache,
+  findTemplateById,
+  templateRequiresImageHeader,
+  extractHeaderType,
 };

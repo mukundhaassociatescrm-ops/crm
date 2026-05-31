@@ -10,6 +10,10 @@ const { getRolling24hUsage, getDailyTemplateLimit } = require('./campaignSetting
 const { recomputeCampaignStats } = require('./campaignRecipientStatusService');
 const { emitCampaignUpdate } = require('./socketService');
 const { processCampaignById } = require('./whatsappCampaignProcessor');
+const { findTemplateById, templateRequiresImageHeader } = require('./chatTemplateService');
+const {
+  validateWhatsAppImageMediaUrl,
+} = require('./whatsappTemplateMediaService');
 
 const serializeCampaign = (doc) => {
   if (!doc) {
@@ -119,6 +123,20 @@ const createCampaign = async (payload, userId) => {
     throw new Error('groupId and templateId are required.');
   }
 
+  const templateMeta = await findTemplateById(templateId);
+  const requiresImage = templateRequiresImageHeader(templateMeta);
+  let resolvedAttachmentUrl = '';
+
+  if (requiresImage && !String(attachmentUrl || '').trim()) {
+    throw new Error('This template requires an image.');
+  }
+
+  if (String(attachmentUrl || '').trim()) {
+    resolvedAttachmentUrl = await validateWhatsAppImageMediaUrl(attachmentUrl);
+  } else if (requiresImage) {
+    throw new Error('This template requires an image.');
+  }
+
   const analysis = await analyzeGroupAudience(groupId, {
     respectSafeDailyLimit: true,
   });
@@ -137,7 +155,7 @@ const createCampaign = async (payload, userId) => {
     groupId,
     message: `WhatsApp template ${templateId}`,
     channel: 'whatsapp',
-    attachmentUrl: attachmentUrl || undefined,
+    attachmentUrl: resolvedAttachmentUrl || undefined,
     sentBy: userId,
     totalRecipients: analysis.totalContacts,
     sentCount: 0,
@@ -155,7 +173,7 @@ const createCampaign = async (payload, userId) => {
     templateName,
     templateBody,
     templateParams: params.map((v) => String(v ?? '')),
-    attachmentUrl,
+    attachmentUrl: resolvedAttachmentUrl,
     attachmentFilename,
     attachmentMimeType,
     posterId: posterId || undefined,

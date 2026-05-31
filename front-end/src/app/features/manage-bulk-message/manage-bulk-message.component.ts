@@ -20,9 +20,6 @@ import { Poster, PosterService } from '../manage-posters/poster.service';
   styleUrl: './manage-bulk-message.component.scss',
 })
 export class ManageBulkMessageComponent implements OnInit, OnDestroy {
-  /** Re-enable when media-header templates are supported in the UI. */
-  readonly showMediaAttachment = false;
-
   selectedGroup: Group | null = null;
   isSending = false;
 
@@ -139,11 +136,29 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
     return Boolean(this.selectedPoster?.imageUrl);
   }
 
+  get templateRequiresImage(): boolean {
+    return Boolean(
+      this.selectedBulkTemplate?.requiresImageHeader
+      || this.selectedBulkTemplate?.headerType === 'IMAGE',
+    );
+  }
+
+  get showMediaAttachment(): boolean {
+    return this.templateRequiresImage;
+  }
+
+  get hasCampaignMedia(): boolean {
+    return Boolean(this.selectedPoster?.imageUrl || this.selectedMediaFile);
+  }
+
   get canSend(): boolean {
     if (!this.selectedGroup || this.isSending || (this.showMediaAttachment && this.isUploadingMedia)) {
       return false;
     }
     if (!this.selectedBulkTemplateId || this.isLoadingBulkTemplates) {
+      return false;
+    }
+    if (this.templateRequiresImage && !this.hasCampaignMedia) {
       return false;
     }
     const indexes = this.bulkTemplateVariableIndexes;
@@ -195,6 +210,10 @@ export class ManageBulkMessageComponent implements OnInit, OnDestroy {
   }
 
   sendCampaign(): void {
+    if (this.templateRequiresImage && !this.hasCampaignMedia) {
+      this.toastr.error('This template requires an image.', 'WhatsApp Campaign');
+      return;
+    }
     if (!this.canSend) {
       return;
     }

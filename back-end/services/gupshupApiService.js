@@ -315,7 +315,13 @@ const sendGupshupFileMessage = async ({ to, fileUrl, filename, mimeType }) => {
   return sendGupshupMessage(form);
 };
 
-const sendGupshupTemplateMessage = async ({ to, templateId, params = [] }) => {
+const sendGupshupTemplateMessage = async ({
+  to,
+  templateId,
+  templateName = '',
+  params = [],
+  mediaUrl = '',
+}) => {
   const destination = normalizeDestination(to);
   if (!destination) {
     throw new Error('A valid destination number is required.');
@@ -338,7 +344,8 @@ const sendGupshupTemplateMessage = async ({ to, templateId, params = [] }) => {
   const srcName = process.env.GUPSHUP_APP_NAME || process.env.GUPSHUP_SRC_NAME || GUPSHUP_SRC_NAME;
   const templateSendUrl = process.env.GUPSHUP_TEMPLATE_SEND_URL || GUPSHUP_TEMPLATE_SEND_URL;
 
-  const formData = qs.stringify({
+  const resolvedMediaUrl = String(mediaUrl || '').trim();
+  const requestPayload = {
     channel: 'whatsapp',
     source,
     destination,
@@ -347,15 +354,25 @@ const sendGupshupTemplateMessage = async ({ to, templateId, params = [] }) => {
       id: String(templateId),
       params: normalizedParams,
     }),
-  });
+  };
 
-  console.log('[GUPSHUP TEMPLATE SEND PAYLOAD]', {
-    destination,
+  if (resolvedMediaUrl) {
+    requestPayload.message = JSON.stringify({
+      type: 'image',
+      image: {
+        link: resolvedMediaUrl,
+      },
+    });
+  }
+
+  const formData = qs.stringify(requestPayload);
+
+  console.log('[GUPSHUP TEMPLATE SEND]', {
     templateId: String(templateId),
-    params: normalizedParams,
-    source,
-    srcName,
-    url: templateSendUrl,
+    templateName: String(templateName || ''),
+    mediaUrl: resolvedMediaUrl || null,
+    destination,
+    finalPayload: requestPayload,
   });
   console.log('[GUPSHUP TEMPLATE SEND FORM]', formData);
 

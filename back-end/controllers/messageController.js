@@ -5,6 +5,8 @@ const Message = require('../models/Message');
 const { sendWhatsAppMessage, sendMessage: sendWhatsAppChatMessage } = require('../services/whatsappService');
 const { sendGupshupTextMessage, sendGupshupTemplateMessage, normalizeDestination } = require('../services/gupshupApiService');
 const { sendFast2SmsBulk, normalizeIndianMobile } = require('../services/fast2smsService');
+const { findTemplateById, templateRequiresImageHeader } = require('../services/chatTemplateService');
+const { validateWhatsAppImageMediaUrl } = require('../services/whatsappTemplateMediaService');
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -72,6 +74,20 @@ exports.sendBulkMessage = async (req, res, next) => {
         attachmentFilename,
         attachmentMimeType,
       });
+
+      const templateMeta = await findTemplateById(whatsappTemplateId);
+      const requiresImage = templateRequiresImageHeader(templateMeta);
+      if (requiresImage && !attachmentUrl) {
+        return res.status(400).json({
+          success: false,
+          message: 'This template requires an image.',
+        });
+      }
+    }
+
+    let validatedWhatsAppMediaUrl = '';
+    if (normalizedChannel === 'whatsapp' && attachmentUrl) {
+      validatedWhatsAppMediaUrl = await validateWhatsAppImageMediaUrl(attachmentUrl);
     }
 
     const logMessage = normalizedChannel === 'sms'
@@ -181,6 +197,7 @@ exports.sendBulkMessage = async (req, res, next) => {
             to: normalizedPhone,
             templateId: whatsappTemplateId,
             params: whatsappTemplateParams,
+            mediaUrl: validatedWhatsAppMediaUrl,
           });
 
           if (!providerResult?.accepted) {

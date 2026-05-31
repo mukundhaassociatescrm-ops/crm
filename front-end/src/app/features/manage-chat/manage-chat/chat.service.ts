@@ -205,6 +205,8 @@ export interface SendTemplateRequest {
   templateName?: string;
   templateBody?: string;
   params: string[];
+  mediaUrl?: string;
+  attachmentUrl?: string;
   /** When set and > 0, server validates param count and non-empty values. */
   expectedParamCount?: number;
 }
@@ -216,6 +218,8 @@ export interface WhatsAppTemplateOption {
   language: string;
   body: string;
   variables: number[];
+  headerType?: 'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT';
+  requiresImageHeader?: boolean;
 }
 
 export interface ChatStartResponse {

@@ -13,6 +13,11 @@ const {
 const { getRolling24hUsage } = require('./campaignSettingsService');
 const { recomputeCampaignStats } = require('./campaignRecipientStatusService');
 const { emitCampaignUpdate } = require('./socketService');
+const { findTemplateById } = require('./chatTemplateService');
+const {
+  logTempTemplateSendBefore,
+  logTempTemplateSendAfter,
+} = require('./templateSendVerificationLog');
 
 const PER_MESSAGE_DELAY_MS = 300;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -92,46 +97,78 @@ const sendTemplateRecipient = async (campaign, recipient) => {
   recipient.templateInitiatedAt = new Date();
   await recipient.save();
 
-  const result = await sendGupshupTemplateMessage({
-    to: recipient.normalizedPhone,
-    templateId: campaign.templateId,
-    params: campaign.templateParams || [],
-  });
+  const templateMeta = await findTemplateById(campaign.templateId);
+  const verificationContext = {
+    campaignId: String(campaign._id),
+    recipientNumber: recipient.normalizedPhone,
+    templateName: campaign.templateName || templateMeta?.name || '',
+    headerType: templateMeta?.headerType || 'UNKNOWN',
+    mediaUrl: campaign.attachmentUrl || null,
+  };
 
-  if (!result?.accepted) {
-    throw new Error('Provider did not accept the template message.');
-  }
-
-  const messageId = result.messageId || `campaign-template-${Date.now()}`;
-  const displayText = renderCampaignText(campaign);
-
-  recipient.whatsappMessageId = messageId;
-  recipient.sentAt = new Date();
-  recipient.status = 'Sending';
-  recipient.reason = '';
-  await recipient.save();
+  logTempTemplateSendBefore(verificationContext);
 
   try {
-    await saveMessage({
-      messageId,
-      phone: recipient.normalizedPhone,
-      text: displayText,
-      type: 'text',
-      direction: 'out',
-      status: 'sent',
-      timestamp: new Date(),
-      destination: recipient.normalizedPhone,
-      source: resolveGupshupSource(),
+    const result = await sendGupshupTemplateMessage({
+      to: recipient.normalizedPhone,
       templateId: campaign.templateId,
       templateName: campaign.templateName,
-      templateBody: campaign.templateBody,
-      templateParams: campaign.templateParams,
+      params: campaign.templateParams || [],
+      mediaUrl: campaign.attachmentUrl || '',
     });
-  } catch (persistError) {
-    console.warn('[CAMPAIGN TEMPLATE PERSIST]', persistError?.message || persistError);
-  }
 
-  return true;
+    if (!result?.accepted) {
+      throw new Error('Provider did not accept the template message.');
+    }
+
+    const messageId = result.messageId || `campaign-template-${Date.now()}`;
+
+    logTempTemplateSendAfter({
+      ...verificationContext,
+      messageId,
+      gupshupResponse: result.providerResponse || null,
+    });
+
+    const displayText = renderCampaignText(campaign);
+
+    recipient.whatsappMessageId = messageId;
+    recipient.sentAt = new Date();
+    recipient.status = 'Sending';
+    recipient.reason = '';
+    await recipient.save();
+
+    try {
+      await saveMessage({
+        messageId,
+        phone: recipient.normalizedPhone,
+        text: displayText,
+        type: 'text',
+        direction: 'out',
+        status: 'sent',
+        timestamp: new Date(),
+        destination: recipient.normalizedPhone,
+        source: resolveGupshupSource(),
+        templateId: campaign.templateId,
+        templateName: campaign.templateName,
+        templateBody: campaign.templateBody,
+        templateParams: campaign.templateParams,
+      });
+    } catch (persistError) {
+      console.warn('[CAMPAIGN TEMPLATE PERSIST]', persistError?.message || persistError);
+    }
+
+    return true;
+  } catch (error) {
+    logTempTemplateSendAfter({
+      ...verificationContext,
+      messageId: null,
+      gupshupResponse: error?.response?.data || {
+        message: error?.message || String(error),
+      },
+      error: error?.message || String(error),
+    });
+    throw error;
+  }
 };
 
 const processCampaignById = async (campaignId) => {

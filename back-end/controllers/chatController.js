@@ -30,7 +30,8 @@ const {
 } = require('../services/chatMessageStore');
 const { emitChatUpdate } = require('../services/socketService');
 const { resolveClientIdByPhone } = require('../services/activityHistoryService');
-const { getApprovedTemplates, unwrapTemplateResult, invalidateTemplateCache } = require('../services/chatTemplateService');
+const { getApprovedTemplates, unwrapTemplateResult, invalidateTemplateCache, findTemplateById, templateRequiresImageHeader } = require('../services/chatTemplateService');
+const { validateWhatsAppImageMediaUrl } = require('../services/whatsappTemplateMediaService');
 const { ensureUploadsDir, resolveUploadsDir } = require('../config/uploads');
 
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -681,6 +682,12 @@ exports.sendChatTemplate = async (req, res, next) => {
     }
 
     const templateParams = req.body.params.map((value) => String(value ?? ''));
+    const rawMediaUrl = String(
+      req.body?.mediaUrl
+      || req.body?.attachmentUrl
+      || req.body?.imageUrl
+      || '',
+    ).trim();
 
     const expectedRaw = req.body?.expectedParamCount ?? req.body?.variableCount;
     const expectedParamCount = Number.parseInt(String(expectedRaw ?? ''), 10);
@@ -705,7 +712,22 @@ exports.sendChatTemplate = async (req, res, next) => {
       templateName,
       templateBody: templateBody ? `${templateBody.slice(0, 80)}...` : '',
       params: templateParams,
+      mediaUrl: rawMediaUrl || null,
     });
+
+    const templateMeta = await findTemplateById(templateId);
+    const requiresImage = templateRequiresImageHeader(templateMeta);
+    if (requiresImage && !rawMediaUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'This template requires an image.',
+      });
+    }
+
+    let validatedMediaUrl = '';
+    if (rawMediaUrl) {
+      validatedMediaUrl = await validateWhatsAppImageMediaUrl(rawMediaUrl);
+    }
 
     if (!/^91\d{10}$/.test(normalizedTo)) {
       return res.status(400).json({
@@ -727,7 +749,9 @@ exports.sendChatTemplate = async (req, res, next) => {
     const result = await sendGupshupTemplateMessage({
       to: normalizedTo,
       templateId,
+      templateName,
       params: templateParams,
+      mediaUrl: validatedMediaUrl,
     });
 
     const messageId = result.messageId || `local-template-${Date.now()}`;
