@@ -48,7 +48,9 @@ export class PosterLandingComponent implements OnInit {
   }
 
   get whatsappLink(): string {
-    const text = encodeURIComponent(`Hi Mukundha Associates, I viewed "${this.poster?.title || 'your poster'}".`);
+    const text = encodeURIComponent(
+      `Hi Mukundha Associates, I viewed "${this.poster?.title || 'your poster'}".`,
+    );
     return `https://wa.me/${this.whatsappNumber}?text=${text}`;
   }
 

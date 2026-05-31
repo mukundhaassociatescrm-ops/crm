@@ -88,9 +88,27 @@
   border-radius: 8px;
 }
 
-.url-cell a {
+.landing-cell {
+  white-space: nowrap;
+}
+
+.landing-page-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #0f766e;
-  word-break: break-all;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    color: #115e59;
+    text-decoration: underline;
+  }
+
+  i {
+    font-size: 12px;
+  }
 }
 
 .actions-cell {

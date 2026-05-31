@@ -327,14 +327,6 @@
               <div class="message-removed-placeholder">
                 <i class="fa-solid fa-ban"></i>
                 <span>This message was removed</span>
-                <button
-                  type="button"
-                  class="message-restore-btn"
-                  *ngIf="isChatAdmin"
-                  (click)="restoreDeletedMessage(message, $event)"
-                >
-                  Restore
-                </button>
               </div>
             </ng-container>
             <ng-template #activeMessageContentTpl>

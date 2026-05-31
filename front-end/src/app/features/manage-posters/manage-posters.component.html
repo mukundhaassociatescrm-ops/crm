@@ -41,7 +41,7 @@
           <th>Category</th>
           <th>Status</th>
           <th>Created</th>
-          <th>Landing URL</th>
+          <th>Landing Page</th>
           <th>Views</th>
           <th>Actions</th>
         </tr>
@@ -55,8 +55,17 @@
           <td><span class="category-badge">{{ poster.category }}</span></td>
           <td><span class="status" [class.active]="poster.isActive">{{ posterStatusLabel(poster) }}</span></td>
           <td>{{ poster.createdAt | date:'mediumDate' }}</td>
-          <td class="url-cell">
-            <a [href]="poster.landingUrl" target="_blank" rel="noopener">{{ poster.landingUrl }}</a>
+          <td class="landing-cell">
+            <a
+              class="landing-page-link"
+              [href]="getPosterLandingUrl(poster)"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open public landing page"
+            >
+              <i class="fa-solid fa-arrow-up-right-from-box" aria-hidden="true"></i>
+              <span>Open Landing Page</span>
+            </a>
           </td>
           <td class="num">{{ poster.viewCount }}</td>
           <td class="actions-cell">
@@ -96,10 +105,18 @@
     </header>
     <img [src]="viewPoster.imageUrl" [alt]="viewPoster.title">
     <p>{{ viewPoster.shortDescription }}</p>
-    <a [href]="viewPoster.landingUrl" target="_blank" rel="noopener">{{ viewPoster.landingUrl }}</a>
     <div class="view-actions">
       <button type="button" class="btn-secondary" (click)="copyLink(viewPoster)">Copy link</button>
-      <a class="btn-primary" [href]="viewPoster.landingUrl" target="_blank" rel="noopener">Open landing page</a>
+      <a
+        class="btn-primary"
+        [href]="getPosterLandingUrl(viewPoster)"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open public landing page"
+      >
+        <i class="fa-solid fa-arrow-up-right-from-box" aria-hidden="true"></i>
+        Open Landing Page
+      </a>
     </div>
   </div>
 </div>

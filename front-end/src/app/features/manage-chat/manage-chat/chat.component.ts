@@ -2123,29 +2123,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
-  restoreDeletedMessage(message: PendingMessage, event: Event): void {
-    event.stopPropagation();
-    this.closeMessageMenu();
-
-    const messageId = String(message.messageId || '').trim();
-    if (!messageId || !this.isChatAdmin) {
-      return;
-    }
-
-    this.chatService.softDeleteMessage(messageId, true).pipe(take(1)).subscribe({
-      next: (response) => {
-        if (!response.success) {
-          this.toastr.error(response.message || 'Unable to restore message', 'Chat');
-          return;
-        }
-
-        this.applyMessagePatch(messageId, response.data as ChatMessage);
-        this.toastr.success('Message restored', 'Chat');
-      },
-      error: () => this.toastr.error('Unable to restore message', 'Chat'),
-    });
-  }
-
   toggleMessageImportant(message: PendingMessage, event: Event): void {
     event.stopPropagation();
     this.closeMessageMenu();

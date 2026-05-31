@@ -109,8 +109,12 @@ export class ManagePostersComponent implements OnInit {
     }
   }
 
+  getPosterLandingUrl(poster: Poster): string {
+    return poster.landingUrl || this.posterService.buildLandingUrl(poster.slug);
+  }
+
   copyLink(poster: Poster): void {
-    const url = poster.landingUrl || this.posterService.buildLandingUrl(poster.slug);
+    const url = this.getPosterLandingUrl(poster);
     navigator.clipboard.writeText(url).then(() => {
       this.toastr.success('Landing page link copied', 'Copied');
     }).catch(() => {

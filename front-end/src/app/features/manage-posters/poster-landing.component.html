@@ -1,45 +1,76 @@
 <div class="landing-page">
-  <div class="loading" *ngIf="isLoading">Loading…</div>
+  <div class="landing-state" *ngIf="isLoading">
+    <span class="landing-spinner" aria-hidden="true"></span>
+    <p>Loading…</p>
+  </div>
 
-  <div class="not-found" *ngIf="!isLoading && notFound">
+  <div class="landing-state landing-state--error" *ngIf="!isLoading && notFound">
     <img src="assets/Logo.png" alt="Mukundha Associates" class="brand-logo">
     <h1>Poster not found</h1>
     <p>This link may be inactive or expired.</p>
   </div>
 
-  <article class="landing-card" *ngIf="!isLoading && poster">
-    <header class="brand">
+  <main class="landing" *ngIf="!isLoading && poster">
+    <header class="landing-top">
       <img src="assets/Logo.png" alt="Mukundha Associates" class="brand-logo">
-      <p class="brand-name">Mukundha Associates</p>
+      <span class="brand-name">Mukundha Associates</span>
     </header>
 
-    <h1>{{ poster.title }}</h1>
-    <span class="category">{{ poster.category }}</span>
+    <section class="hero">
+      <p class="hero-category" *ngIf="poster.category">{{ poster.category }}</p>
+      <h1 class="hero-title">{{ poster.title }}</h1>
 
-    <div class="poster-image-wrap">
-      <img [src]="poster.imageUrl" [alt]="poster.title" loading="eager">
-    </div>
+      <div class="hero-poster">
+        <img [src]="poster.imageUrl" [alt]="poster.title" loading="eager">
+      </div>
 
-    <p class="short" *ngIf="poster.shortDescription">{{ poster.shortDescription }}</p>
-    <div class="content" *ngIf="poster.content">{{ poster.content }}</div>
+      <p class="hero-lead" *ngIf="poster.shortDescription">{{ poster.shortDescription }}</p>
+    </section>
 
-    <section class="contact-block">
-      <h2>Contact Details</h2>
-      <p><strong>WhatsApp:</strong> 9363069948</p>
-      <p><strong>Call:</strong> 8508169948, 6379680872</p>
-      <p class="address">
-        <strong>Address:</strong>
+    <section class="cta-panel" aria-labelledby="cta-heading">
+      <h2 id="cta-heading">Need assistance?</h2>
+
+      <ul class="contact-list">
+        <li>
+          <span class="contact-label">WhatsApp:</span>
+          <a class="contact-value" [href]="whatsappLink" target="_blank" rel="noopener noreferrer">93630 69948</a>
+        </li>
+        <li>
+          <span class="contact-label">Call:</span>
+          <a class="contact-value" href="tel:+918508169948">85081 69948</a>
+        </li>
+        <li>
+          <span class="contact-label">Call:</span>
+          <a class="contact-value" href="tel:+916379680872">63796 80872</a>
+        </li>
+      </ul>
+
+      <div class="cta-actions">
+        <a class="btn btn-whatsapp" [href]="whatsappLink" target="_blank" rel="noopener noreferrer">
+          <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+          WhatsApp Now
+        </a>
+        <a class="btn btn-call" [href]="primaryCallLink">
+          <i class="fa-solid fa-phone" aria-hidden="true"></i>
+          Call Now
+        </a>
+      </div>
+
+      <p class="cta-address">
         TF7, C Block, 3rd Floor, Ramani's Jewel Manor Apartment, Samy Iyer New Street, Coimbatore - 641001
       </p>
     </section>
+  </main>
 
-    <div class="cta-row">
-      <a class="btn btn-whatsapp" [href]="whatsappLink" target="_blank" rel="noopener">
-        <i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp
-      </a>
-      <a class="btn btn-call" [href]="primaryCallLink">
-        <i class="fa-solid fa-phone"></i> Call Now
-      </a>
-    </div>
-  </article>
+  <a
+    *ngIf="!isLoading && poster"
+    class="fab-whatsapp"
+    [href]="whatsappLink"
+    target="_blank"
+    rel="noopener noreferrer"
+    title="Chat on WhatsApp"
+    aria-label="Chat on WhatsApp"
+  >
+    <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+  </a>
 </div>
