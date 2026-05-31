@@ -1,5 +1,5 @@
 <section class="report-list-shell">
-  <div class="toolbar">
+  <div class="toolbar crm-page-header">
     <div class="left">
       <h2>Manage Reports</h2>
       <p>Create and manage professional invoice reports</p>
@@ -7,7 +7,7 @@
     <button type="button" class="btn-primary" (click)="create.emit()">+ Create Report</button>
   </div>
 
-  <div class="filters">
+  <div class="filters crm-filters">
     <input type="text" [(ngModel)]="searchTerm" placeholder="Search by client name or invoice number">
 
     <select [(ngModel)]="statusFilter">

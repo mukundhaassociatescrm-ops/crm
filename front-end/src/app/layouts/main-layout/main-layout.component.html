@@ -1,58 +1,78 @@
-<div class="main-layout" [class.fullscreen-mode]="fullscreenActive">
+<div class="main-layout"
+  [class.fullscreen-mode]="fullscreenActive"
+  [class.main-layout--with-sidebar]="showSidebar"
+  [class.main-layout--sidebar-collapsed]="sidebarCollapsed">
 
   <header class="top-header" *ngIf="!fullscreenActive">
 
     <div class="left">
-      <div class="brand">MUKUNDHA ASSOCIATES</div>
-      <div class="subtitle">{{ dashboardSubtitle }}</div>
+      <button
+        *ngIf="showSidebar"
+        type="button"
+        class="menu-toggle"
+        (click)="toggleMobileSidebar()"
+        [attr.aria-label]="mobileSidebarOpen ? 'Close menu' : 'Open menu'"
+        [attr.aria-expanded]="mobileSidebarOpen">
+        <i class="fa-solid" [ngClass]="mobileSidebarOpen ? 'fa-xmark' : 'fa-bars'"></i>
+      </button>
+      <div class="brand-block">
+        <div class="brand">MUKUNDHA ASSOCIATES</div>
+        <div class="subtitle">{{ dashboardSubtitle }}</div>
+      </div>
       <app-header-communication-wallets *ngIf="isAdmin"></app-header-communication-wallets>
     </div>
 
-  <div class="right">
+    <div class="right">
+      <button
+        *ngIf="isAdmin"
+        type="button"
+        class="reminder-link"
+        [class.active]="isReminderRoute"
+        (click)="goToReminders()">
+        <i class="fa-regular fa-clock"></i>
+        <span>Task Reminders</span>
+      </button>
 
-  <button
-    *ngIf="isAdmin"
-    type="button"
-    class="reminder-link"
-    [class.active]="isReminderRoute"
-    (click)="goToReminders()">
-    <i class="fa-regular fa-clock"></i>
-    <span>Task Reminders</span>
-  </button>
-
-  <!-- Profile -->
-  <div class="profile" (click)="toggleDropdown()">
-
-    <div class="avatar">{{ userInitials }}</div>
-
-    <div class="user-info">
-      <div class="role">{{ currentUser?.name || 'Admin' }}</div>
-      <div class="status">Online</div>
+      <div class="profile" (click)="toggleDropdown()">
+        <div class="avatar">{{ userInitials }}</div>
+        <div class="user-info">
+          <div class="role">{{ currentUser?.name || 'Admin' }}</div>
+          <div class="status">Online</div>
+        </div>
+        <i class="fa-solid fa-chevron-down"></i>
+        <div class="profile-dropdown" *ngIf="showDropdown" (click)="$event.stopPropagation()">
+          <div class="dropdown-item" (click)="goToProfile()"><i class="fa-regular fa-user" style="margin-right:8px;"></i>My Profile</div>
+          <div class="dropdown-item logout" (click)="logout()"><i class="fa-solid fa-right-from-bracket" style="margin-right:8px;"></i>Logout</div>
+        </div>
+      </div>
     </div>
-
-    <i class="fa-solid fa-chevron-down"></i>
-
-    <div class="profile-dropdown" *ngIf="showDropdown" (click)="$event.stopPropagation()">
-      <div class="dropdown-item" (click)="goToProfile()"><i class="fa-regular fa-user" style="margin-right:8px;"></i>My Profile</div>
-      <div class="dropdown-item logout" (click)="logout()"><i class="fa-solid fa-right-from-bracket" style="margin-right:8px;"></i>Logout</div>
-    </div>
-
-  </div>
-
-</div>
-
 
   </header>
 
-  <div class="layout-container" [class.layout-container--fullscreen]="fullscreenActive">
-    <app-breadcrumb class="layout-breadcrumb" *ngIf="!fullscreenActive"></app-breadcrumb>
+  <div class="layout-body" [class.layout-body--fullscreen]="fullscreenActive">
+    <app-sidebar
+      *ngIf="showSidebar"
+      [isPrimaryAdmin]="isPrimaryAdmin"
+      [(mobileOpen)]="mobileSidebarOpen"
+      (collapsedChange)="onSidebarCollapsedChange($event)">
+    </app-sidebar>
 
     <div
-      class="page-content"
-      [ngClass]="{ 'no-padding': isChatRoute || fullscreenActive, 'page-content--hub': isHubRoute && !isChatRoute && !fullscreenActive }">
-      <router-outlet></router-outlet>
+      class="layout-container"
+      [class.layout-container--fullscreen]="fullscreenActive"
+      [class.layout-container--chat]="isChatRoute"
+      [class.layout-container--compact]="showSidebar && !isChatRoute && !fullscreenActive">
+      <app-breadcrumb class="layout-breadcrumb" *ngIf="showBreadcrumb"></app-breadcrumb>
+
+      <div
+        class="page-content"
+        [ngClass]="{
+          'no-padding': isChatRoute || fullscreenActive,
+          'page-content--compact': showSidebar && !isChatRoute && !fullscreenActive
+        }">
+        <router-outlet></router-outlet>
+      </div>
     </div>
   </div>
-
 
 </div>

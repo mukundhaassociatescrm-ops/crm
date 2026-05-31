@@ -14,9 +14,9 @@ $bp-compact: 1400px;
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: $spacing-md;
+  gap: 10px;
   overflow: hidden;
-  padding: $spacing-lg;
+  padding: 14px;
   background: $bg-page;
 }
 
@@ -218,7 +218,7 @@ $bp-compact: 1400px;
 
 .task-table {
   width: 100%;
-  min-width: 720px;
+  min-width: 0;
   border-collapse: separate;
   border-spacing: 0;
 
@@ -305,10 +305,10 @@ $bp-compact: 1400px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.4;
+  line-height: 1.35;
   font-weight: $font-weight-medium;
   color: $text-dark;
-  max-width: 280px;
+  max-width: 320px;
 }
 
 .due-date-text {

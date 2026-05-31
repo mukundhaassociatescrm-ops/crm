@@ -1,0 +1,735 @@
+@import '../../styles/variables';
+
+
+
+:host {
+
+  display: contents;
+
+}
+
+
+
+.app-sidebar {
+
+  --sidebar-width: 240px;
+
+  --sidebar-collapsed-width: 52px;
+
+  width: var(--sidebar-width);
+
+  flex-shrink: 0;
+
+  height: 100%;
+
+  min-height: 0;
+
+  display: flex;
+
+  flex-direction: column;
+
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+
+  border-right: 1px solid $border-color;
+
+  box-shadow: 1px 0 8px rgba(15, 23, 42, 0.04);
+
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+
+  z-index: 900;
+
+  overflow: hidden;
+
+
+
+  &--collapsed {
+
+    width: var(--sidebar-collapsed-width);
+
+
+
+    .app-sidebar__head {
+
+      flex-direction: column;
+
+      align-items: stretch;
+
+      gap: 4px;
+
+      padding: 6px 4px;
+
+    }
+
+
+
+    .app-sidebar__collapse-btn {
+
+      width: 100%;
+
+      height: 32px;
+
+      color: $primary;
+
+      border-color: rgba(37, 99, 235, 0.28);
+
+      background: rgba(37, 99, 235, 0.08);
+
+    }
+
+
+
+    .app-sidebar__label,
+
+    .app-sidebar__chevron {
+
+      opacity: 0;
+
+      width: 0;
+
+      overflow: hidden;
+
+      padding: 0;
+
+      margin: 0;
+
+    }
+
+
+
+    .app-sidebar__section-toggle,
+
+    .app-sidebar__standalone,
+
+    .app-sidebar__dashboard {
+
+      justify-content: center;
+
+      padding: 7px 4px;
+
+      min-height: 36px;
+
+    }
+
+
+
+    .app-sidebar__section-toggle--active,
+
+    .app-sidebar__standalone.app-sidebar__link--active,
+
+    .app-sidebar__dashboard.app-sidebar__link--active {
+
+      box-shadow: inset 3px 0 0 $primary;
+
+    }
+
+
+
+    .has-tooltip:hover::after {
+
+      opacity: 1;
+
+      transform: translateY(-50%) translateX(0);
+
+      visibility: visible;
+
+    }
+
+  }
+
+}
+
+
+
+.app-sidebar__head {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 4px;
+
+  padding: 8px 6px 6px;
+
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+
+  flex-shrink: 0;
+
+}
+
+
+
+.app-sidebar:not(.app-sidebar--collapsed) .app-sidebar__head {
+
+  .app-sidebar__dashboard {
+
+    flex: 1;
+
+    min-width: 0;
+
+  }
+
+
+
+  .app-sidebar__collapse-btn {
+
+    order: 2;
+
+  }
+
+}
+
+
+
+.app-sidebar__dashboard,
+
+.app-sidebar__standalone {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  min-height: 34px;
+
+  padding: 6px 8px;
+
+  border-radius: $radius-md;
+
+  color: $text-secondary;
+
+  text-decoration: none;
+
+  font-size: 13px;
+
+  font-weight: $font-weight-semibold;
+
+  transition: background $transition-fast, color $transition-fast;
+
+  border: none;
+
+  background: transparent;
+
+  cursor: pointer;
+
+  box-sizing: border-box;
+
+
+
+  i {
+
+    width: 16px;
+
+    text-align: center;
+
+    flex-shrink: 0;
+
+    font-size: 13px;
+
+    color: $text-muted;
+
+  }
+
+
+
+  &:hover {
+
+    background: rgba(37, 99, 235, 0.06);
+
+    color: $text-dark;
+
+  }
+
+}
+
+
+
+.app-sidebar__collapse-btn {
+
+  flex-shrink: 0;
+
+  width: 28px;
+
+  height: 28px;
+
+  border: 1px solid $border-color;
+
+  border-radius: $radius-md;
+
+  background: $bg-white;
+
+  color: $text-secondary;
+
+  cursor: pointer;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  transition: background $transition-fast, color $transition-fast, border-color $transition-fast;
+
+
+
+  i {
+
+    font-size: 11px;
+
+    line-height: 1;
+
+  }
+
+
+
+  &:hover {
+
+    color: $primary;
+
+    border-color: rgba(37, 99, 235, 0.35);
+
+    background: rgba(37, 99, 235, 0.08);
+
+  }
+
+}
+
+
+
+.app-sidebar__scroll {
+
+  flex: 1;
+
+  min-height: 0;
+
+  overflow-y: auto;
+
+  overflow-x: hidden;
+
+  padding: 6px 4px 12px;
+
+  scrollbar-width: thin;
+
+}
+
+
+
+.app-sidebar__section {
+
+  margin-bottom: 2px;
+
+}
+
+
+
+.app-sidebar__section-toggle {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  width: 100%;
+
+  min-height: 34px;
+
+  padding: 6px 8px;
+
+  border: none;
+
+  border-radius: $radius-md;
+
+  background: transparent;
+
+  color: $text-dark;
+
+  font-size: 13px;
+
+  font-weight: $font-weight-semibold;
+
+  cursor: pointer;
+
+  text-align: left;
+
+  transition: background $transition-fast;
+
+
+
+  .section-icon {
+
+    width: 16px;
+
+    text-align: center;
+
+    flex-shrink: 0;
+
+    color: $primary;
+
+    font-size: 12px;
+
+  }
+
+
+
+  &:hover {
+
+    background: rgba(37, 99, 235, 0.06);
+
+  }
+
+
+
+  &--active {
+
+    background: rgba(37, 99, 235, 0.08);
+
+    color: $primary-dark;
+
+  }
+
+}
+
+
+
+.app-sidebar__label {
+
+  flex: 1;
+
+  min-width: 0;
+
+  white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  transition: opacity 0.18s ease, width 0.18s ease;
+
+}
+
+
+
+.app-sidebar__chevron {
+
+  font-size: 9px;
+
+  color: $text-muted;
+
+  transition: transform 0.2s ease, opacity 0.18s ease;
+
+
+
+  &--open {
+
+    transform: rotate(180deg);
+
+  }
+
+}
+
+
+
+.app-sidebar__items {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 1px;
+
+  padding: 1px 0 4px 6px;
+
+  margin-left: 6px;
+
+  border-left: 2px solid rgba(37, 99, 235, 0.1);
+
+}
+
+
+
+.app-sidebar__link {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  min-height: 32px;
+
+  padding: 5px 8px;
+
+  border-radius: $radius-md;
+
+  color: $text-secondary;
+
+  text-decoration: none;
+
+  font-size: 12px;
+
+  font-weight: $font-weight-medium;
+
+  transition: background $transition-fast, color $transition-fast;
+
+
+
+  i {
+
+    width: 14px;
+
+    text-align: center;
+
+    flex-shrink: 0;
+
+    font-size: 11px;
+
+    opacity: 0.85;
+
+  }
+
+
+
+  span {
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+
+  }
+
+
+
+  &:hover {
+
+    background: rgba(37, 99, 235, 0.06);
+
+    color: $text-dark;
+
+  }
+
+
+
+  &--active {
+
+    background: rgba(37, 99, 235, 0.12);
+
+    color: $primary-dark;
+
+    font-weight: $font-weight-semibold;
+
+
+
+    i {
+
+      color: $primary;
+
+    }
+
+  }
+
+}
+
+
+
+.app-sidebar__standalone {
+
+  width: 100%;
+
+  box-sizing: border-box;
+
+}
+
+
+
+.app-sidebar__divider {
+
+  height: 1px;
+
+  margin: 8px 6px;
+
+  background: $border-color;
+
+}
+
+
+
+.app-sidebar__link--active,
+
+.app-sidebar__standalone.app-sidebar__link--active,
+
+.app-sidebar__dashboard.app-sidebar__link--active {
+
+  background: rgba(37, 99, 235, 0.12);
+
+  color: $primary-dark;
+
+
+
+  i {
+
+    color: $primary;
+
+  }
+
+}
+
+
+
+.has-tooltip {
+
+  position: relative;
+
+}
+
+
+
+.app-sidebar--collapsed .has-tooltip::after {
+
+  content: attr(data-tooltip);
+
+  position: absolute;
+
+  left: calc(100% + 10px);
+
+  top: 50%;
+
+  transform: translateY(-50%) translateX(-4px);
+
+  padding: 5px 10px;
+
+  border-radius: 6px;
+
+  background: #0f172a;
+
+  color: #fff;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  white-space: nowrap;
+
+  pointer-events: none;
+
+  opacity: 0;
+
+  visibility: hidden;
+
+  transition: opacity 0.15s ease, transform 0.15s ease;
+
+  z-index: 1200;
+
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+
+}
+
+
+
+.app-sidebar__backdrop {
+
+  display: none;
+
+}
+
+
+
+@media (max-width: 1023px) {
+
+  .app-sidebar__collapse-btn {
+
+    display: none;
+
+  }
+
+
+
+  .app-sidebar {
+
+    position: fixed;
+
+    top: var(--header-height, 68px);
+
+    left: 0;
+
+    bottom: 0;
+
+    transform: translateX(-100%);
+
+    transition: transform 0.24s ease, width 0.22s ease;
+
+    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.12);
+
+
+
+    &--mobile-open {
+
+      transform: translateX(0);
+
+    }
+
+
+
+    &--collapsed {
+
+      width: var(--sidebar-width);
+
+    }
+
+
+
+    &--collapsed .app-sidebar__label,
+
+    &--collapsed .app-sidebar__chevron {
+
+      opacity: 1;
+
+      width: auto;
+
+      overflow: visible;
+
+    }
+
+  }
+
+
+
+  .app-sidebar__backdrop {
+
+    display: block;
+
+    position: fixed;
+
+    inset: var(--header-height, 68px) 0 0 0;
+
+    background: rgba(15, 23, 42, 0.45);
+
+    z-index: 850;
+
+    animation: fadeIn 0.2s ease;
+
+  }
+
+}
+
+
+
+@keyframes fadeIn {
+
+  from {
+
+    opacity: 0;
+
+  }
+
+  to {
+
+    opacity: 1;
+
+  }
+
+}
+
+

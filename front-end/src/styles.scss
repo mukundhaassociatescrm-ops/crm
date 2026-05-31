@@ -19,6 +19,7 @@ body {
 }
 
 @import './app/shared/styles/fullscreen';
+@import './app/shared/styles/crm-pages';
 
 app-root {
   display: block;
@@ -85,17 +86,18 @@ app-root {
   align-items: center;
   margin-bottom: 0;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 
   h2 {
     margin: 0;
-    font-size: 24px;
+    font-size: 17px;
     font-weight: 600;
   }
 
   p {
-    margin: 4px 0 0;
+    margin: 2px 0 0;
     color: #6c757d;
+    font-size: 12px;
   }
 }
 
@@ -175,11 +177,14 @@ app-root {
 
   input,
   select {
-    padding: 10px 14px;
+    padding: 0 11px;
+    height: 40px;
     border-radius: 8px;
     border: 1px solid #dcdcdc;
-    min-width: 220px;
+    min-width: 160px;
     background: #fff;
+    font-size: 13px;
+    box-sizing: border-box;
   }
 
   input:focus,
@@ -211,23 +216,24 @@ app-root {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px;
+  min-width: 0;
 
   th {
     text-align: left;
-    padding: 12px;
+    padding: 8px 10px;
     font-weight: 600;
     background: #f8f9fc;
-    font-size: 14px;
-    letter-spacing: 0.5px;
+    font-size: 12px;
+    letter-spacing: 0.04em;
     position: sticky;
     top: 0;
     z-index: 1;
   }
 
   td {
-    padding: 12px;
+    padding: 8px 10px;
     border-top: 1px solid #eee;
+    font-size: 13px;
   }
 
   tr {

@@ -1,0 +1,257 @@
+@import 'variables';
+
+// ===== Compact page header (30–40% shorter) =====
+.crm-page-header,
+.page-header.crm-page-header,
+.header.crm-page-header,
+.history-header.crm-page-header,
+.toolbar.crm-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  margin-bottom: 0 !important;
+  padding: 10px 14px !important;
+  border-radius: $radius-md;
+  background: $bg-card;
+  border: 1px solid $border-subtle;
+  box-shadow: $shadow-sm;
+
+  h2 {
+    margin: 0 !important;
+    font-size: 17px !important;
+    font-weight: $font-weight-semibold;
+    color: $text-dark;
+    line-height: 1.25;
+  }
+
+  p {
+    margin: 2px 0 0 !important;
+    font-size: 12px !important;
+    color: $text-muted;
+    line-height: 1.35;
+  }
+
+  .btn-primary,
+  .btn-new,
+  .header-action {
+    padding: 7px 12px !important;
+    font-size: 13px;
+    min-height: 34px;
+  }
+}
+
+// ===== Compact filter bar =====
+.crm-filters,
+.filters-row.crm-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+
+  .left-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+}
+
+.crm-filter-input,
+.crm-filters input:not([type='checkbox']),
+.crm-filters select,
+.crm-filters .filter-field input,
+.crm-filters .filter-field select {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  font-size: 13px;
+  background: $bg-white;
+  color: $text-dark;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: $primary;
+    box-shadow: $shadow-focus;
+  }
+}
+
+.crm-filters .filter-field {
+  flex: 1 1 150px;
+  min-width: 130px;
+  margin: 0;
+
+  &--search {
+    flex: 2 1 200px;
+    min-width: 180px;
+  }
+
+  &--date {
+    flex: 1 1 170px;
+    min-width: 150px;
+  }
+}
+
+// ===== KPI strip =====
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid $border-color;
+  border-radius: $radius-md;
+  background: $bg-card;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color $transition-fast, box-shadow $transition-fast, background $transition-fast;
+
+  &:hover {
+    border-color: rgba(37, 99, 235, 0.35);
+    background: rgba(37, 99, 235, 0.03);
+  }
+
+  &--active {
+    border-color: rgba(37, 99, 235, 0.45);
+    background: rgba(37, 99, 235, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+  }
+
+  &__label {
+    font-size: 11px;
+    font-weight: $font-weight-semibold;
+    color: $text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__value {
+    font-size: 20px;
+    font-weight: $font-weight-bold;
+    color: $text-dark;
+    line-height: 1.1;
+  }
+}
+
+// ===== Dense tables =====
+.crm-table-card,
+.table-card.crm-table-card {
+  padding: 0 !important;
+  overflow: hidden;
+
+  table,
+  .task-table {
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: collapse;
+    table-layout: auto;
+  }
+
+  th {
+    padding: 7px 10px !important;
+    font-size: 11px !important;
+    font-weight: $font-weight-semibold;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $text-muted;
+    background: #f8fafc;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 7px 10px !important;
+    font-size: 13px;
+    vertical-align: middle;
+    border-top: 1px solid $border-subtle;
+  }
+
+  tr:hover td {
+    background: rgba(37, 99, 235, 0.03);
+  }
+}
+
+// ===== Compact icon action buttons =====
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  background: $bg-white;
+  color: $text-secondary;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all $transition-fast;
+  padding: 0;
+  font-size: 12px;
+
+  &:hover {
+    border-color: $primary;
+    color: $primary;
+    background: rgba(37, 99, 235, 0.06);
+  }
+
+  &--view:hover {
+    color: #0f766e;
+    border-color: rgba(15, 118, 110, 0.35);
+    background: rgba(16, 185, 129, 0.08);
+  }
+
+  &--edit:hover {
+    color: $primary;
+  }
+
+  &--delete:hover {
+    color: $danger;
+    border-color: rgba(239, 68, 68, 0.35);
+    background: #fef2f2;
+  }
+}
+
+// ===== Priority pills =====
+.priority-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: $font-weight-semibold;
+  white-space: nowrap;
+
+  &--high {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  &--medium {
+    background: #ffedd5;
+    color: #c2410c;
+  }
+
+  &--low {
+    background: #d1fae5;
+    color: #047857;
+  }
+}

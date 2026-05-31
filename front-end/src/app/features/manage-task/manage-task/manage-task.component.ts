@@ -35,6 +35,7 @@ export class ManageTaskComponent {
   filteredTasks: Task[] = [];
   employees: Employee[] = [];
   loading = false;
+  activeKpi: 'all' | 'pending' | 'in-progress' | 'completed' | 'overdue' = 'all';
   loadingSave = false;
   message = '';
   messageType: 'success' | 'error' = 'success';
@@ -130,6 +131,7 @@ export class ManageTaskComponent {
 
     this.filterForm.valueChanges.subscribe(() => {
       this.currentPage = 1;
+      this.syncKpiFromFilters();
       this.applyFilters();
     });
 
@@ -301,6 +303,7 @@ export class ManageTaskComponent {
             .some((value) => String(value).toLowerCase().includes(searchTerm));
 
       const matchesStatus = statusFilter === 'All Status' || task.status === statusFilter;
+      const matchesKpi = this.matchesKpiFilter(task);
 
       const taskDueDate = task.dueDate ? new Date(task.dueDate) : null;
       const matchesFromDate = !fromDate || (taskDueDate && !Number.isNaN(taskDueDate.getTime()) && taskDueDate >= fromDate);
@@ -313,8 +316,92 @@ export class ManageTaskComponent {
 
       const matchesEmployee = this.isAdmin ? true : this.isTaskAssignedToUser(task);
 
-      return matchesSearch && matchesStatus && matchesFromDate && matchesToDate && matchesEmployeeFilter && matchesEmployee;
+      return matchesSearch && matchesStatus && matchesKpi && matchesFromDate && matchesToDate && matchesEmployeeFilter && matchesEmployee;
     });
+  }
+
+  get taskStats() {
+    const visible = this.isAdmin
+      ? this.tasks
+      : this.tasks.filter((task) => this.isTaskAssignedToUser(task));
+
+    return {
+      total: visible.length,
+      pending: visible.filter((task) => task.status === 'Pending').length,
+      inProgress: visible.filter((task) => task.status === 'In Progress').length,
+      completed: visible.filter((task) => task.status === 'Completed').length,
+      overdue: visible.filter((task) => this.isTaskOverdue(task)).length,
+    };
+  }
+
+  applyKpiFilter(kpi: 'all' | 'pending' | 'in-progress' | 'completed' | 'overdue'): void {
+    this.activeKpi = kpi;
+    this.currentPage = 1;
+
+    if (kpi === 'all') {
+      this.filterForm.patchValue({ statusFilter: 'All Status' }, { emitEvent: false });
+    } else if (kpi === 'pending') {
+      this.filterForm.patchValue({ statusFilter: 'Pending' }, { emitEvent: false });
+    } else if (kpi === 'in-progress') {
+      this.filterForm.patchValue({ statusFilter: 'In Progress' }, { emitEvent: false });
+    } else if (kpi === 'completed') {
+      this.filterForm.patchValue({ statusFilter: 'Completed' }, { emitEvent: false });
+    } else if (kpi === 'overdue') {
+      this.filterForm.patchValue({ statusFilter: 'All Status' }, { emitEvent: false });
+    }
+
+    this.applyFilters();
+  }
+
+  private syncKpiFromFilters(): void {
+    const statusFilter = this.filterForm.get('statusFilter')?.value || 'All Status';
+    if (this.activeKpi === 'overdue') {
+      return;
+    }
+    if (statusFilter === 'All Status') {
+      this.activeKpi = 'all';
+    } else if (statusFilter === 'Pending') {
+      this.activeKpi = 'pending';
+    } else if (statusFilter === 'In Progress') {
+      this.activeKpi = 'in-progress';
+    } else if (statusFilter === 'Completed') {
+      this.activeKpi = 'completed';
+    } else {
+      this.activeKpi = 'all';
+    }
+  }
+
+  private matchesKpiFilter(task: Task): boolean {
+    if (this.activeKpi === 'all') {
+      return true;
+    }
+    if (this.activeKpi === 'overdue') {
+      return this.isTaskOverdue(task);
+    }
+    if (this.activeKpi === 'pending') {
+      return task.status === 'Pending';
+    }
+    if (this.activeKpi === 'in-progress') {
+      return task.status === 'In Progress';
+    }
+    if (this.activeKpi === 'completed') {
+      return task.status === 'Completed';
+    }
+    return true;
+  }
+
+  isTaskOverdue(task: Task): boolean {
+    if (task.status === 'Completed') {
+      return false;
+    }
+    if (!task.dueDate) {
+      return false;
+    }
+    const due = new Date(task.dueDate);
+    if (Number.isNaN(due.getTime())) {
+      return false;
+    }
+    return due.getTime() < Date.now();
   }
 
   private isTaskAssignedToUser(task: Task): boolean {
@@ -780,7 +867,7 @@ export class ManageTaskComponent {
     if (normalized === 'low') {
       return 'low';
     }
-    return '';
+    return 'medium';
   }
 
   getStatusClass(status: string | undefined): string {

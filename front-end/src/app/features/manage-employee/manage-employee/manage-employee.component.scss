@@ -22,7 +22,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: $spacing-xl;
+  margin-bottom: 0;
+  flex-shrink: 0;
 
   h2 {
     margin: 0;
@@ -79,7 +80,7 @@
 .table-card {
   background: $bg-card;
   border-radius: $radius-lg;
-  padding: $spacing-lg;
+  padding: 0;
   box-shadow: $shadow-lg;
   flex: 1;
   min-height: 0;
@@ -89,20 +90,25 @@
 table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 0;
 
   th {
     text-align: left;
-    padding: $spacing-md;
+    padding: 7px 10px;
     font-weight: $font-weight-semibold;
     background: rgba(37, 99, 235, 0.05);
     color: $text-dark;
-    border-bottom: 2px solid $border-color;
+    border-bottom: 1px solid $border-color;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   td {
-    padding: $spacing-md;
+    padding: 7px 10px;
     border-bottom: 1px solid $border-subtle;
     color: $text-secondary;
+    font-size: 13px;
   }
 
   tr:hover {

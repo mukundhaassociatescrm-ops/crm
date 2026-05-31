@@ -23,7 +23,7 @@ import { SmsComponent } from './features/sms/sms.component';
 import { ManageSmsTemplatesComponent } from './features/manage-sms-templates/manage-sms-templates.component';
 import { ManagePostersComponent } from './features/manage-posters/manage-posters.component';
 import { PosterLandingComponent } from './features/manage-posters/poster-landing.component';
-import { ModuleHubComponent } from './shared/hub/module-hub.component';
+import { HubPassthroughComponent } from './shared/hub/hub-passthrough.component';
 
 const adminHub = { role: 'admin' as const };
 
@@ -48,7 +48,7 @@ export const routes: Routes = [
 
       {
         path: 'communication',
-        component: ModuleHubComponent,
+        component: HubPassthroughComponent,
         data: { ...adminHub, hubId: 'communication', breadcrumb: 'Communication' },
         children: [
           { path: '', redirectTo: 'chats', pathMatch: 'full' },
@@ -92,7 +92,7 @@ export const routes: Routes = [
 
       {
         path: 'customer-management',
-        component: ModuleHubComponent,
+        component: HubPassthroughComponent,
         data: { ...adminHub, hubId: 'customer-management', breadcrumb: 'Customer Management' },
         children: [
           { path: '', redirectTo: 'groups', pathMatch: 'full' },
@@ -111,7 +111,7 @@ export const routes: Routes = [
 
       {
         path: 'marketing',
-        component: ModuleHubComponent,
+        component: HubPassthroughComponent,
         data: { ...adminHub, hubId: 'marketing', breadcrumb: 'Marketing' },
         children: [
           { path: '', redirectTo: 'posters', pathMatch: 'full' },

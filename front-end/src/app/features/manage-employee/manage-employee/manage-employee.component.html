@@ -1,8 +1,7 @@
 <div class="employee-container page-workspace">
   <app-fullscreen-toggle pageKey="manage-employee"></app-fullscreen-toggle>
 
-  <!-- Page Header -->
-  <div class="page-header">
+  <div class="page-header crm-page-header">
     <div>
       <h2>Manage Employees</h2>
       <p>View, add, and manage employee details</p>
@@ -12,12 +11,36 @@
     </button>
   </div>
 
-  <!-- Filters Row -->
-  <div class="filters-row">
-    <div class="left-filters">
-      <input type="text" placeholder="Search employee..." [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()" />
+  <div class="kpi-strip" *ngIf="!isLoading && employees.length">
+    <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'all'" (click)="applyEmployeeKpi('all')">
+      <span class="kpi-card__label">Total Employees</span>
+      <span class="kpi-card__value">{{ employeeStats.total }}</span>
+    </button>
+    <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'active'" (click)="applyEmployeeKpi('active')">
+      <span class="kpi-card__label">Active</span>
+      <span class="kpi-card__value">{{ employeeStats.active }}</span>
+    </button>
+    <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'inactive'" (click)="applyEmployeeKpi('inactive')">
+      <span class="kpi-card__label">Inactive</span>
+      <span class="kpi-card__value">{{ employeeStats.inactive }}</span>
+    </button>
+    <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'admin'" (click)="applyEmployeeKpi('admin')">
+      <span class="kpi-card__label">Admins</span>
+      <span class="kpi-card__value">{{ employeeStats.admins }}</span>
+    </button>
+  </div>
 
-      <select [(ngModel)]="statusFilter" (change)="applyFilters()">
+  <div class="filters-row crm-filters">
+    <div class="left-filters">
+      <input
+        class="crm-filter-input"
+        type="text"
+        placeholder="Search employee..."
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="applyFilters()"
+      />
+
+      <select class="crm-filter-input" [(ngModel)]="statusFilter" (change)="applyFilters()">
         <option value="">All Status</option>
         <option>Active</option>
         <option>Inactive</option>
@@ -25,15 +48,12 @@
     </div>
   </div>
 
-
-  <!-- Employee Table -->
-  <div class="table-card">
+  <div class="table-card crm-table-card">
     <table>
       <thead>
         <tr>
           <th>ID</th>
           <th>Name</th>
-          <th>Email</th>
           <th>Phone</th>
           <th>Role</th>
           <th>Status</th>
@@ -45,26 +65,29 @@
         <tr *ngFor="let emp of filteredEmployees; let i = index">
           <td>#EMP{{ i + 1 }}</td>
           <td>{{ emp.fullName }}</td>
-          <td>{{ emp.email }}</td>
           <td>{{ emp.phone }}</td>
           <td>{{ emp.role }}</td>
           <td>
             <span class="badge" [ngClass]="emp.status ? 'active' : 'inactive'">{{ emp.status ? 'Active' : 'Inactive' }}</span>
           </td>
           <td class="text-center">
-            <button class="btn-edit" (click)="openEditModal(emp)">
-              <i class="fas fa-edit"></i> Edit
-            </button>
-            <button type="button" class="btn-delete" (click)="openDeleteModal(emp)">
-              <i class="fas fa-trash"></i> Delete
-            </button>
+            <div class="row-actions">
+              <button type="button" class="icon-btn icon-btn--view" (click)="openEditModal(emp)" title="View employee" aria-label="View employee">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button type="button" class="icon-btn icon-btn--edit" (click)="openEditModal(emp)" title="Edit employee" aria-label="Edit employee">
+                <i class="fas fa-pen"></i>
+              </button>
+              <button type="button" class="icon-btn icon-btn--delete" (click)="openDeleteModal(emp)" title="Delete employee" aria-label="Delete employee">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
           </td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- Pagination -->
   <div class="pagination">
     <button>Previous</button>
     <span>Page 1 of 5</span>
@@ -80,84 +103,73 @@
       <i class="fas" [ngClass]="isEditMode ? 'fa-user-edit' : 'fa-user-plus'"></i>
       {{ isEditMode ? 'Edit Employee' : 'Add Employee' }}
     </h2>
-    <button class="drawer-close-btn" (click)="closeModal()" title="Close (ESC)">✕</button>
-  </div>
-
-  <div class="drawer-body">
-    <form [formGroup]="employeeForm">
-      <div class="form-group">
-        <label>Full Name</label>
-        <div class="input-with-icon">
-          <i class="fas fa-user"></i>
-          <input type="text" placeholder="Enter full name" formControlName="fullName" />
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Email</label>
-        <div class="input-with-icon">
-          <i class="fas fa-envelope"></i>
-          <input type="text" placeholder="Enter email" formControlName="email" />
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Phone</label>
-        <div class="input-with-icon">
-          <i class="fas fa-phone"></i>
-          <input type="text" placeholder="Enter phone number" formControlName="phone" />
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Address</label>
-        <div class="input-with-icon">
-          <i class="fas fa-map-marker-alt"></i>
-          <textarea placeholder="Enter address" formControlName="address"></textarea>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Role</label>
-        <div class="input-with-icon">
-          <i class="fas fa-user-shield"></i>
-          <select formControlName="role">
-            <option value="Employee">Employee</option>
-            <option value="Admin">Admin</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-group toggle-group">
-        <label>Status</label>
-        <label class="switch">
-          <input type="checkbox" [checked]="employeeForm.value.status" (change)="onStatusToggle($event)" />
-          <span class="slider"></span>
-        </label>
-      </div>
-    </form>
-  </div>
-
-  <div class="drawer-footer">
-    <button class="btn-cancel" (click)="closeModal()">Cancel</button>
-    <button class="btn-save" (click)="saveEmployee()" [disabled]="isSaving">
-      <i class="fas fa-save"></i> {{ isEditMode ? 'Update Employee' : 'Save Employee' }}
+    <button class="close-btn" (click)="closeModal()">
+      <i class="fas fa-times"></i>
     </button>
   </div>
-</div>
-<!-- Delete Confirmation Modal -->
-<div class="modal-overlay" *ngIf="isDeleteModalOpen" (click)="closeDeleteModal()">
-  <div class="delete-modal" (click)="$event.stopPropagation()">
 
-    <div class="delete-icon">
-      <i class="fas fa-exclamation-triangle"></i>
+  <form [formGroup]="employeeForm" (ngSubmit)="saveEmployee()" class="drawer-body">
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" formControlName="fullName" placeholder="Enter full name" />
     </div>
 
-    <h3>Delete Employee</h3>
-    <p>Are you sure you want to delete this employee? This action cannot be undone.</p>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" formControlName="email" placeholder="Enter email address" />
+    </div>
 
-    <div class="delete-actions">
+    <div class="form-group">
+      <label>Phone</label>
+      <input type="text" formControlName="phone" placeholder="Enter phone number" />
+    </div>
+
+    <div class="form-group">
+      <label>Address</label>
+      <textarea formControlName="address" placeholder="Enter address"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Role</label>
+      <select formControlName="role">
+        <option value="">Select role</option>
+        <option>Admin</option>
+        <option>Employee</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Status</label>
+      <label class="switch">
+        <input type="checkbox" formControlName="status" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="drawer-footer">
+      <button type="button" class="btn-cancel" (click)="closeModal()">Cancel</button>
+      <button type="submit" class="btn-save" [disabled]="isSaving">
+        {{ isSaving ? 'Saving...' : (isEditMode ? 'Update Employee' : 'Add Employee') }}
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" *ngIf="isDeleteModalOpen" (click)="closeDeleteModal()">
+  <div class="employee-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Delete Employee</h3>
+      <button class="close-btn" (click)="closeDeleteModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p>Are you sure you want to delete this employee? This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
       <button class="btn-cancel" (click)="closeDeleteModal()">Cancel</button>
-      <button class="btn-confirm" (click)="confirmDelete()">Yes, Delete</button>
+      <button class="btn-delete" (click)="confirmDelete()">Delete</button>
+    </div>
   </div>
 </div>

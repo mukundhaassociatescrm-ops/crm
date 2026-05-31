@@ -2,13 +2,18 @@
 
 /* ===== Layout Wrapper ===== */
 .main-layout {
-  --header-height: 96px;
+  --header-height: 68px;
   height: 100vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: $bg-page;
   padding-top: var(--header-height);
+  box-sizing: border-box;
+
+  &.fullscreen-mode {
+    padding-top: 0;
+  }
 }
 
 /* ===== Header ===== */
@@ -24,7 +29,7 @@
   background: linear-gradient(135deg, $primary-dark 0%, $primary-darker 100%);
   color: $text-white;
 
-  padding: 12px $spacing-xl;
+  padding: 6px 14px;
 
   display: flex;
   justify-content: space-between;
@@ -36,33 +41,66 @@
 /* ===== Left Section ===== */
 .left {
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.brand-block {
+  display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.menu-toggle {
+  display: none;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
 }
 
 .brand {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
 }
 
 .subtitle {
-  font-size: 13px;
-  opacity: 0.6;
-  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.65;
+  margin-top: 1px;
+  line-height: 1.2;
 }
 
 /* ===== Right Section ===== */
 .right {
   display: flex;
   align-items: center;
-  gap: 25px;
+  gap: 14px;
+  flex-shrink: 0;
 }
 
 .reminder-link {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
+  gap: 8px;
+  padding: 6px 12px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
@@ -119,33 +157,35 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   cursor: pointer;
 }
 
 .avatar {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   color: white;
 }
 
 .user-info {
   display: flex;
   flex-direction: column;
+  line-height: 1.2;
 
   .role {
     font-weight: 500;
+    font-size: 13px;
   }
 
   .status {
-    font-size: 12px;
+    font-size: 11px;
     color: #10b981;
   }
 }
@@ -154,7 +194,7 @@
 .notification-dropdown,
 .profile-dropdown {
   position: absolute;
-  top: 60px;
+  top: 48px;
   right: 0;
   background: white;
   color: #111827;
@@ -186,8 +226,21 @@
 }
 
 /* ===== Content Area ===== */
+.layout-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.layout-body--fullscreen {
+  flex: 1;
+  min-height: 0;
+}
+
 .layout-container {
-  height: calc(100vh - var(--header-height));
+  flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
   padding: 18px;
@@ -195,7 +248,6 @@
   flex-direction: column;
   gap: 10px;
   transition:
-    height 0.25s ease,
     padding 0.25s ease,
     gap 0.25s ease;
 }
@@ -204,6 +256,16 @@
   height: 100vh;
   padding: 0;
   gap: 0;
+}
+
+.layout-container--chat,
+.layout-container--compact {
+  padding: 12px;
+  gap: 0;
+}
+
+.layout-container--chat {
+  padding: 0;
 }
 
 .layout-breadcrumb {
@@ -221,7 +283,7 @@
   overflow: hidden;
 }
 
-.page-content--hub {
+.page-content--compact {
   overflow: auto;
 }
 
@@ -237,21 +299,25 @@
 
 @media (max-width: 1024px) {
   .main-layout {
-    --header-height: 92px;
+    --header-height: 64px;
   }
 
   .top-header {
-    padding: 12px 16px;
+    padding: 6px 12px;
   }
 
   .right {
     gap: 12px;
   }
+
+  .menu-toggle {
+    display: inline-flex;
+  }
 }
 
 @media (max-width: 768px) {
   .main-layout {
-    --header-height: 88px;
+    --header-height: 60px;
   }
 
   .layout-container {
@@ -260,17 +326,33 @@
     gap: 8px;
   }
 
+  .layout-container--chat {
+    padding: 0;
+  }
+
   .brand {
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .subtitle {
-    font-size: 11px;
+    display: none;
+  }
+
+  .user-info {
+    display: none;
+  }
+
+  .profile .fa-chevron-down {
+    display: none;
   }
 
   .reminder-link {
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 6px 10px;
+    font-size: 11px;
+
+    span {
+      display: none;
+    }
   }
 }
 

@@ -26,6 +26,7 @@ export class ManageEmployeeComponent {
   filteredEmployees: Employee[] = [];
   searchTerm = '';
   statusFilter = '';
+  activeEmployeeKpi: 'all' | 'active' | 'inactive' | 'admin' = 'all';
 
   employeeForm = this.fb.group({
     fullName: ['', Validators.required],
@@ -83,8 +84,48 @@ export class ManageEmployeeComponent {
         this.statusFilter === '' ||
         (this.statusFilter === 'Active' && emp.status === true) ||
         (this.statusFilter === 'Inactive' && emp.status === false);
-      return bySearch && byStatus;
+      const byKpi = this.matchesEmployeeKpi(emp);
+      return bySearch && byStatus && byKpi;
     });
+  }
+
+  get employeeStats() {
+    return {
+      total: this.employees.length,
+      active: this.employees.filter((emp) => emp.status).length,
+      inactive: this.employees.filter((emp) => !emp.status).length,
+      admins: this.employees.filter((emp) => String(emp.role || '').toLowerCase() === 'admin').length,
+    };
+  }
+
+  applyEmployeeKpi(kpi: 'all' | 'active' | 'inactive' | 'admin'): void {
+    this.activeEmployeeKpi = kpi;
+    if (kpi === 'all') {
+      this.statusFilter = '';
+    } else if (kpi === 'active') {
+      this.statusFilter = 'Active';
+    } else if (kpi === 'inactive') {
+      this.statusFilter = 'Inactive';
+    } else if (kpi === 'admin') {
+      this.statusFilter = '';
+    }
+    this.applyFilters();
+  }
+
+  private matchesEmployeeKpi(emp: Employee): boolean {
+    if (this.activeEmployeeKpi === 'all') {
+      return true;
+    }
+    if (this.activeEmployeeKpi === 'active') {
+      return emp.status === true;
+    }
+    if (this.activeEmployeeKpi === 'inactive') {
+      return emp.status === false;
+    }
+    if (this.activeEmployeeKpi === 'admin') {
+      return String(emp.role || '').toLowerCase() === 'admin';
+    }
+    return true;
   }
 
   openAddModal() {

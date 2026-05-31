@@ -1,7 +1,7 @@
 <div class="employee-container task-page page-workspace">
   <app-fullscreen-toggle pageKey="manage-task"></app-fullscreen-toggle>
 
-  <div class="page-header">
+  <div class="page-header crm-page-header">
     <div class="page-header__text">
       <h2>{{ isAdmin ? 'Manage Tasks' : 'My Tasks' }}</h2>
       <p>{{ isAdmin ? 'Create, assign, and manage tasks' : 'View and update your assigned tasks' }}</p>
@@ -16,7 +16,30 @@
   </div>
   <div *ngIf="loading" class="loading-hint">Loading tasks...</div>
 
-  <div class="filters-row" [formGroup]="filterForm">
+  <div class="kpi-strip" *ngIf="!loading && tasks.length">
+    <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'all'" (click)="applyKpiFilter('all')">
+      <span class="kpi-card__label">Total Tasks</span>
+      <span class="kpi-card__value">{{ taskStats.total }}</span>
+    </button>
+    <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'pending'" (click)="applyKpiFilter('pending')">
+      <span class="kpi-card__label">Pending</span>
+      <span class="kpi-card__value">{{ taskStats.pending }}</span>
+    </button>
+    <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'in-progress'" (click)="applyKpiFilter('in-progress')">
+      <span class="kpi-card__label">In Progress</span>
+      <span class="kpi-card__value">{{ taskStats.inProgress }}</span>
+    </button>
+    <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'completed'" (click)="applyKpiFilter('completed')">
+      <span class="kpi-card__label">Completed</span>
+      <span class="kpi-card__value">{{ taskStats.completed }}</span>
+    </button>
+    <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'overdue'" (click)="applyKpiFilter('overdue')">
+      <span class="kpi-card__label">Overdue</span>
+      <span class="kpi-card__value">{{ taskStats.overdue }}</span>
+    </button>
+  </div>
+
+  <div class="filters-row crm-filters" [formGroup]="filterForm">
     <div class="filter-field filter-field--search">
       <input type="text" placeholder="Search task, customer, phone..." formControlName="searchTerm" />
     </div>
@@ -51,13 +74,14 @@
   </div>
 
   <!-- Desktop / tablet table -->
-  <div class="table-card task-table-view" *ngIf="filteredTasks.length > 0">
+  <div class="table-card crm-table-card task-table-view" *ngIf="filteredTasks.length > 0">
     <div class="table-scroll">
       <table class="task-table">
         <thead>
           <tr>
             <th class="col-id">ID</th>
             <th class="col-title">Task Name</th>
+            <th class="col-priority">Priority</th>
             <th *ngIf="isAdmin" class="col-assignee">Assigned To</th>
             <th class="col-customer">Customer</th>
             <th class="col-status">Status</th>
@@ -71,10 +95,10 @@
               <span class="task-id-pill">{{ getTaskDisplayId(task, (currentPage - 1) * pageSize + i) }}</span>
             </td>
             <td class="col-title">
-              <div class="task-title-cell">
-                <span class="priority-dot" [ngClass]="getPriorityDotClass(task.priority)" [title]="task.priority + ' priority'"></span>
-                <span class="task-title" [title]="task.title">{{ task.title }}</span>
-              </div>
+              <span class="task-title" [title]="task.title">{{ task.title }}</span>
+            </td>
+            <td class="col-priority">
+              <span class="priority-pill" [ngClass]="'priority-pill--' + getPriorityClass(task.priority)">{{ task.priority }}</span>
             </td>
             <td *ngIf="isAdmin" class="col-assignee">{{ getAssignedUserName(task) }}</td>
             <td class="col-customer">

@@ -1,0 +1,71 @@
+<nav
+  class="app-sidebar"
+  [class.app-sidebar--collapsed]="collapsed"
+  [class.app-sidebar--mobile-open]="mobileOpen"
+  aria-label="Main navigation">
+
+  <div class="app-sidebar__head">
+    <button
+      type="button"
+      class="app-sidebar__collapse-btn has-tooltip"
+      (click)="toggleCollapsed()"
+      [attr.data-tooltip]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+      [attr.aria-label]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+      <i class="fa-solid" [ngClass]="collapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
+    </button>
+    <a
+      class="app-sidebar__dashboard has-tooltip"
+      [routerLink]="dashboardLink.route"
+      [class.app-sidebar__link--active]="isItemActive(dashboardLink)"
+      (click)="onNavClick()"
+      [attr.data-tooltip]="collapsed ? dashboardLink.label : null">
+      <i class="fa-solid" [ngClass]="dashboardLink.icon"></i>
+      <span class="app-sidebar__label">{{ dashboardLink.label }}</span>
+    </a>
+  </div>
+
+  <div class="app-sidebar__scroll">
+    <div class="app-sidebar__section" *ngFor="let section of sections">
+      <button
+        type="button"
+        class="app-sidebar__section-toggle has-tooltip"
+        [class.app-sidebar__section-toggle--active]="isSectionActive(section)"
+        (click)="onSectionClick(section, $event)"
+        [attr.data-tooltip]="collapsed ? section.label : null">
+        <i class="fa-solid section-icon" [ngClass]="section.icon"></i>
+        <span class="app-sidebar__label">{{ section.label }}</span>
+        <i
+          class="fa-solid fa-chevron-down app-sidebar__chevron"
+          [class.app-sidebar__chevron--open]="isSectionExpanded(section.id) && !collapsed"></i>
+      </button>
+
+      <div class="app-sidebar__items" *ngIf="isSectionExpanded(section.id) && !collapsed">
+        <a
+          *ngFor="let item of section.items"
+          class="app-sidebar__link"
+          [routerLink]="item.route"
+          [class.app-sidebar__link--active]="isItemActive(item)"
+          (click)="onNavClick()">
+          <i class="fa-solid" [ngClass]="item.icon"></i>
+          <span>{{ item.label }}</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="app-sidebar__divider"></div>
+
+    <a
+      *ngFor="let link of visibleStandaloneLinks"
+      class="app-sidebar__standalone has-tooltip"
+      [routerLink]="link.route"
+      [class.app-sidebar__link--active]="isItemActive(link)"
+      (click)="onNavClick()"
+      [attr.data-tooltip]="collapsed ? link.label : null">
+      <i class="fa-solid" [ngClass]="link.icon"></i>
+      <span class="app-sidebar__label">{{ link.label }}</span>
+    </a>
+  </div>
+</nav>
+
+<div class="app-sidebar__backdrop" *ngIf="mobileOpen" (click)="closeMobile()" aria-hidden="true"></div>
+

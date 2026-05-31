@@ -4,13 +4,20 @@ import { ActivatedRoute, NavigationEnd, Router, RouterModule } from '@angular/ro
 import { filter, Subscription } from 'rxjs';
 import { FullscreenModeService } from '../../core/services/fullscreen-mode.service';
 import { AuthService } from '../../features/auth/auth.service';
+import { AppSidebarComponent } from '../../shared/components/app-sidebar/app-sidebar.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { HeaderCommunicationWalletsComponent } from '../../shared/components/header-communication-wallets/header-communication-wallets.component';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterModule, CommonModule, BreadcrumbComponent, HeaderCommunicationWalletsComponent],
+  imports: [
+    RouterModule,
+    CommonModule,
+    BreadcrumbComponent,
+    HeaderCommunicationWalletsComponent,
+    AppSidebarComponent,
+  ],
   templateUrl: './main-layout.component.html',
   styleUrls: ['./main-layout.component.scss']
 })
@@ -19,6 +26,9 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   showDropdown = false;
   currentUser: any = null;
   fullscreenActive = false;
+  mobileSidebarOpen = false;
+  sidebarCollapsed = false;
+  private currentPath = '';
 
   private fullscreenSubscription?: Subscription;
   private routerSubscription?: Subscription;
@@ -32,6 +42,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentUser = this.authService.getUser();
+    this.currentPath = this.router.url.split('?')[0];
 
     this.fullscreenSubscription = this.fullscreenMode.activeKey$.subscribe((activeKey) => {
       this.fullscreenActive = Boolean(activeKey);
@@ -40,6 +51,8 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
     this.routerSubscription = this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe(() => {
+        this.currentPath = this.router.url.split('?')[0];
+        this.mobileSidebarOpen = false;
         this.fullscreenMode.syncRoute(this.resolveFullscreenPageKey());
       });
 
@@ -78,6 +91,10 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
     return this.userRole === 'admin';
   }
 
+  get isPrimaryAdmin(): boolean {
+    return this.isAdmin && !this.currentUser?.isTemporaryAdmin;
+  }
+
   get isTemporaryAdmin(): boolean {
     return this.isAdmin && !!this.currentUser?.isTemporaryAdmin;
   }
@@ -94,23 +111,40 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
     return this.isAdmin ? 'Admin Dashboard' : 'Employee Dashboard';
   }
 
-get isChatRoute(): boolean {
-  const url = this.router.url.split('?')[0];
-  return url.includes('/communication/chats') || url.includes('/manage-chat');
-}
+  get showSidebar(): boolean {
+    return this.isAdmin && !this.fullscreenActive && !this.isEmployeeRoute;
+  }
 
-get isHubRoute(): boolean {
-  const url = this.router.url.split('?')[0];
-  return (
-    url.startsWith('/communication') ||
-    url.startsWith('/customer-management') ||
-    url.startsWith('/marketing')
-  );
-}
+  get isEmployeeRoute(): boolean {
+    return this.currentPath.startsWith('/employee-dashboard');
+  }
 
-get isReminderRoute(): boolean {
-  return this.router.url.includes('task-reminders');
-}
+  get isChatRoute(): boolean {
+    return (
+      this.currentPath.includes('/communication/chats') ||
+      this.currentPath.includes('/manage-chat') ||
+      this.currentPath === '/chat'
+    );
+  }
+
+  get showBreadcrumb(): boolean {
+    if (this.fullscreenActive || this.isChatRoute || !this.showSidebar) {
+      return false;
+    }
+    return this.currentPath === '/dashboard';
+  }
+
+  get isReminderRoute(): boolean {
+    return this.currentPath.includes('task-reminders');
+  }
+
+  toggleMobileSidebar(): void {
+    this.mobileSidebarOpen = !this.mobileSidebarOpen;
+  }
+
+  onSidebarCollapsedChange(collapsed: boolean): void {
+    this.sidebarCollapsed = collapsed;
+  }
 
   toggleDropdown() {
     this.showDropdown = !this.showDropdown;
