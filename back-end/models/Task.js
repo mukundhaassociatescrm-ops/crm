@@ -1,5 +1,31 @@
 const mongoose = require('mongoose');
 
+const TASK_DISPLAY_ID_PATTERN = /^TSK-(\d+)$/i;
+
+const isValidTaskDisplayId = (value) => TASK_DISPLAY_ID_PATTERN.test(String(value || '').trim());
+
+const assertDisplayIdUpdateAllowed = (existingValue, incomingValue) => {
+  const existing = String(existingValue || '').trim();
+  const incoming = String(incomingValue || '').trim();
+
+  if (!incoming) {
+    return;
+  }
+
+  // Legacy record: allow one-time assignment when no valid displayId exists yet.
+  if (!isValidTaskDisplayId(existing)) {
+    if (isValidTaskDisplayId(incoming)) {
+      return;
+    }
+    throw new Error('Task displayId cannot be changed after creation.');
+  }
+
+  // Existing task: only idempotent writes are allowed.
+  if (existing !== incoming) {
+    throw new Error('Task displayId cannot be changed after creation.');
+  }
+};
+
 const taskSchema = new mongoose.Schema(
   {
     displayId: {
@@ -49,19 +75,33 @@ const taskSchema = new mongoose.Schema(
 );
 
 // Mongoose 9+: do not use next() in middleware — return or throw instead.
-taskSchema.pre('save', function protectDisplayId() {
-  if (!this.isNew && this.isModified('displayId')) {
-    throw new Error('Task displayId cannot be changed after creation.');
+taskSchema.pre('save', async function protectDisplayId() {
+  if (this.isNew || !this.isModified('displayId')) {
+    return;
   }
+
+  const persisted = await this.constructor.findById(this._id).select('displayId').lean();
+  assertDisplayIdUpdateAllowed(persisted?.displayId, this.displayId);
 });
 
-taskSchema.pre('findOneAndUpdate', function protectDisplayIdOnUpdate() {
+taskSchema.pre('findOneAndUpdate', async function protectDisplayIdOnUpdate() {
   const update = this.getUpdate() || {};
   const setPayload = update.$set || update;
-  if (setPayload && (Object.prototype.hasOwnProperty.call(setPayload, 'displayId')
-    || Object.prototype.hasOwnProperty.call(setPayload, 'taskNumber'))) {
+
+  if (setPayload && Object.prototype.hasOwnProperty.call(setPayload, 'taskNumber')) {
     throw new Error('Task displayId cannot be changed after creation.');
   }
+
+  if (!setPayload || !Object.prototype.hasOwnProperty.call(setPayload, 'displayId')) {
+    return;
+  }
+
+  const doc = await this.model.findOne(this.getQuery()).select('displayId').lean();
+  if (!doc) {
+    return;
+  }
+
+  assertDisplayIdUpdateAllowed(doc.displayId, setPayload.displayId);
 });
 
 module.exports = mongoose.model('Task', taskSchema);
