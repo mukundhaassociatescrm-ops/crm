@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 import { LoginComponent } from './features/auth/login/login.component';
+import { CreatePasswordComponent } from './features/auth/create-password/create-password.component';
+import { PendingPasswordResetGuard } from './core/pending-password-reset.guard';
 import { MainLayoutComponent } from './layouts/main-layout/main-layout.component';
 import { DashboardComponent } from './features/dashboard/dashboard/dashboard.component';
 import { ManageEmployeeComponent } from './features/manage-employee/manage-employee/manage-employee.component';
@@ -31,6 +33,7 @@ export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
 
   { path: 'login', component: LoginComponent },
+  { path: 'create-password', component: CreatePasswordComponent, canActivate: [PendingPasswordResetGuard] },
   { path: 'contact-us', component: ContactUsComponent },
   { path: 'posters/:slug', component: PosterLandingComponent },
   { path: 'superadmin/create-admin', component: SuperadminCreateAdminComponent },

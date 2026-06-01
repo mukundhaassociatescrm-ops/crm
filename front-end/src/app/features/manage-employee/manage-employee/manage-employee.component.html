@@ -68,7 +68,10 @@
           <td>{{ emp.phone }}</td>
           <td>{{ emp.role }}</td>
           <td>
-            <span class="badge" [ngClass]="emp.status ? 'active' : 'inactive'">{{ emp.status ? 'Active' : 'Inactive' }}</span>
+            <div class="status-cell">
+              <span class="badge" [ngClass]="emp.status ? 'active' : 'inactive'">{{ emp.status ? 'Active' : 'Inactive' }}</span>
+              <span class="badge password-reset-pending" *ngIf="emp.mustCreatePassword">Password Reset Pending</span>
+            </div>
           </td>
           <td class="text-center">
             <div class="row-actions">
@@ -77,6 +80,14 @@
               </button>
               <button type="button" class="icon-btn icon-btn--edit" (click)="openEditModal(emp)" title="Edit employee" aria-label="Edit employee">
                 <i class="fas fa-pen"></i>
+              </button>
+              <button
+                type="button"
+                class="icon-btn icon-btn--reset"
+                (click)="openResetPasswordModal(emp)"
+                title="Reset password"
+                aria-label="Reset password">
+                <i class="fas fa-key"></i>
               </button>
               <button type="button" class="icon-btn icon-btn--delete" (click)="openDeleteModal(emp)" title="Delete employee" aria-label="Delete employee">
                 <i class="fas fa-trash-alt"></i>
@@ -153,6 +164,29 @@
       </button>
     </div>
   </form>
+</div>
+
+<!-- Reset Password Confirmation Modal -->
+<div class="modal-overlay" *ngIf="isResetPasswordModalOpen" (click)="closeResetPasswordModal()">
+  <div class="employee-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Reset Password</h3>
+      <button class="close-btn" (click)="closeResetPasswordModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p>Reset password for this employee?</p>
+      <p>The employee will be required to create a new password on their next login.</p>
+      <p class="reset-target" *ngIf="resetPasswordEmployee">{{ resetPasswordEmployee.fullName }} ({{ resetPasswordEmployee.email }})</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" (click)="closeResetPasswordModal()" [disabled]="isResettingPassword">Cancel</button>
+      <button type="button" class="btn-delete" (click)="confirmResetPassword()" [disabled]="isResettingPassword">
+        {{ isResettingPassword ? 'Resetting...' : 'Reset Password' }}
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- Delete Confirmation Modal -->

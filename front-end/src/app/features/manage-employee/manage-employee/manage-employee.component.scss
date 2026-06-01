@@ -136,6 +136,30 @@ table {
   color: $danger;
 }
 
+.status-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.password-reset-pending {
+  background: #fdecea;
+  color: #b42318;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.icon-btn--reset {
+  color: #b45309;
+}
+
+.reset-target {
+  margin-top: 10px;
+  font-weight: $font-weight-semibold;
+  color: $text-dark;
+}
+
 /* Action Buttons */
 .btn-edit {
   background: rgba(37, 99, 235, 0.1);

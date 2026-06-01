@@ -6,6 +6,7 @@ const {
   getEmployeeById,
   updateEmployee,
   deleteEmployee,
+  resetEmployeePassword,
 } = require('../controllers/employeeController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRole } = require('../middleware/roleMiddleware');
@@ -93,6 +94,8 @@ router.post('/', protect, authorizeRole('Admin'), addEmployee);
  *         description: Employee list
  */
 router.get('/', protect, getEmployees);
+
+router.post('/:employeeId/reset-password', protect, authorizeRole('admin'), resetEmployeePassword);
 
 /**
  * @openapi

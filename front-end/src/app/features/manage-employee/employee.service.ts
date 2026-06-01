@@ -10,6 +10,7 @@ export interface Employee {
   address: string;
   role: string;
   status: boolean;
+  mustCreatePassword?: boolean;
 }
 
 export interface EmployeeResponse {
@@ -36,5 +37,12 @@ export class EmployeeService {
 
   deleteEmployee(id: string): Observable<EmployeeResponse> {
     return this.http.delete<EmployeeResponse>(`/api/employees/${id}`);
+  }
+
+  resetPassword(employeeId: string): Observable<{ success: boolean; message?: string }> {
+    return this.http.post<{ success: boolean; message?: string }>(
+      `/api/employees/${encodeURIComponent(employeeId)}/reset-password`,
+      {},
+    );
   }
 }

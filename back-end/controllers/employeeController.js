@@ -39,6 +39,33 @@ const getAdminReadScope = async (req) => {
   return { adminOwner: req.user._id };
 };
 
+const attachMustCreatePasswordFlags = async (employees) => {
+  if (!employees.length) {
+    return [];
+  }
+
+  const emails = employees
+    .map((employee) => String(employee.email || '').toLowerCase().trim())
+    .filter(Boolean);
+
+  if (!emails.length) {
+    return employees.map((employee) => ({
+      ...employee.toObject(),
+      mustCreatePassword: false,
+    }));
+  }
+
+  const users = await User.find({ email: { $in: emails } }).select('email mustCreatePassword');
+  const flagByEmail = new Map(
+    users.map((user) => [String(user.email || '').toLowerCase(), !!user.mustCreatePassword]),
+  );
+
+  return employees.map((employee) => ({
+    ...employee.toObject(),
+    mustCreatePassword: flagByEmail.get(String(employee.email || '').toLowerCase()) || false,
+  }));
+};
+
 exports.addEmployee = async (req, res, next) => {
   try {
     const { fullName, email, phone, address, role, status } = req.body;
@@ -102,7 +129,50 @@ exports.getEmployees = async (req, res, next) => {
     }
 
     const employees = await Employee.find(query).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, count: employees.length, data: employees });
+    const data = await attachMustCreatePasswordFlags(employees);
+    res.status(200).json({ success: true, count: data.length, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.resetEmployeePassword = async (req, res, next) => {
+  try {
+    if (!isAdminUser(req.user)) {
+      return res.status(403).json({ success: false, message: 'Forbidden: insufficient permissions' });
+    }
+
+    const employee = await Employee.findOne({
+      _id: req.params.employeeId,
+      ...(await getAdminReadScope(req)),
+    });
+
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    const normalizedEmail = String(employee.email || '').toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No login account found for this employee.' });
+    }
+
+    if (String(user.role || '').toLowerCase() === 'superadmin') {
+      return res.status(400).json({ success: false, message: 'Cannot reset password for this account.' });
+    }
+
+    if (String(user._id) === String(req.user._id)) {
+      return res.status(400).json({ success: false, message: 'Cannot reset your own password from employee management.' });
+    }
+
+    user.mustCreatePassword = true;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset requested. Employee must create a new password.',
+    });
   } catch (error) {
     next(error);
   }

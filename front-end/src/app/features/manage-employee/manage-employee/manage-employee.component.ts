@@ -14,6 +14,9 @@ import { FullscreenToggleComponent } from '../../../shared/components/fullscreen
 })
 export class ManageEmployeeComponent {
   isDeleteModalOpen = false;
+  isResetPasswordModalOpen = false;
+  isResettingPassword = false;
+  resetPasswordEmployee: Employee | null = null;
   isModalOpen = false;
   isEditMode = false;
   isLoading = false;
@@ -49,6 +52,10 @@ export class ManageEmployeeComponent {
 
   @HostListener('document:keydown.escape')
   onEscapeKey() {
+    if (this.isResetPasswordModalOpen) {
+      this.closeResetPasswordModal();
+      return;
+    }
     if (this.isModalOpen) {
       this.closeModal();
     }
@@ -160,6 +167,44 @@ export class ManageEmployeeComponent {
 
   closeDeleteModal() {
     this.isDeleteModalOpen = false;
+  }
+
+  openResetPasswordModal(employee: Employee) {
+    this.resetPasswordEmployee = employee;
+    this.isResetPasswordModalOpen = true;
+  }
+
+  closeResetPasswordModal() {
+    if (this.isResettingPassword) {
+      return;
+    }
+    this.isResetPasswordModalOpen = false;
+    this.resetPasswordEmployee = null;
+  }
+
+  confirmResetPassword() {
+    const employeeId = this.resetPasswordEmployee?._id;
+    if (!employeeId) {
+      return;
+    }
+
+    this.isResettingPassword = true;
+    this.employeeService.resetPassword(employeeId).subscribe({
+      next: (res) => {
+        this.isResettingPassword = false;
+        if (res.success) {
+          this.showMessage(res.message || 'Password reset requested.', 'success');
+          this.closeResetPasswordModal();
+          this.loadEmployees();
+        } else {
+          this.showMessage(res.message || 'Failed to reset password', 'error');
+        }
+      },
+      error: (err) => {
+        this.isResettingPassword = false;
+        this.showMessage(err?.error?.message || 'Failed to reset password', 'error');
+      },
+    });
   }
 
   saveEmployee() {

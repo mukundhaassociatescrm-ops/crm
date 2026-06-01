@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../auth.service';
+import { PENDING_PASSWORD_RESET_KEY } from '../../../core/pending-password-reset.guard';
 
 @Component({
   selector: 'app-login',
@@ -79,7 +80,13 @@ export class LoginComponent {
 
         this.userExists = true;
         this.hasPassword = response.data.hasPassword || false;
-        
+
+        if (response.data.mustCreatePassword) {
+          sessionStorage.setItem(PENDING_PASSWORD_RESET_KEY, email);
+          this.router.navigate(['/create-password']);
+          return;
+        }
+
         if (this.hasPassword) {
           this.step = 'password';
         } else {

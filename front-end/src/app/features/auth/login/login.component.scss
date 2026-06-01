@@ -2,12 +2,17 @@
 
 .login-wrapper {
   position: relative;
+  box-sizing: border-box;
+  height: 100vh;
   min-height: 100vh;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   padding: $spacing-xl;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background:
     linear-gradient(140deg, rgba($text-dark, 0.52), rgba($text-dark, 0.26)),
     radial-gradient(circle at 18% 14%, rgba($primary-light, 0.24), transparent 45%),
@@ -32,9 +37,16 @@
 .login-card {
   position: relative;
   z-index: 1;
+  flex: 0 0 auto;
   width: min(460px, 100%);
+  max-height: calc(100vh - #{$spacing-xl * 2});
+  margin-top: auto;
+  margin-bottom: auto;
   padding: $spacing-2xl;
   border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   background: linear-gradient(180deg, rgba($bg-white, 0.28), rgba($bg-white, 0.12));
   border: 1px solid rgba($bg-white, 0.38);
   backdrop-filter: blur(18px);
@@ -50,6 +62,7 @@
 }
 
 .brand-block {
+  flex: 0 0 auto;
   text-align: center;
   margin-bottom: $spacing-xl;
 }
@@ -84,6 +97,7 @@
 }
 
 .step-progress {
+  flex: 0 0 auto;
   list-style: none;
   margin: 0 0 $spacing-xl;
   padding: 0;
@@ -152,6 +166,26 @@
 
 form {
   animation: riseIn 0.28s ease;
+}
+
+.login-step-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-step-form__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.login-step-form__footer {
+  flex: 0 0 auto;
+  padding-top: $spacing-md;
 }
 
 .back-btn {

@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema(
     },
     password: { type: String, minlength: 5, select: false },
     passwordSet: { type: Boolean, default: false },
+    mustCreatePassword: { type: Boolean, default: false },
     role: {
       type: String,
       enum: ['superadmin', 'admin', 'user'],

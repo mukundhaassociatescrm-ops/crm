@@ -96,57 +96,61 @@
             </div>
         </form>
 
-        <form *ngIf="step === 'set-password'" [formGroup]="setPasswordForm" (ngSubmit)="setPassword()">
-            <button type="button" class="back-btn" (click)="goBack()" [disabled]="loading">
-                <i class="fa-solid fa-arrow-left"></i>
-                Back
-            </button>
+        <form *ngIf="step === 'set-password'" class="login-step-form" [formGroup]="setPasswordForm" (ngSubmit)="setPassword()">
+            <div class="login-step-form__scroll">
+                <button type="button" class="back-btn" (click)="goBack()" [disabled]="loading">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    Back
+                </button>
 
-            <div class="user-info">
-                <p>{{ userEmail }}</p>
-                <p class="info-text">This is your first time? Create a password to continue.</p>
-            </div>
+                <div class="user-info">
+                    <p>{{ userEmail }}</p>
+                    <p class="info-text">This is your first time? Create a password to continue.</p>
+                </div>
 
-            <div class="form-group">
-                <label>New Password</label>
-                <div class="input-shell password-wrapper">
-                    <input
-                        formControlName="password"
-                        [type]="showPassword ? 'text' : 'password'"
-                        placeholder="Create a password (min. 5 characters)"
-                        [disabled]="loading" />
-                    <span class="toggle-icon" (click)="togglePassword()" role="button" tabindex="0">
-                        <i class="fa-solid" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
-                    </span>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <div class="input-shell password-wrapper">
+                        <input
+                            formControlName="password"
+                            [type]="showPassword ? 'text' : 'password'"
+                            placeholder="Create a password (min. 5 characters)"
+                            [disabled]="loading" />
+                        <span class="toggle-icon" (click)="togglePassword()" role="button" tabindex="0">
+                            <i class="fa-solid" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <div class="input-shell password-wrapper">
+                        <input
+                            formControlName="confirmPassword"
+                            [type]="showPassword ? 'text' : 'password'"
+                            placeholder="Confirm your password"
+                            [disabled]="loading" />
+                        <span class="toggle-icon" (click)="togglePassword()" role="button" tabindex="0">
+                            <i class="fa-solid" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                        </span>
+                    </div>
+                </div>
+
+                <div *ngIf="errorMessage" class="error-message">
+                    {{ errorMessage }}
                 </div>
             </div>
 
-            <div class="form-group">
-                <label>Confirm Password</label>
-                <div class="input-shell password-wrapper">
-                    <input
-                        formControlName="confirmPassword"
-                        [type]="showPassword ? 'text' : 'password'"
-                        placeholder="Confirm your password"
-                        [disabled]="loading" />
-                    <span class="toggle-icon" (click)="togglePassword()" role="button" tabindex="0">
-                        <i class="fa-solid" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
-                    </span>
-                </div>
+            <div class="login-step-form__footer">
+                <button
+                    type="submit"
+                    class="btn-login"
+                    [disabled]="loading || setPasswordForm.invalid">
+                    <span *ngIf="!loading">Create Account</span>
+                    <span *ngIf="loading" class="loader">Creating account...</span>
+                    <i *ngIf="!loading" class="fa-solid fa-arrow-right"></i>
+                </button>
             </div>
-
-            <div *ngIf="errorMessage" class="error-message">
-                {{ errorMessage }}
-            </div>
-
-            <button
-                type="submit"
-                class="btn-login"
-                [disabled]="loading || setPasswordForm.invalid">
-                <span *ngIf="!loading">Create Account</span>
-                <span *ngIf="loading" class="loader">Creating account...</span>
-                <i *ngIf="!loading" class="fa-solid fa-arrow-right"></i>
-            </button>
         </form>
     </div>
 </div>

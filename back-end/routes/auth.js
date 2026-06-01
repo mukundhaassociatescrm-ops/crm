@@ -1,5 +1,5 @@
 const express = require('express');
-const { login, updateProfile, checkUser, setPassword, createAdmin } = require('../controllers/authController');
+const { login, updateProfile, checkUser, setPassword, createPassword, createAdmin } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRole } = require('../middleware/roleMiddleware');
 const router = express.Router();
@@ -63,6 +63,7 @@ const router = express.Router();
  */
 router.post('/login', login);
 router.post('/check-user', checkUser);
+router.post('/create-password', createPassword);
 router.post('/set-password', setPassword);
 router.put('/profile', protect, updateProfile);
 

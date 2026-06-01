@@ -66,6 +66,14 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials.' });
     }
 
+    if (user.mustCreatePassword) {
+      return res.status(403).json({
+        success: false,
+        message: 'Password reset required. Please create a new password.',
+        requiresPasswordReset: true,
+      });
+    }
+
     const accountContext = await getEmployeeAccountContext(user.email);
     const effectiveRole = normalizeRole(accountContext.effectiveRole || user.role);
     if (effectiveRole !== user.role) {
@@ -172,7 +180,53 @@ exports.checkUser = async (req, res, next) => {
       data: {
         exists: !!user,
         hasPassword: user ? user.passwordSet : false,
+        mustCreatePassword: user ? !!user.mustCreatePassword : false,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createPassword = async (req, res, next) => {
+  try {
+    const { email, password, confirmPassword } = req.body;
+
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ success: false, message: 'Email is required.' });
+    }
+
+    if (!password || !confirmPassword) {
+      return res.status(400).json({ success: false, message: 'Password and confirm password are required.' });
+    }
+
+    if (String(password) !== String(confirmPassword)) {
+      return res.status(400).json({ success: false, message: 'Passwords do not match.' });
+    }
+
+    if (String(password).length < 5) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 5 characters.' });
+    }
+
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    if (!user.mustCreatePassword) {
+      return res.status(403).json({ success: false, message: 'Password reset is not required for this account.' });
+    }
+
+    user.password = password;
+    user.passwordSet = true;
+    user.mustCreatePassword = false;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully.',
     });
   } catch (error) {
     next(error);
@@ -194,6 +248,13 @@ exports.setPassword = async (req, res, next) => {
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    if (user.mustCreatePassword) {
+      return res.status(403).json({
+        success: false,
+        message: 'Password reset required. Please create a new password.',
+      });
     }
 
     const accountContext = await getEmployeeAccountContext(user.email);

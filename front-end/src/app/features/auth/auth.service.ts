@@ -21,7 +21,13 @@ export interface CheckUserResponse {
   data?: {
     exists: boolean;
     hasPassword: boolean;
+    mustCreatePassword?: boolean;
   };
+  message?: string;
+}
+
+export interface CreatePasswordResponse {
+  success: boolean;
   message?: string;
 }
 
@@ -80,6 +86,14 @@ export class AuthService {
 
   setPassword(email: string, password: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>('/api/auth/set-password', { email, password });
+  }
+
+  createPassword(email: string, password: string, confirmPassword: string): Observable<CreatePasswordResponse> {
+    return this.http.post<CreatePasswordResponse>('/api/auth/create-password', {
+      email,
+      password,
+      confirmPassword,
+    });
   }
 
   createAdmin(payload: CreateAdminRequest): Observable<CreateAdminResponse> {
