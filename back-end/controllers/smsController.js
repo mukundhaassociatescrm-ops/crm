@@ -16,6 +16,7 @@ const {
   isFast2smsMessageId,
 } = require('../services/dltTemplateResolver');
 const {
+  resolveBulkDltCustomMessage,
   resolveDltContentTemplateIdFromRecord,
   isDltContentTemplateId,
 } = require('../services/smsFast2smsIdUtils');
