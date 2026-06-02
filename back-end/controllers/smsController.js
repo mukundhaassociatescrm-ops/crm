@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Group = require('../models/Group');
 const Client = require('../models/Client');
 const SmsTemplate = require('../models/SmsTemplate');
-const { sendDltSms, sendDltBulkCustom, normalizeIndianMobile, fetchFast2SmsWalletBalance } = require('../services/fast2smsService');
+const { sendDltSms, normalizeIndianMobile, fetchFast2SmsWalletBalance } = require('../services/fast2smsService');
 const {
   extractSmsTemplateVariableSlots,
   buildVariablesValues,
@@ -16,9 +16,7 @@ const {
   isFast2smsMessageId,
 } = require('../services/dltTemplateResolver');
 const {
-  resolveFast2smsMessageIdFromRecord,
   resolveDltContentTemplateIdFromRecord,
-  resolveBulkDltCustomMessage,
   isDltContentTemplateId,
 } = require('../services/smsFast2smsIdUtils');
 
@@ -300,6 +298,15 @@ exports.sendBulkDltSms = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Group has no contacts to send.' });
     }
 
+    if (!hasConfiguredMessageId(template)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Template sync incomplete. Missing Fast2SMS Message ID (DLT Manager). Sync templates and ensure messageId is a short numeric ID, not the DLT content template ID.',
+      });
+    }
+
+    const fast2smsMessageId = resolveFast2smsMessageId(template);
+
     const slots = extractSmsTemplateVariableSlots(template.templateContent);
     const variables = normalizeVariablesInput(rawVariables, slots.length);
 
@@ -323,31 +330,56 @@ exports.sendBulkDltSms = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No valid mobile numbers in this group.' });
     }
 
-    const requests = numbers.map((phone) => ({
-      sender_id: senderId,
-      message: dltMessage,
-      variables_values: variablesValues || '',
-      numbers: phone,
-    }));
+    const entityId = resolveFast2smsEntityId(template);
 
     console.log('[BULK DLT SMS SEND]', {
       groupId: String(group._id),
       groupName: group.name,
-      recipientCount: requests.length,
+      recipientCount: numbers.length,
       senderId,
-      dltMessage,
+      messageId: fast2smsMessageId,
+      entityId: entityId || null,
       variablesValues: variablesValues || null,
     });
 
-    const result = await sendDltBulkCustom({ requests });
+    const batchSize = 200;
+    let acceptedCount = 0;
+    let failedCount = 0;
+    let firstError = '';
+    const failures = [];
+
+    for (let i = 0; i < numbers.length; i += batchSize) {
+      const batch = numbers.slice(i, i + batchSize);
+      try {
+        const result = await sendDltSms({
+          phone: batch,
+          messageId: fast2smsMessageId,
+          senderId,
+          variablesValues,
+          entityId,
+        });
+        acceptedCount += Number(result.acceptedCount || batch.length);
+      } catch (error) {
+        failedCount += batch.length;
+        const message = error?.message || String(error);
+        if (!firstError) {
+          firstError = message;
+        }
+        failures.push({ batchStartIndex: i, batchSize: batch.length, message });
+        console.log('[BULK DLT SMS BATCH ERROR]', { batchStartIndex: i, batchSize: batch.length, message });
+      }
+    }
 
     return res.status(200).json({
       success: true,
-      sentCount: result.acceptedCount,
+      sentCount: acceptedCount,
+      failedCount,
+      partial: failedCount > 0,
       senderId,
-      dltMessage,
+      messageId: fast2smsMessageId,
+      entityId: entityId || undefined,
       variablesValues: variablesValues || undefined,
-      providerResponse: result.raw,
+      ...(failedCount > 0 ? { firstError, failures: failures.slice(0, 20) } : {}),
     });
   } catch (error) {
     console.log('[BULK DLT SMS ERROR]', {

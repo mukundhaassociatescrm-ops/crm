@@ -111,10 +111,6 @@ export function getSmsTemplateContent(
 export function getBulkDltMessageParam(
   template: Pick<SmsTemplate, 'dltTemplateId' | 'contentTemplateId' | 'templateId' | 'messageId' | 'fast2smsMessageId'> | null | undefined,
 ): string {
-  const dltId = getSmsTemplateDltId(template);
-  if (dltId) {
-    return dltId;
-  }
   return getFast2smsMessageId(template);
 }
 

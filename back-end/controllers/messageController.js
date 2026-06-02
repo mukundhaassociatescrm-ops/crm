@@ -137,29 +137,10 @@ exports.sendBulkMessage = async (req, res, next) => {
     const bulkFailures = [];
 
     if (normalizedChannel === 'sms') {
-      const allNumbers = contacts
-        .map((contact) => normalizeIndianMobile(contact.mobile))
-        .filter(Boolean);
-
-      if (!allNumbers.length) {
-        return res.status(400).json({ success: false, message: 'No valid mobile numbers available in this group.' });
-      }
-
-      const uniqueNumbers = Array.from(new Set(allNumbers));
-      const smsBatchSize = 200;
-
-      for (let i = 0; i < uniqueNumbers.length; i += smsBatchSize) {
-        const batchNumbers = uniqueNumbers.slice(i, i + smsBatchSize);
-        try {
-          const smsResult = await sendFast2SmsBulk({ message, numbers: batchNumbers });
-          sentCount += smsResult.acceptedCount;
-        } catch (error) {
-          failedCount += batchNumbers.length;
-          if (!firstDeliveryError) {
-            firstDeliveryError = error.message || 'SMS delivery failed for one or more batches.';
-          }
-        }
-      }
+      return res.status(400).json({
+        success: false,
+        message: 'Legacy bulk SMS (route=q) is disabled. Use Bulk SMS (DLT) screen and POST /api/sms/send-bulk-dlt with a DLT template instead.',
+      });
     } else {
       const perMessageDelayMs = 300;
       console.log('[BULK WHATSAPP TEMPLATE SEND START]', {

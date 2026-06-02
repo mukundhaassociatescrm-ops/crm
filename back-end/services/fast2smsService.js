@@ -348,10 +348,15 @@ async function sendDltSms({
   variablesValues = '',
   entityId = '',
 }) {
-  const normalizedPhone = normalizeIndianMobile(phone);
-  if (!normalizedPhone) {
+  const normalizedNumbers = Array.isArray(phone)
+    ? Array.from(new Set(phone.map(normalizeIndianMobile).filter(Boolean)))
+    : [normalizeIndianMobile(phone)].filter(Boolean);
+
+  if (!normalizedNumbers.length) {
     throw new Error('A valid Indian mobile number is required.');
   }
+
+  const normalizedPhone = normalizedNumbers.join(',');
 
   const fast2smsMessageId = String(messageId || '').trim();
   if (!fast2smsMessageId) {
@@ -397,6 +402,7 @@ async function sendDltSms({
   return {
     success: true,
     phone: normalizedPhone,
+    acceptedCount: normalizedNumbers.length,
     messageId: fast2smsMessageId,
     senderId: dltSenderId,
     variablesValues: normalizedVariables,
