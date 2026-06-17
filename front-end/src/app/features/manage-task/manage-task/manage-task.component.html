@@ -248,7 +248,7 @@
 <div class="drawer-overlay" *ngIf="isTaskModalOpen" (click)="closeTaskModal()"></div>
 <div class="task-drawer" *ngIf="isTaskModalOpen" (click)="$event.stopPropagation()">
   <div class="drawer-header">
-    <h2>{{ isViewOnlyMode ? 'View Task' : (isEditMode ? 'Edit Task' : 'Add Task') }}</h2>
+    <h2>{{ isPaymentOnlyMode ? 'Update Payment Status' : (isViewOnlyMode ? 'View Task' : (isEditMode ? 'Edit Task' : 'Add Task')) }}</h2>
     <button type="button" class="drawer-close-btn" (click)="closeTaskModal()" title="Close (ESC)">✕</button>
   </div>
 
@@ -277,7 +277,7 @@
         <textarea rows="3" placeholder="Enter description" formControlName="description"></textarea>
       </div>
 
-      <div class="form-group" *ngIf="!isViewOnlyMode">
+      <div class="form-group" *ngIf="!isViewOnlyMode && !isPaymentOnlyMode">
         <label>Attach Files</label>
         <div class="file-upload-area" (click)="fileInput.click()" (drop)="onFileDrop($event)" (dragover)="$event.preventDefault()" (dragenter)="$event.preventDefault()">
           <i class="fas fa-cloud-upload-alt"></i>
@@ -355,7 +355,14 @@
         </div>
       </div>
 
-      <div class="form-group checkboxes-group" *ngIf="!isViewOnlyMode">
+      <div class="form-group checkboxes-group" *ngIf="isPaymentOnlyMode">
+        <label class="checkbox-wrapper">
+          <input type="checkbox" formControlName="paymentReceived" />
+          <span class="checkbox-label">Payment Received</span>
+        </label>
+      </div>
+
+      <div class="form-group checkboxes-group" *ngIf="!isViewOnlyMode && !isPaymentOnlyMode">
         <label class="checkbox-wrapper">
           <input type="checkbox" formControlName="paymentReceived" />
           <span class="checkbox-label">Payment Received</span>
@@ -370,7 +377,7 @@
         </label>
       </div>
 
-      <div class="form-group" *ngIf="reminderEnabled && !isViewOnlyMode">
+      <div class="form-group" *ngIf="reminderEnabled && !isViewOnlyMode && !isPaymentOnlyMode">
         <label>Reminder Before</label>
         <select formControlName="reminderBefore">
           <option *ngFor="let option of reminderOptions" [ngValue]="option.value">
@@ -382,9 +389,9 @@
   </div>
 
   <div class="drawer-footer">
-    <button type="button" class="btn-cancel" (click)="closeTaskModal()">{{ isViewOnlyMode ? 'Close' : 'Cancel' }}</button>
-    <button *ngIf="!isViewOnlyMode" type="button" class="btn-save" (click)="saveTask()" [disabled]="loadingSave">
-      {{ isEditMode ? 'Update Task' : 'Save Task' }}
+    <button type="button" class="btn-cancel" (click)="closeTaskModal()">{{ (isViewOnlyMode && !isPaymentOnlyMode) ? 'Close' : 'Cancel' }}</button>
+    <button *ngIf="!isViewOnlyMode || isPaymentOnlyMode" type="button" class="btn-save" (click)="saveTask()" [disabled]="loadingSave">
+      {{ isPaymentOnlyMode ? 'Update Payment' : (isEditMode ? 'Update Task' : 'Save Task') }}
     </button>
   </div>
 </div>

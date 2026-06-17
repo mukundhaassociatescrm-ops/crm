@@ -82,6 +82,116 @@ const parseDueDateInput = (value) => {
   return parsed;
 };
 
+const COMPLETED_TASK_LOCKED_BODY_FIELDS = [
+  'title',
+  'description',
+  'assignedTo',
+  'customerName',
+  'customerPhone',
+  'reportSent',
+  'priority',
+  'status',
+  'dueDate',
+  'reminderEnabled',
+  'reminderBefore',
+  'createdFromChat',
+  'conversationId',
+  'chatMessageId',
+  'chatPhone',
+  'chatId',
+  'messageText',
+  'messageId',
+  'attachments',
+];
+
+const normalizeComparableValue = (field, value) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (field === 'assignedTo') {
+    return String(value);
+  }
+
+  if (field === 'dueDate') {
+    const parsed = parseDueDateInput(value);
+    return parsed ? parsed.getTime() : undefined;
+  }
+
+  if (field === 'reminderBefore') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  if (field === 'reportSent' || field === 'reminderEnabled' || field === 'createdFromChat') {
+    return !!value;
+  }
+
+  if (field === 'attachments') {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+};
+
+const getCompletedTaskLockedFieldChange = (body, task) => {
+  for (const field of COMPLETED_TASK_LOCKED_BODY_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(body, field)) {
+      continue;
+    }
+
+    const incoming = normalizeComparableValue(field, body[field]);
+    if (incoming === undefined) {
+      continue;
+    }
+
+    let current;
+    if (field === 'assignedTo') {
+      current = String(task.assignedTo || '');
+    } else if (field === 'dueDate') {
+      current = task.dueDate ? task.dueDate.getTime() : undefined;
+    } else if (field === 'reminderBefore') {
+      current = Number(task.reminderBefore);
+    } else if (field === 'reportSent' || field === 'reminderEnabled' || field === 'createdFromChat') {
+      current = !!task[field];
+    } else if (field === 'attachments') {
+      current = JSON.stringify(task.attachments || []);
+    } else {
+      current = String(task[field] ?? '');
+    }
+
+    if (incoming !== current) {
+      return field;
+    }
+  }
+
+  return null;
+};
+
+const logTaskPaymentFlagActivity = async (task, previousPaymentReceived, paymentReceived) => {
+  if (!!previousPaymentReceived === !!paymentReceived) {
+    return;
+  }
+
+  const resolvedClientId = await resolveClientIdByPhone(task.customerPhone || '');
+
+  await logActivity({
+    type: 'payment',
+    title: paymentReceived ? 'Payment Received' : 'Payment Marked Pending',
+    referenceId: String(task._id),
+    taskId: task._id,
+    clientId: resolvedClientId,
+    employeeId: task.assignedTo,
+    description: `Payment status updated for task: ${task.title}`,
+    metadata: {
+      previousPaymentReceived: !!previousPaymentReceived,
+      paymentReceived: !!paymentReceived,
+      source: 'task_payment_flag',
+    },
+    adminOwner: task.adminOwner,
+  });
+};
+
 const resolveAssignedIdsForUser = async (user) => {
   const ids = [String(user._id)];
   const role = (user.role || '').toLowerCase();
@@ -421,9 +531,6 @@ exports.updateTask = async (req, res, next) => {
 
       task.status = status;
       task.reportSent = nextReportSent;
-      if (paymentReceived !== undefined) {
-        task.paymentReceived = !!paymentReceived;
-      }
       await task.save();
       const updated = await Task.findById(task._id).populate('assignedTo', 'fullName email phone');
 
@@ -466,6 +573,43 @@ exports.updateTask = async (req, res, next) => {
         }
       } catch (_) {
         // Keep employee update flow resilient if history logging fails.
+      }
+
+      return res.status(200).json({ success: true, data: updated });
+    }
+
+    if (String(task.status || '') === 'Completed') {
+      const lockedFieldChange = getCompletedTaskLockedFieldChange(req.body, task);
+      if (lockedFieldChange) {
+        return res.status(400).json({
+          success: false,
+          message: `Completed tasks are locked. Only paymentReceived can be updated. Field not allowed: ${lockedFieldChange}.`,
+        });
+      }
+
+      if (paymentReceived === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: 'Completed tasks are locked. paymentReceived is required.',
+        });
+      }
+
+      const previousPaymentReceived = !!task.paymentReceived;
+      const nextPaymentReceived = !!paymentReceived;
+
+      if (previousPaymentReceived === nextPaymentReceived) {
+        const unchanged = await Task.findById(task._id).populate('assignedTo', 'fullName email phone');
+        return res.status(200).json({ success: true, data: unchanged });
+      }
+
+      task.paymentReceived = nextPaymentReceived;
+      await task.save();
+      const updated = await Task.findById(task._id).populate('assignedTo', 'fullName email phone');
+
+      try {
+        await logTaskPaymentFlagActivity(task, previousPaymentReceived, nextPaymentReceived);
+      } catch (_) {
+        // Keep payment update resilient if history logging fails.
       }
 
       return res.status(200).json({ success: true, data: updated });

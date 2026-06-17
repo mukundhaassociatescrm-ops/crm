@@ -23,6 +23,7 @@ export class ManageTaskComponent {
   isDeleteModalOpen = false;
   isEditMode = false;
   isViewOnlyMode = false;
+  isPaymentOnlyMode = false;
   pageSize = 25;
   currentPage = 1;
   readonly pageSizeOptions = [25, 50, 100];
@@ -517,12 +518,18 @@ export class ManageTaskComponent {
   }
 
   openViewTask(task: Task): void {
+    if (this.isAdmin && this.isTaskCompleted(task)) {
+      this.openEditTask(task, false, true);
+      return;
+    }
+
     this.openEditTask(task, true);
   }
 
-  openEditTask(task: Task, viewOnly = false) {
-    const readOnly = viewOnly || this.isTaskCompleted(task);
-    this.isViewOnlyMode = readOnly;
+  openEditTask(task: Task, viewOnly = false, paymentOnly = false) {
+    this.isPaymentOnlyMode = paymentOnly && this.isAdmin && this.isTaskCompleted(task);
+    const readOnly = this.isPaymentOnlyMode || viewOnly || this.isTaskCompleted(task);
+    this.isViewOnlyMode = readOnly && !this.isPaymentOnlyMode;
     this.isEditMode = true;
     this.editingTaskId = task._id || null;
     this.editingTaskDisplayId = String(task.displayId || '').trim() || null;
@@ -559,7 +566,10 @@ export class ManageTaskComponent {
     // Patch after drawer mounts so the datetime picker receives the stored due date.
     setTimeout(() => {
       this.taskForm.reset(formValues);
-      if (readOnly) {
+      if (this.isPaymentOnlyMode) {
+        this.taskForm.disable({ emitEvent: false });
+        this.taskForm.get('paymentReceived')?.enable({ emitEvent: false });
+      } else if (readOnly) {
         this.taskForm.disable({ emitEvent: false });
       } else {
         this.taskForm.enable({ emitEvent: false });
@@ -570,6 +580,7 @@ export class ManageTaskComponent {
   closeTaskModal() {
     this.isTaskModalOpen = false;
     this.isViewOnlyMode = false;
+    this.isPaymentOnlyMode = false;
     this.isEditMode = false;
     this.editingTaskId = null;
     this.editingTaskDisplayId = null;
@@ -672,6 +683,11 @@ export class ManageTaskComponent {
   }
 
   saveTask() {
+    if (this.isPaymentOnlyMode && this.editingTaskId) {
+      this.saveCompletedTaskPayment();
+      return;
+    }
+
     const formValue = this.taskForm.getRawValue();
 
     if (!formValue.title?.trim()) {
@@ -793,6 +809,51 @@ export class ManageTaskComponent {
           this.showMessage(this.isEditMode ? 'Failed to update task' : 'Failed to create task', 'error');
         }
       });
+  }
+
+  private saveCompletedTaskPayment(): void {
+    if (!this.editingTaskId) {
+      return;
+    }
+
+    const paymentReceived = !!this.taskForm.get('paymentReceived')?.value;
+    const payload = { paymentReceived } as Task;
+
+    this.loadingSave = true;
+    this.taskService.updateTask(this.editingTaskId, payload).subscribe({
+      next: (saveResponse) => {
+        this.loadingSave = false;
+
+        if (!saveResponse.success) {
+          this.showMessage(saveResponse.message || 'Failed to update payment status', 'error');
+          return;
+        }
+
+        const updatedTask = saveResponse.data && !Array.isArray(saveResponse.data)
+          ? (saveResponse.data as Task)
+          : null;
+
+        this.tasks = this.tasks.map((item) => {
+          if (item._id !== this.editingTaskId) {
+            return item;
+          }
+
+          return {
+            ...item,
+            ...(updatedTask || {}),
+            paymentReceived,
+          };
+        });
+        this.applyFilters();
+        this.showMessage('Payment status updated successfully', 'success');
+        this.closeTaskModal();
+      },
+      error: (error) => {
+        this.loadingSave = false;
+        const message = error?.error?.message || 'Failed to update payment status';
+        this.showMessage(message, 'error');
+      },
+    });
   }
 
   openDeleteModal(task: Task) {
