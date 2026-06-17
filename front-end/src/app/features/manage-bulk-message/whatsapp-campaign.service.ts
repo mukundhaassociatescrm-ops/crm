@@ -34,6 +34,12 @@ export type CampaignRecipient = {
   status: string;
   reason: string;
   failureReason: string;
+  failureCode?: string;
+  failureCategory?: string;
+  retryEligible?: boolean;
+  retryScheduledAt?: string | null;
+  retryCount?: number;
+  permanentFailure?: boolean;
   scheduledAt?: string;
   deliveredAt?: string;
   sentAt?: string;

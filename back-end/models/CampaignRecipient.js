@@ -9,6 +9,7 @@ const RECIPIENT_STATUSES = [
   'Skipped',
   'SessionSent',
   'WaitingDailyLimit',
+  'ScheduledRetry',
 ];
 
 const campaignRecipientSchema = new mongoose.Schema(
@@ -25,6 +26,13 @@ const campaignRecipientSchema = new mongoose.Schema(
     },
     reason: { type: String, trim: true, default: '' },
     failureReason: { type: String, trim: true, default: '' },
+    failureCode: { type: String, trim: true, default: '' },
+    failureCategory: { type: String, trim: true, default: '' },
+    failureWebhookPayload: { type: mongoose.Schema.Types.Mixed, default: null },
+    retryEligible: { type: Boolean, default: false },
+    retryScheduledAt: { type: Date, default: null, index: true },
+    retryCount: { type: Number, default: 0 },
+    permanentFailure: { type: Boolean, default: false },
     whatsappMessageId: { type: String, trim: true, default: '', index: true },
     sendMethod: { type: String, enum: ['template', 'session'], default: 'template' },
     batchDayIndex: { type: Number, default: 0 },

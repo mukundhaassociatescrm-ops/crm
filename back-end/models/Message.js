@@ -91,6 +91,25 @@ const messageSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    /** Populated when Gupshup/Meta webhook reports status=failed. */
+    failureReason: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    failureCode: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    failureProviderResponse: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    failureWebhookPayload: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     linkedTaskId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Task',

@@ -490,6 +490,8 @@ const toMessageView = (messageDoc, phoneNumber, linkedTask = null) => {
     templateId: messageDoc.templateId || '',
     templateName: messageDoc.templateName || '',
     templateBody: messageDoc.templateBody || '',
+    failureReason: messageDoc.failureReason || '',
+    failureCode: messageDoc.failureCode || '',
     deleted: false,
     important: Boolean(messageDoc.important),
     linkedTask: linkedTask || null,
@@ -665,7 +667,59 @@ const saveMessage = async (message) => {
   return toMessageView(created, phone);
 };
 
-const updateMessageStatus = async ({ messageId, status, destination, source, timestamp, reason, phone }) => {
+const MAX_FAILURE_WEBHOOK_BYTES = 16000;
+
+const truncateFailurePayload = (value) => {
+  if (!value || typeof value !== 'object') {
+    return value ?? null;
+  }
+
+  try {
+    const serialized = JSON.stringify(value);
+    if (serialized.length <= MAX_FAILURE_WEBHOOK_BYTES) {
+      return value;
+    }
+
+    return {
+      truncated: true,
+      originalBytes: serialized.length,
+      preview: serialized.slice(0, MAX_FAILURE_WEBHOOK_BYTES),
+    };
+  } catch {
+    return { truncated: true, preview: String(value).slice(0, MAX_FAILURE_WEBHOOK_BYTES) };
+  }
+};
+
+const applyFailureMetadata = (doc, failureMeta = {}) => {
+  const reason = String(failureMeta.reason || failureMeta.failureReason || '').trim();
+  const failureCode = String(failureMeta.failureCode || '').trim();
+
+  if (reason) {
+    doc.failureReason = reason;
+  }
+  if (failureCode) {
+    doc.failureCode = failureCode;
+  }
+  if (failureMeta.providerResponse) {
+    doc.failureProviderResponse = truncateFailurePayload(failureMeta.providerResponse);
+  }
+  if (failureMeta.webhookPayload) {
+    doc.failureWebhookPayload = truncateFailurePayload(failureMeta.webhookPayload);
+  }
+};
+
+const updateMessageStatus = async ({
+  messageId,
+  status,
+  destination,
+  source,
+  timestamp,
+  reason,
+  phone,
+  failureCode = '',
+  providerResponse = null,
+  webhookPayload = null,
+}) => {
   const normalizedMessageId = String(messageId || '').trim();
   const normalizedDestination = normalizePhone(destination);
   const normalizedSource = normalizePhone(source);
@@ -693,8 +747,13 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
     existing.timestamp = toDate(timestamp);
     existing.to = normalizedDestination || existing.to;
     existing.from = normalizedSource || existing.from;
-    if (reason) {
-      existing.reason = String(reason);
+    if (normalizedStatus === 'failed') {
+      applyFailureMetadata(existing, {
+        reason,
+        failureCode,
+        providerResponse,
+        webhookPayload,
+      });
     }
     await existing.save();
     const conversation = await Conversation.findById(existing.conversationId).select('phoneNumber');
@@ -727,8 +786,13 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
     matchedOutgoing.timestamp = toDate(timestamp);
     matchedOutgoing.to = normalizedDestination || matchedOutgoing.to;
     matchedOutgoing.from = normalizedSource || matchedOutgoing.from;
-    if (reason) {
-      matchedOutgoing.reason = String(reason);
+    if (normalizedStatus === 'failed') {
+      applyFailureMetadata(matchedOutgoing, {
+        reason,
+        failureCode,
+        providerResponse,
+        webhookPayload,
+      });
     }
     await matchedOutgoing.save();
     const conversation = await Conversation.findById(matchedOutgoing.conversationId).select('phoneNumber');
@@ -743,7 +807,7 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
 
   // If we receive a status before the send API response is stored, create a fallback message.
   const conversation = await findOrCreateConversation(targetPhone, '');
-  const fallback = await Message.create({
+  const fallbackPayload = {
     messageId: normalizedMessageId,
     conversationId: conversation?._id,
     from: normalizedSource || 'business',
@@ -757,7 +821,18 @@ const updateMessageStatus = async ({ messageId, status, destination, source, tim
     status: normalizedStatus,
     timestamp: toDate(timestamp),
     replyTo: undefined,
-  });
+  };
+
+  if (normalizedStatus === 'failed') {
+    applyFailureMetadata(fallbackPayload, {
+      reason,
+      failureCode,
+      providerResponse,
+      webhookPayload,
+    });
+  }
+
+  const fallback = await Message.create(fallbackPayload);
 
   chatDebug('status:update created fallback message', {
     messageId: normalizedMessageId,

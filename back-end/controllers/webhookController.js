@@ -285,6 +285,14 @@ exports.handleGupshupWebhook = async (req, res) => {
     const source = payload.source || payload.from || nestedPayload.source || nestedPayload.from || 'unknown';
     const text = payload.text || payload.body || nestedPayload.text || nestedPayload.body || '';
     const reason = payload.reason || nestedPayload.reason || null;
+    const failureCode = payload.code
+      || nestedPayload.code
+      || payload.errorCode
+      || nestedPayload.errorCode
+      || payload.statusCode
+      || nestedPayload.statusCode
+      || body.code
+      || null;
 
     const storedEvent = await processGupshupWebhook(body);
 
@@ -297,6 +305,7 @@ exports.handleGupshupWebhook = async (req, res) => {
       source,
       text,
       reason,
+      failureCode,
       stored: Boolean(storedEvent),
       raw: body,
     };
@@ -319,7 +328,8 @@ exports.handleGupshupWebhook = async (req, res) => {
         ' source=' +
         source +
         (text ? ' text=' + JSON.stringify(text) : '') +
-        (reason ? ' reason=' + reason : '')
+        (reason ? ' reason=' + reason : '') +
+        (failureCode ? ' failureCode=' + failureCode : '')
     );
 
     // Status-specific log lines for quick operational scanning.
@@ -327,12 +337,26 @@ exports.handleGupshupWebhook = async (req, res) => {
     if (normalizedStatus === 'delivered') {
       console.log('[GUPSHUP][DELIVERED] Message delivered. messageId=' + messageId + ' destination=' + destination);
     } else if (normalizedStatus === 'failed') {
+      console.log('[GUPSHUP][FAILED]', {
+        messageId,
+        phone: destination || source || null,
+        failureReason: reason,
+        failureCode,
+        providerResponse: {
+          type: eventType,
+          status,
+          payload,
+          nestedPayload: Object.keys(nestedPayload).length ? nestedPayload : null,
+        },
+        webhookPayload: body,
+      });
       console.log(
         '[GUPSHUP][FAILED] Message failed. messageId=' +
           messageId +
           ' destination=' +
           destination +
-          (reason ? ' reason=' + reason : '')
+          (reason ? ' reason=' + reason : '') +
+          (failureCode ? ' failureCode=' + failureCode : '')
       );
     } else if (normalizedStatus === 'read') {
       console.log('[GUPSHUP][READ] Message read. messageId=' + messageId + ' destination=' + destination);

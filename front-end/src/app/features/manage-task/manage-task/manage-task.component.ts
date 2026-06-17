@@ -35,7 +35,7 @@ export class ManageTaskComponent {
   filteredTasks: Task[] = [];
   employees: Employee[] = [];
   loading = false;
-  activeKpi: 'all' | 'pending' | 'in-progress' | 'completed' | 'overdue' = 'all';
+  activeKpi: 'all' | 'pending' | 'in-progress' | 'completed' | 'overdue' | 'completed-unpaid' = 'all';
   loadingSave = false;
   message = '';
   messageType: 'success' | 'error' = 'success';
@@ -89,6 +89,7 @@ export class ManageTaskComponent {
     this.filterForm = this.fb.group({
       searchTerm: [''],
       statusFilter: ['All Status'],
+      paymentStatusFilter: ['All Payment'],
       employeeFilter: ['All Employees'],
       fromDate: [''],
       toDate: ['']
@@ -280,6 +281,7 @@ export class ManageTaskComponent {
   applyFilters() {
     const searchTerm = (this.filterForm.get('searchTerm')?.value || '').toLowerCase();
     const statusFilter = this.filterForm.get('statusFilter')?.value || 'All Status';
+    const paymentStatusFilter = this.filterForm.get('paymentStatusFilter')?.value || 'All Payment';
     const employeeFilter = this.filterForm.get('employeeFilter')?.value || 'All Employees';
     const fromDateStr = this.filterForm.get('fromDate')?.value;
     const toDateStr = this.filterForm.get('toDate')?.value;
@@ -304,6 +306,7 @@ export class ManageTaskComponent {
             .some((value) => String(value).toLowerCase().includes(searchTerm));
 
       const matchesStatus = statusFilter === 'All Status' || task.status === statusFilter;
+      const matchesPaymentStatus = this.matchesPaymentStatusFilter(task, paymentStatusFilter);
       const matchesKpi = this.matchesKpiFilter(task);
 
       const taskDueDate = task.dueDate ? new Date(task.dueDate) : null;
@@ -317,7 +320,14 @@ export class ManageTaskComponent {
 
       const matchesEmployee = this.isAdmin ? true : this.isTaskAssignedToUser(task);
 
-      return matchesSearch && matchesStatus && matchesKpi && matchesFromDate && matchesToDate && matchesEmployeeFilter && matchesEmployee;
+      return matchesSearch
+        && matchesStatus
+        && matchesPaymentStatus
+        && matchesKpi
+        && matchesFromDate
+        && matchesToDate
+        && matchesEmployeeFilter
+        && matchesEmployee;
     });
   }
 
@@ -332,23 +342,26 @@ export class ManageTaskComponent {
       inProgress: visible.filter((task) => task.status === 'In Progress').length,
       completed: visible.filter((task) => task.status === 'Completed').length,
       overdue: visible.filter((task) => this.isTaskOverdue(task)).length,
+      completedUnpaid: visible.filter((task) => this.isTaskCompletedUnpaid(task)).length,
     };
   }
 
-  applyKpiFilter(kpi: 'all' | 'pending' | 'in-progress' | 'completed' | 'overdue'): void {
+  applyKpiFilter(kpi: 'all' | 'pending' | 'in-progress' | 'completed' | 'overdue' | 'completed-unpaid'): void {
     this.activeKpi = kpi;
     this.currentPage = 1;
 
     if (kpi === 'all') {
-      this.filterForm.patchValue({ statusFilter: 'All Status' }, { emitEvent: false });
+      this.filterForm.patchValue({ statusFilter: 'All Status', paymentStatusFilter: 'All Payment' }, { emitEvent: false });
     } else if (kpi === 'pending') {
-      this.filterForm.patchValue({ statusFilter: 'Pending' }, { emitEvent: false });
+      this.filterForm.patchValue({ statusFilter: 'Pending', paymentStatusFilter: 'All Payment' }, { emitEvent: false });
     } else if (kpi === 'in-progress') {
-      this.filterForm.patchValue({ statusFilter: 'In Progress' }, { emitEvent: false });
+      this.filterForm.patchValue({ statusFilter: 'In Progress', paymentStatusFilter: 'All Payment' }, { emitEvent: false });
     } else if (kpi === 'completed') {
-      this.filterForm.patchValue({ statusFilter: 'Completed' }, { emitEvent: false });
+      this.filterForm.patchValue({ statusFilter: 'Completed', paymentStatusFilter: 'All Payment' }, { emitEvent: false });
     } else if (kpi === 'overdue') {
-      this.filterForm.patchValue({ statusFilter: 'All Status' }, { emitEvent: false });
+      this.filterForm.patchValue({ statusFilter: 'All Status', paymentStatusFilter: 'All Payment' }, { emitEvent: false });
+    } else if (kpi === 'completed-unpaid') {
+      this.filterForm.patchValue({ statusFilter: 'Completed', paymentStatusFilter: 'Pending Payment' }, { emitEvent: false });
     }
 
     this.applyFilters();
@@ -356,9 +369,31 @@ export class ManageTaskComponent {
 
   private syncKpiFromFilters(): void {
     const statusFilter = this.filterForm.get('statusFilter')?.value || 'All Status';
+    const paymentStatusFilter = this.filterForm.get('paymentStatusFilter')?.value || 'All Payment';
+
     if (this.activeKpi === 'overdue') {
       return;
     }
+
+    if (this.activeKpi === 'completed-unpaid') {
+      const stillMatches = statusFilter === 'Completed' && paymentStatusFilter === 'Pending Payment';
+      if (!stillMatches) {
+        this.activeKpi = 'all';
+      } else {
+        return;
+      }
+    }
+
+    if (statusFilter === 'Completed' && paymentStatusFilter === 'Pending Payment') {
+      this.activeKpi = 'completed-unpaid';
+      return;
+    }
+
+    if (paymentStatusFilter !== 'All Payment') {
+      this.activeKpi = 'all';
+      return;
+    }
+
     if (statusFilter === 'All Status') {
       this.activeKpi = 'all';
     } else if (statusFilter === 'Pending') {
@@ -372,12 +407,28 @@ export class ManageTaskComponent {
     }
   }
 
+  private matchesPaymentStatusFilter(task: Task, paymentStatusFilter: string): boolean {
+    if (paymentStatusFilter === 'All Payment') {
+      return true;
+    }
+    if (paymentStatusFilter === 'Paid') {
+      return !!task.paymentReceived;
+    }
+    if (paymentStatusFilter === 'Pending Payment') {
+      return !task.paymentReceived;
+    }
+    return true;
+  }
+
   private matchesKpiFilter(task: Task): boolean {
     if (this.activeKpi === 'all') {
       return true;
     }
     if (this.activeKpi === 'overdue') {
       return this.isTaskOverdue(task);
+    }
+    if (this.activeKpi === 'completed-unpaid') {
+      return this.isTaskCompletedUnpaid(task);
     }
     if (this.activeKpi === 'pending') {
       return task.status === 'Pending';
@@ -389,6 +440,22 @@ export class ManageTaskComponent {
       return task.status === 'Completed';
     }
     return true;
+  }
+
+  isTaskCompletedUnpaid(task: Task): boolean {
+    return task.status === 'Completed' && !task.paymentReceived;
+  }
+
+  isTaskPaymentPending(task: Task): boolean {
+    return !task.paymentReceived;
+  }
+
+  getPaymentStatusLabel(task: Task): string {
+    return task.paymentReceived ? 'Paid' : 'Pending Payment';
+  }
+
+  getPaymentStatusClass(task: Task): string {
+    return task.paymentReceived ? 'payment-received' : 'payment-pending';
   }
 
   isTaskOverdue(task: Task): boolean {

@@ -873,6 +873,48 @@ exports.refreshChatTemplates = async (req, res, next) => {
   }
 };
 
+const extractGupshupFailureDetails = (body) => {
+  const payload = body?.payload || {};
+  const nestedPayload = payload?.payload || {};
+
+  const reason = String(
+    payload.reason
+    || nestedPayload.reason
+    || payload.error
+    || nestedPayload.error
+    || payload.message
+    || nestedPayload.message
+    || payload.description
+    || nestedPayload.description
+    || '',
+  ).trim();
+
+  const failureCode = String(
+    payload.code
+    || nestedPayload.code
+    || payload.errorCode
+    || nestedPayload.errorCode
+    || payload.statusCode
+    || nestedPayload.statusCode
+    || body?.code
+    || '',
+  ).trim();
+
+  return {
+    reason,
+    failureCode,
+    providerResponse: {
+      type: body?.type || null,
+      status: payload.status || nestedPayload.status || null,
+      reason: reason || null,
+      code: failureCode || null,
+      payload,
+      nestedPayload: Object.keys(nestedPayload).length ? nestedPayload : null,
+    },
+    webhookPayload: body,
+  };
+};
+
 // POST /webhook/gupshup helper
 // Normalizes and stores incoming/status events from Gupshup webhook payload.
 exports.processGupshupWebhook = async (body) => {
@@ -1124,16 +1166,39 @@ exports.processGupshupWebhook = async (body) => {
   const isIncomingEvent = eventType.includes('message') || (!isStatusUpdate && (Boolean(displayText) || isMediaType || Boolean(attachmentUrl)));
 
   if (isStatusUpdate) {
+    const failureDetails = String(status).toLowerCase() === 'failed'
+      ? extractGupshupFailureDetails(body)
+      : null;
+
     console.log('--- WEBHOOK STATUS ---');
     console.log('[WEBHOOK STATUS RAW]', body);
     console.log('[STATUS PARSED]', {
       messageId,
       status,
-      reason,
+      reason: failureDetails?.reason || reason,
+      failureCode: failureDetails?.failureCode || null,
       phone,
       source,
       destination,
     });
+
+    if (failureDetails) {
+      const existingForLog = messageId
+        ? await Message.findOne({ messageId: String(messageId).trim() }).select('templateId templateName').lean()
+        : null;
+
+      console.log('[GUPSHUP TEMPLATE DELIVERY FAILED]', {
+        messageId: messageId || null,
+        phone: phone || destination || source || null,
+        templateId: existingForLog?.templateId || null,
+        templateName: existingForLog?.templateName || null,
+        failureReason: failureDetails.reason || reason || null,
+        failureCode: failureDetails.failureCode || null,
+        providerResponse: failureDetails.providerResponse,
+        webhookPayload: failureDetails.webhookPayload,
+      });
+    }
+
     chatDebug('gupshup:status received', {
       eventType,
       rawStatus,
@@ -1149,15 +1214,20 @@ exports.processGupshupWebhook = async (body) => {
       destination,
       source,
       timestamp: eventTimestamp,
-      reason,
+      reason: failureDetails?.reason || reason,
       phone,
+      failureCode: failureDetails?.failureCode || '',
+      providerResponse: failureDetails?.providerResponse || null,
+      webhookPayload: failureDetails?.webhookPayload || null,
     });
 
     if (messageId) {
       applyCampaignDeliveryUpdate({
         messageId,
         status,
-        reason,
+        reason: failureDetails?.reason || reason,
+        failureCode: failureDetails?.failureCode || '',
+        webhookPayload: failureDetails?.webhookPayload || null,
         timestamp: eventTimestamp,
       }).catch((campaignError) => {
         console.warn('[CAMPAIGN WEBHOOK UPDATE]', campaignError?.message || campaignError);

@@ -37,6 +37,10 @@
       <span class="kpi-card__label">Overdue</span>
       <span class="kpi-card__value">{{ taskStats.overdue }}</span>
     </button>
+    <button type="button" class="kpi-card kpi-card--collections" [class.kpi-card--active]="activeKpi === 'completed-unpaid'" (click)="applyKpiFilter('completed-unpaid')">
+      <span class="kpi-card__label">Completed &amp; Unpaid</span>
+      <span class="kpi-card__value">{{ taskStats.completedUnpaid }}</span>
+    </button>
   </div>
 
   <div class="filters-row crm-filters" [formGroup]="filterForm">
@@ -50,6 +54,13 @@
         <option>In Progress</option>
         <option>Report Sent</option>
         <option>Completed</option>
+      </select>
+    </div>
+    <div class="filter-field">
+      <select formControlName="paymentStatusFilter">
+        <option>All Payment</option>
+        <option>Pending Payment</option>
+        <option>Paid</option>
       </select>
     </div>
     <div class="filter-field" *ngIf="isAdmin">
@@ -85,12 +96,16 @@
             <th *ngIf="isAdmin" class="col-assignee">Assigned To</th>
             <th class="col-customer">Customer</th>
             <th class="col-status">Status</th>
+            <th class="col-payment">Payment</th>
             <th class="col-due">Due Date</th>
             <th *ngIf="isAdmin" class="col-actions text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId">
+          <tr
+            *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId"
+            [class.task-row--completed-unpaid]="isTaskCompletedUnpaid(task)"
+          >
             <td class="col-id">
               <span class="task-id-pill">{{ getTaskDisplayId(task) }}</span>
             </td>
@@ -106,6 +121,9 @@
             </td>
             <td class="col-status">
               <span class="badge badge--sm" [ngClass]="getStatusClass(task.status)">{{ task.status }}</span>
+            </td>
+            <td class="col-payment">
+              <span class="payment-badge" [ngClass]="getPaymentStatusClass(task)">{{ getPaymentStatusLabel(task) }}</span>
             </td>
             <td class="col-due">
               <span class="due-date-text" [title]="formatTaskDueDate(task.dueDate)">{{ formatTaskDueDate(task.dueDate) }}</span>
@@ -161,7 +179,7 @@
 
   <!-- Mobile / small screen cards -->
   <div class="task-card-list" *ngIf="filteredTasks.length > 0">
-    <article class="task-card" *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId">
+    <article class="task-card" *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId" [class.task-card--completed-unpaid]="isTaskCompletedUnpaid(task)">
       <header class="task-card__header">
         <span class="task-card__id">{{ getTaskDisplayId(task) }}</span>
         <span class="task-card__due">{{ formatTaskDueDate(task.dueDate) }}</span>
@@ -208,6 +226,7 @@
 
       <footer class="task-card__footer">
         <span class="badge badge--sm" [ngClass]="getStatusClass(task.status)">{{ task.status }}</span>
+        <span class="payment-badge" [ngClass]="getPaymentStatusClass(task)">{{ getPaymentStatusLabel(task) }}</span>
       </footer>
     </article>
 

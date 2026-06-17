@@ -255,7 +255,19 @@ $bp-compact: 1400px;
     &:hover {
       background: rgba(37, 99, 235, 0.04);
     }
+
+    &.task-row--completed-unpaid {
+      background: rgba(245, 158, 11, 0.06);
+
+      &:hover {
+        background: rgba(245, 158, 11, 0.1);
+      }
+    }
   }
+}
+
+.col-payment {
+  white-space: nowrap;
 }
 
 .task-id-pill {
@@ -533,6 +545,11 @@ $bp-compact: 1400px;
   box-shadow: $shadow-sm;
 }
 
+.task-card--completed-unpaid {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(255, 251, 235, 0.72);
+}
+
 .task-card__header {
   display: flex;
   align-items: center;
@@ -635,6 +652,12 @@ $bp-compact: 1400px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  align-items: center;
+}
+
+.kpi-card--collections.kpi-card--active {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(255, 251, 235, 0.9);
 }
 
 @media (max-width: $bp-compact) {
@@ -694,9 +717,25 @@ $bp-compact: 1400px;
   }
 }
 
+.payment-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: $font-weight-semibold;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
 .payment-badge.payment-received {
   background: rgba(16, 185, 129, 0.14);
   color: $success;
+}
+
+.payment-badge.payment-pending {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
 }
 
 .payment-badge.payment-not-received {

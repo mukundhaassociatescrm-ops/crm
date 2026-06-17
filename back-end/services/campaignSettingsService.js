@@ -1,7 +1,7 @@
 const CampaignRecipient = require('../models/CampaignRecipient');
 const { getAppSettingsPayload, updateAppSettings } = require('./appSettingsService');
 
-const TEMPLATE_USAGE_STATUSES = ['Sending', 'Delivered', 'Read', 'Failed'];
+const TEMPLATE_USAGE_STATUSES = ['Sending', 'Delivered', 'Read', 'Failed', 'ScheduledRetry'];
 
 const getDailyTemplateLimit = async () => {
   const settings = await getAppSettingsPayload();
