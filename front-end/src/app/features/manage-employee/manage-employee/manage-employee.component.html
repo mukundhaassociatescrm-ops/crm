@@ -1,4 +1,4 @@
-<div class="employee-container page-workspace">
+<div class="employee-container employee-page page-workspace">
   <app-fullscreen-toggle pageKey="manage-employee"></app-fullscreen-toggle>
 
   <div class="page-header crm-page-header">
@@ -11,98 +11,124 @@
     </button>
   </div>
 
-  <div class="kpi-strip" *ngIf="!isLoading && employees.length">
-    <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'all'" (click)="applyEmployeeKpi('all')">
-      <span class="kpi-card__label">Total Employees</span>
-      <span class="kpi-card__value">{{ employeeStats.total }}</span>
-    </button>
-    <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'active'" (click)="applyEmployeeKpi('active')">
-      <span class="kpi-card__label">Active</span>
-      <span class="kpi-card__value">{{ employeeStats.active }}</span>
-    </button>
-    <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'inactive'" (click)="applyEmployeeKpi('inactive')">
-      <span class="kpi-card__label">Inactive</span>
-      <span class="kpi-card__value">{{ employeeStats.inactive }}</span>
-    </button>
-    <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'admin'" (click)="applyEmployeeKpi('admin')">
-      <span class="kpi-card__label">Admins</span>
-      <span class="kpi-card__value">{{ employeeStats.admins }}</span>
-    </button>
-  </div>
+  <div class="employee-toolbar">
+    <div class="kpi-strip" *ngIf="!isLoading && employees.length">
+      <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'all'" (click)="applyEmployeeKpi('all')">
+        <span class="kpi-card__label">Total Employees</span>
+        <span class="kpi-card__value">{{ employeeStats.total }}</span>
+      </button>
+      <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'active'" (click)="applyEmployeeKpi('active')">
+        <span class="kpi-card__label">Active</span>
+        <span class="kpi-card__value">{{ employeeStats.active }}</span>
+      </button>
+      <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'inactive'" (click)="applyEmployeeKpi('inactive')">
+        <span class="kpi-card__label">Inactive</span>
+        <span class="kpi-card__value">{{ employeeStats.inactive }}</span>
+      </button>
+      <button type="button" class="kpi-card" [class.kpi-card--active]="activeEmployeeKpi === 'admin'" (click)="applyEmployeeKpi('admin')">
+        <span class="kpi-card__label">Admins</span>
+        <span class="kpi-card__value">{{ employeeStats.admins }}</span>
+      </button>
+    </div>
 
-  <div class="filters-row crm-filters">
-    <div class="left-filters">
-      <input
-        class="crm-filter-input"
-        type="text"
-        placeholder="Search employee..."
-        [(ngModel)]="searchTerm"
-        (ngModelChange)="applyFilters()"
-      />
+    <div class="filters-row crm-filters">
+      <div class="left-filters">
+        <input
+          class="crm-filter-input filter-field--search"
+          type="text"
+          placeholder="Search employee..."
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="onFiltersChanged()"
+        />
 
-      <select class="crm-filter-input" [(ngModel)]="statusFilter" (change)="applyFilters()">
-        <option value="">All Status</option>
-        <option>Active</option>
-        <option>Inactive</option>
-      </select>
+        <select class="crm-filter-input" [(ngModel)]="statusFilter" (change)="onFiltersChanged()">
+          <option value="">All Status</option>
+          <option>Active</option>
+          <option>Inactive</option>
+        </select>
+      </div>
     </div>
   </div>
 
-  <div class="table-card crm-table-card">
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Name</th>
-          <th>Phone</th>
-          <th>Role</th>
-          <th>Status</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </thead>
+  <div class="employee-page__body">
+    <div *ngIf="isLoading" class="loading-hint">Loading employees...</div>
 
-      <tbody>
-        <tr *ngFor="let emp of filteredEmployees; let i = index">
-          <td>#EMP{{ i + 1 }}</td>
-          <td>{{ emp.fullName }}</td>
-          <td>{{ emp.phone }}</td>
-          <td>{{ emp.role }}</td>
-          <td>
-            <div class="status-cell">
-              <span class="badge" [ngClass]="emp.status ? 'active' : 'inactive'">{{ emp.status ? 'Active' : 'Inactive' }}</span>
-              <span class="badge password-reset-pending" *ngIf="emp.mustCreatePassword">Password Reset Pending</span>
-            </div>
-          </td>
-          <td class="text-center">
-            <div class="row-actions">
-              <button type="button" class="icon-btn icon-btn--view" (click)="openEditModal(emp)" title="View employee" aria-label="View employee">
-                <i class="fas fa-eye"></i>
-              </button>
-              <button type="button" class="icon-btn icon-btn--edit" (click)="openEditModal(emp)" title="Edit employee" aria-label="Edit employee">
-                <i class="fas fa-pen"></i>
-              </button>
-              <button
-                type="button"
-                class="icon-btn icon-btn--reset"
-                (click)="openResetPasswordModal(emp)"
-                title="Reset password"
-                aria-label="Reset password">
-                <i class="fas fa-key"></i>
-              </button>
-              <button type="button" class="icon-btn icon-btn--delete" (click)="openDeleteModal(emp)" title="Delete employee" aria-label="Delete employee">
-                <i class="fas fa-trash-alt"></i>
-              </button>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+    <div *ngIf="!isLoading && filteredEmployees.length === 0" class="empty-state-card">
+      <div class="empty-state-card__icon"><i class="fas fa-users"></i></div>
+      <h3>No employees found</h3>
+      <p>Adjust your filters or add a new employee to get started.</p>
+      <button type="button" class="btn-primary" (click)="openAddModal()">+ Add Employee</button>
+    </div>
 
-  <div class="pagination">
-    <button>Previous</button>
-    <span>Page 1 of 5</span>
-    <button>Next</button>
+    <div class="table-card crm-table-card employee-table-view" *ngIf="!isLoading && filteredEmployees.length > 0">
+      <div class="table-scroll">
+        <table class="employee-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th class="text-center">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let emp of paginatedEmployees; let i = index">
+              <td>#EMP{{ paginationStart + i }}</td>
+              <td>{{ emp.fullName }}</td>
+              <td>{{ emp.phone }}</td>
+              <td>{{ emp.role }}</td>
+              <td>
+                <div class="status-cell">
+                  <span class="badge" [ngClass]="emp.status ? 'active' : 'inactive'">{{ emp.status ? 'Active' : 'Inactive' }}</span>
+                  <span class="badge password-reset-pending" *ngIf="emp.mustCreatePassword">Password Reset Pending</span>
+                </div>
+              </td>
+              <td class="text-center">
+                <div class="row-actions">
+                  <button type="button" class="icon-btn icon-btn--view" (click)="openEditModal(emp)" title="View employee" aria-label="View employee">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button type="button" class="icon-btn icon-btn--edit" (click)="openEditModal(emp)" title="Edit employee" aria-label="Edit employee">
+                    <i class="fas fa-pen"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="icon-btn icon-btn--reset"
+                    (click)="openResetPasswordModal(emp)"
+                    title="Reset password"
+                    aria-label="Reset password">
+                    <i class="fas fa-key"></i>
+                  </button>
+                  <button type="button" class="icon-btn icon-btn--delete" (click)="openDeleteModal(emp)" title="Delete employee" aria-label="Delete employee">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="table-pagination">
+        <div class="table-pagination__info">
+          Showing {{ paginationStart }}–{{ paginationEnd }} of {{ filteredEmployees.length }}
+        </div>
+        <div class="table-pagination__controls">
+          <label class="table-pagination__size">
+            Rows
+            <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)" [ngModelOptions]="{ standalone: true }">
+              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+            </select>
+          </label>
+          <button type="button" class="page-btn" [disabled]="currentPage <= 1" (click)="goToPage(currentPage - 1)">Prev</button>
+          <span class="page-indicator">{{ currentPage }} / {{ totalPages }}</span>
+          <button type="button" class="page-btn" [disabled]="currentPage >= totalPages" (click)="goToPage(currentPage + 1)">Next</button>
+        </div>
+      </footer>
+    </div>
   </div>
 
 </div>

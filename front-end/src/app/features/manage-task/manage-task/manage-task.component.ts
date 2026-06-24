@@ -19,12 +19,14 @@ import { catchError, forkJoin, map, Observable, of, switchMap, throwError } from
   styleUrls: ['./manage-task.component.scss']
 })
 export class ManageTaskComponent {
+  private static readonly PAGE_SIZE_STORAGE_KEY = 'manage-task.pageSize';
+
   isTaskModalOpen = false;
   isDeleteModalOpen = false;
   isEditMode = false;
   isViewOnlyMode = false;
   isPaymentOnlyMode = false;
-  pageSize = 25;
+  pageSize = 50;
   currentPage = 1;
   readonly pageSizeOptions = [25, 50, 100];
   currentUser: any = null;
@@ -126,6 +128,7 @@ export class ManageTaskComponent {
   }
 
   ngOnInit() {
+    this.restorePageSizePreference();
     this.currentUser = this.authService.getUser();
     this.isAdmin = this.authService.isAdmin();
     this.isEmployee = this.authService.isEmployee();
@@ -931,8 +934,29 @@ export class ManageTaskComponent {
   }
 
   onPageSizeChange(raw: string | number): void {
-    this.pageSize = Number(raw) || 25;
+    const parsed = Number(raw);
+    this.pageSize = this.pageSizeOptions.includes(parsed) ? parsed : 50;
     this.currentPage = 1;
+    this.persistPageSizePreference();
+  }
+
+  private restorePageSizePreference(): void {
+    try {
+      const saved = Number(localStorage.getItem(ManageTaskComponent.PAGE_SIZE_STORAGE_KEY));
+      if (this.pageSizeOptions.includes(saved)) {
+        this.pageSize = saved;
+      }
+    } catch {
+      // Ignore storage read failures.
+    }
+  }
+
+  private persistPageSizePreference(): void {
+    try {
+      localStorage.setItem(ManageTaskComponent.PAGE_SIZE_STORAGE_KEY, String(this.pageSize));
+    } catch {
+      // Ignore storage write failures.
+    }
   }
 
   goToPage(page: number): void {

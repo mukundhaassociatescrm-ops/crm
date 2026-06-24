@@ -13,6 +13,8 @@ import { FullscreenToggleComponent } from '../../../shared/components/fullscreen
   styleUrl: './manage-employee.component.scss'
 })
 export class ManageEmployeeComponent {
+  private static readonly PAGE_SIZE_STORAGE_KEY = 'manage-employee.pageSize';
+
   isDeleteModalOpen = false;
   isResetPasswordModalOpen = false;
   isResettingPassword = false;
@@ -24,6 +26,9 @@ export class ManageEmployeeComponent {
   message = '';
   messageType: 'success' | 'error' = 'success';
   selectedEmployeeId: string | null = null;
+  pageSize = 50;
+  currentPage = 1;
+  readonly pageSizeOptions = [25, 50, 100];
 
   employees: Employee[] = [];
   filteredEmployees: Employee[] = [];
@@ -47,6 +52,7 @@ export class ManageEmployeeComponent {
   ) {}
 
   ngOnInit() {
+    this.restorePageSizePreference();
     this.loadEmployees();
   }
 
@@ -80,6 +86,11 @@ export class ManageEmployeeComponent {
     });
   }
 
+  onFiltersChanged(): void {
+    this.currentPage = 1;
+    this.applyFilters();
+  }
+
   applyFilters() {
     this.filteredEmployees = this.employees.filter((emp) => {
       const bySearch =
@@ -94,6 +105,11 @@ export class ManageEmployeeComponent {
       const byKpi = this.matchesEmployeeKpi(emp);
       return bySearch && byStatus && byKpi;
     });
+
+    const maxPage = Math.max(1, Math.ceil(this.filteredEmployees.length / this.pageSize));
+    if (this.currentPage > maxPage) {
+      this.currentPage = maxPage;
+    }
   }
 
   get employeeStats() {
@@ -105,8 +121,60 @@ export class ManageEmployeeComponent {
     };
   }
 
+  get paginatedEmployees(): Employee[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.filteredEmployees.slice(start, start + this.pageSize);
+  }
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredEmployees.length / this.pageSize));
+  }
+
+  get paginationStart(): number {
+    if (!this.filteredEmployees.length) {
+      return 0;
+    }
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get paginationEnd(): number {
+    return Math.min(this.currentPage * this.pageSize, this.filteredEmployees.length);
+  }
+
+  onPageSizeChange(raw: string | number): void {
+    const parsed = Number(raw);
+    this.pageSize = this.pageSizeOptions.includes(parsed) ? parsed : 50;
+    this.currentPage = 1;
+    this.persistPageSizePreference();
+  }
+
+  goToPage(page: number): void {
+    const nextPage = Math.min(Math.max(page, 1), this.totalPages);
+    this.currentPage = nextPage;
+  }
+
+  private restorePageSizePreference(): void {
+    try {
+      const saved = Number(localStorage.getItem(ManageEmployeeComponent.PAGE_SIZE_STORAGE_KEY));
+      if (this.pageSizeOptions.includes(saved)) {
+        this.pageSize = saved;
+      }
+    } catch {
+      // Ignore storage read failures.
+    }
+  }
+
+  private persistPageSizePreference(): void {
+    try {
+      localStorage.setItem(ManageEmployeeComponent.PAGE_SIZE_STORAGE_KEY, String(this.pageSize));
+    } catch {
+      // Ignore storage write failures.
+    }
+  }
+
   applyEmployeeKpi(kpi: 'all' | 'active' | 'inactive' | 'admin'): void {
     this.activeEmployeeKpi = kpi;
+    this.currentPage = 1;
     if (kpi === 'all') {
       this.statusFilter = '';
     } else if (kpi === 'active') {

@@ -16,67 +16,70 @@
   </div>
   <div *ngIf="loading" class="loading-hint">Loading tasks...</div>
 
-  <div class="kpi-strip" *ngIf="!loading && tasks.length">
-    <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'all'" (click)="applyKpiFilter('all')">
-      <span class="kpi-card__label">Total Tasks</span>
-      <span class="kpi-card__value">{{ taskStats.total }}</span>
-    </button>
-    <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'pending'" (click)="applyKpiFilter('pending')">
-      <span class="kpi-card__label">Pending</span>
-      <span class="kpi-card__value">{{ taskStats.pending }}</span>
-    </button>
-    <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'in-progress'" (click)="applyKpiFilter('in-progress')">
-      <span class="kpi-card__label">In Progress</span>
-      <span class="kpi-card__value">{{ taskStats.inProgress }}</span>
-    </button>
-    <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'completed'" (click)="applyKpiFilter('completed')">
-      <span class="kpi-card__label">Completed</span>
-      <span class="kpi-card__value">{{ taskStats.completed }}</span>
-    </button>
-    <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'overdue'" (click)="applyKpiFilter('overdue')">
-      <span class="kpi-card__label">Overdue</span>
-      <span class="kpi-card__value">{{ taskStats.overdue }}</span>
-    </button>
-    <button type="button" class="kpi-card kpi-card--collections" [class.kpi-card--active]="activeKpi === 'completed-unpaid'" (click)="applyKpiFilter('completed-unpaid')">
-      <span class="kpi-card__label">Completed &amp; Unpaid</span>
-      <span class="kpi-card__value">{{ taskStats.completedUnpaid }}</span>
-    </button>
+  <div class="task-toolbar">
+    <div class="kpi-strip" *ngIf="!loading && tasks.length">
+      <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'all'" (click)="applyKpiFilter('all')">
+        <span class="kpi-card__label">Total Tasks</span>
+        <span class="kpi-card__value">{{ taskStats.total }}</span>
+      </button>
+      <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'pending'" (click)="applyKpiFilter('pending')">
+        <span class="kpi-card__label">Pending</span>
+        <span class="kpi-card__value">{{ taskStats.pending }}</span>
+      </button>
+      <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'in-progress'" (click)="applyKpiFilter('in-progress')">
+        <span class="kpi-card__label">In Progress</span>
+        <span class="kpi-card__value">{{ taskStats.inProgress }}</span>
+      </button>
+      <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'completed'" (click)="applyKpiFilter('completed')">
+        <span class="kpi-card__label">Completed</span>
+        <span class="kpi-card__value">{{ taskStats.completed }}</span>
+      </button>
+      <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'overdue'" (click)="applyKpiFilter('overdue')">
+        <span class="kpi-card__label">Overdue</span>
+        <span class="kpi-card__value">{{ taskStats.overdue }}</span>
+      </button>
+      <button type="button" class="kpi-card kpi-card--collections" [class.kpi-card--active]="activeKpi === 'completed-unpaid'" (click)="applyKpiFilter('completed-unpaid')">
+        <span class="kpi-card__label">Completed &amp; Unpaid</span>
+        <span class="kpi-card__value">{{ taskStats.completedUnpaid }}</span>
+      </button>
+    </div>
+
+    <div class="filters-row crm-filters" [formGroup]="filterForm">
+      <div class="filter-field filter-field--search">
+        <input type="text" placeholder="Search task, customer, phone..." formControlName="searchTerm" />
+      </div>
+      <div class="filter-field">
+        <select formControlName="statusFilter">
+          <option>All Status</option>
+          <option>Pending</option>
+          <option>In Progress</option>
+          <option>Report Sent</option>
+          <option>Completed</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <select formControlName="paymentStatusFilter">
+          <option>All Payment</option>
+          <option>Pending Payment</option>
+          <option>Paid</option>
+        </select>
+      </div>
+      <div class="filter-field" *ngIf="isAdmin">
+        <select formControlName="employeeFilter">
+          <option value="All Employees">All Employees</option>
+          <option *ngFor="let emp of employees" [value]="emp._id">{{ emp.fullName }}</option>
+        </select>
+      </div>
+      <div class="filter-field filter-field--date">
+        <app-date-time-picker formControlName="fromDate" placeholder="From date"></app-date-time-picker>
+      </div>
+      <div class="filter-field filter-field--date">
+        <app-date-time-picker formControlName="toDate" placeholder="To date"></app-date-time-picker>
+      </div>
+    </div>
   </div>
 
-  <div class="filters-row crm-filters" [formGroup]="filterForm">
-    <div class="filter-field filter-field--search">
-      <input type="text" placeholder="Search task, customer, phone..." formControlName="searchTerm" />
-    </div>
-    <div class="filter-field">
-      <select formControlName="statusFilter">
-        <option>All Status</option>
-        <option>Pending</option>
-        <option>In Progress</option>
-        <option>Report Sent</option>
-        <option>Completed</option>
-      </select>
-    </div>
-    <div class="filter-field">
-      <select formControlName="paymentStatusFilter">
-        <option>All Payment</option>
-        <option>Pending Payment</option>
-        <option>Paid</option>
-      </select>
-    </div>
-    <div class="filter-field" *ngIf="isAdmin">
-      <select formControlName="employeeFilter">
-        <option value="All Employees">All Employees</option>
-        <option *ngFor="let emp of employees" [value]="emp._id">{{ emp.fullName }}</option>
-      </select>
-    </div>
-    <div class="filter-field filter-field--date">
-      <app-date-time-picker formControlName="fromDate" placeholder="From date"></app-date-time-picker>
-    </div>
-    <div class="filter-field filter-field--date">
-      <app-date-time-picker formControlName="toDate" placeholder="To date"></app-date-time-picker>
-    </div>
-  </div>
-
+  <div class="task-page__body">
   <div *ngIf="!loading && filteredTasks.length === 0" class="empty-state-card">
     <div class="empty-state-card__icon"><i class="fas fa-list-check"></i></div>
     <h3>No tasks found</h3>
@@ -240,6 +243,7 @@
         <button type="button" class="page-btn" [disabled]="currentPage >= totalPages" (click)="goToPage(currentPage + 1)">Next</button>
       </div>
     </footer>
+  </div>
   </div>
 
 </div>

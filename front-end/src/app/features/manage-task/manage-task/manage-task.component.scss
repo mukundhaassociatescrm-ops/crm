@@ -2,22 +2,41 @@
 
 $bp-card: 1024px;
 $bp-compact: 1400px;
+$bp-desktop-toolbar: 1200px;
 
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .employee-container.task-page {
   min-height: 0;
   height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   overflow: hidden;
-  padding: 14px;
+  padding: 10px 12px;
   background: $bg-page;
+}
+
+.task-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.task-page__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .chat-origin-banner {
@@ -157,8 +176,8 @@ $bp-compact: 1400px;
 .filters-row {
   display: flex;
   flex-wrap: wrap;
-  gap: $spacing-sm;
-  align-items: flex-end;
+  gap: 6px;
+  align-items: center;
   flex-shrink: 0;
 }
 
@@ -169,11 +188,11 @@ $bp-compact: 1400px;
   input,
   select {
     width: 100%;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border: 1px solid $border-color;
     border-radius: $radius-sm;
-    font-size: $font-size-sm;
-    height: 38px;
+    font-size: 12px;
+    height: 34px;
     box-sizing: border-box;
     background: $bg-white;
     color: $text-dark;
@@ -196,6 +215,106 @@ $bp-compact: 1400px;
   }
 }
 
+.task-page {
+  .kpi-strip {
+    gap: 6px;
+  }
+
+  .kpi-card {
+    padding: 5px 8px;
+    gap: 0;
+    min-height: 32px;
+    overflow: hidden;
+  }
+
+  .kpi-card__label {
+    font-size: 10px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .kpi-card__value {
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .filter-field--date {
+    ::ng-deep .date-time-input {
+      height: 34px;
+      min-height: 34px;
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+    }
+  }
+
+  .crm-filters input:not([type='checkbox']),
+  .crm-filters select,
+  .crm-filters .filter-field input,
+  .crm-filters .filter-field select {
+    height: 34px;
+    min-height: 34px;
+    font-size: 12px;
+  }
+}
+
+@media (min-width: $bp-desktop-toolbar) {
+  .task-page {
+    .kpi-strip {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .kpi-card {
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .kpi-card__value {
+      margin-left: 4px;
+    }
+
+    .filters-row {
+      flex-wrap: nowrap;
+    }
+
+    .filter-field {
+      flex: 0 1 118px;
+      min-width: 108px;
+    }
+
+    .filter-field--search {
+      flex: 1 1 180px;
+      min-width: 160px;
+      max-width: 240px;
+    }
+
+    .filter-field--date {
+      flex: 0 1 136px;
+      min-width: 130px;
+    }
+  }
+}
+
+@media (min-width: $bp-card) and (max-width: ($bp-desktop-toolbar - 1px)) {
+  .task-page {
+    .kpi-strip {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .kpi-card {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+  }
+}
+
 .table-card {
   background: $bg-card;
   border-radius: $radius-lg;
@@ -207,6 +326,11 @@ $bp-compact: 1400px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.task-table-view {
+  flex: 1;
+  min-height: 0;
 }
 
 .table-scroll {
@@ -224,7 +348,7 @@ $bp-compact: 1400px;
 
   th,
   td {
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-bottom: 1px solid $border-subtle;
     vertical-align: middle;
     text-align: left;
@@ -414,7 +538,7 @@ $bp-compact: 1400px;
   align-items: center;
   justify-content: space-between;
   gap: $spacing-md;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-top: 1px solid $border-subtle;
   background: #f8fafc;
   flex-shrink: 0;
@@ -679,8 +803,24 @@ $bp-compact: 1400px;
     display: none;
   }
 
+  .task-page__body {
+    overflow-y: auto;
+  }
+
   .task-card-list {
     display: grid;
+  }
+
+  .task-page {
+    .kpi-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kpi-card {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
   }
 
   .page-header {
@@ -1177,6 +1317,15 @@ $bp-compact: 1400px;
 @media (max-width: 768px) {
   :host {
     overflow-y: auto;
+  }
+
+  .employee-container.task-page {
+    overflow-y: auto;
+  }
+
+  .task-page__body {
+    overflow: visible;
+    flex: initial;
   }
 }
 
