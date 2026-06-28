@@ -54,7 +54,7 @@ const waitForWhatsappSessionActivation = async (lastIncomingAt) => {
 
   const ageMs = Date.now() - lastIncomingMs;
   if (ageMs >= 0 && ageMs < SESSION_ACTIVATION_WINDOW_MS) {
-    console.log('[SESSION ACTIVATION DELAY]', {
+    chatDebug('[SESSION ACTIVATION DELAY]', {
       ageMs,
       delayMs: SESSION_ACTIVATION_DELAY_MS,
       lastIncomingAt,
@@ -267,7 +267,7 @@ const getSessionStateForPhone = async (phoneNumber) => {
   const { canonicalPhone, conversation } = await resolveConversationByPhone(phoneNumber);
 
   if (!canonicalPhone) {
-    console.log('[SESSION CHECK DEBUG]', {
+    chatDebug('[SESSION CHECK DEBUG]', {
       phone: phoneNumber,
       normalizedPhone,
       phoneCandidates,
@@ -283,7 +283,7 @@ const getSessionStateForPhone = async (phoneNumber) => {
   }
 
   if (!conversation?._id) {
-    console.log('[SESSION CHECK DEBUG]', {
+    chatDebug('[SESSION CHECK DEBUG]', {
       phone: phoneNumber,
       normalizedPhone: canonicalPhone,
       phoneCandidates,
@@ -310,7 +310,7 @@ const getSessionStateForPhone = async (phoneNumber) => {
     : null;
   const isActive = Boolean(lastIncomingAt && Date.now() < expiresAt.getTime());
 
-  console.log('[SESSION CHECK DEBUG]', {
+  chatDebug('[SESSION CHECK DEBUG]', {
     phone: phoneNumber,
     normalizedPhone: canonicalPhone,
     phoneCandidates,
@@ -420,7 +420,7 @@ exports.getChatSessionStatus = async (req, res, next) => {
       phone: normalizedPhone,
     };
 
-    console.log('[SESSION STATUS RESPONSE]', payload);
+    chatDebug('[SESSION STATUS RESPONSE]', payload);
 
     return res.status(200).json({
       success: true,
@@ -918,7 +918,7 @@ const extractGupshupFailureDetails = (body) => {
 // POST /webhook/gupshup helper
 // Normalizes and stores incoming/status events from Gupshup webhook payload.
 exports.processGupshupWebhook = async (body) => {
-  console.log('[WEBHOOK EVENT]', { type: body?.type });
+  chatDebug('[WEBHOOK EVENT]', { type: body?.type });
 
   const payload = body?.payload || {};
   const nestedPayload = payload?.payload || {};
@@ -1170,9 +1170,9 @@ exports.processGupshupWebhook = async (body) => {
       ? extractGupshupFailureDetails(body)
       : null;
 
-    console.log('--- WEBHOOK STATUS ---');
-    console.log('[WEBHOOK STATUS RAW]', body);
-    console.log('[STATUS PARSED]', {
+    chatDebug('--- WEBHOOK STATUS ---');
+    chatDebug('[WEBHOOK STATUS RAW]', body);
+    chatDebug('[STATUS PARSED]', {
       messageId,
       status,
       reason: failureDetails?.reason || reason,
@@ -1187,7 +1187,7 @@ exports.processGupshupWebhook = async (body) => {
         ? await Message.findOne({ messageId: String(messageId).trim() }).select('templateId templateName').lean()
         : null;
 
-      console.log('[GUPSHUP TEMPLATE DELIVERY FAILED]', {
+      chatDebug('[GUPSHUP TEMPLATE DELIVERY FAILED]', {
         messageId: messageId || null,
         phone: phone || destination || source || null,
         templateId: existingForLog?.templateId || null,
@@ -1261,11 +1261,11 @@ exports.processGupshupWebhook = async (body) => {
   }
 
   if (isIncomingEvent) {
-    console.log('--- WEBHOOK INCOMING ---');
-    console.log('[WEBHOOK INCOMING RAW]', body);
+    chatDebug('--- WEBHOOK INCOMING ---');
+    chatDebug('[WEBHOOK INCOMING RAW]', body);
 
     if (hasAttachmentPayload) {
-      console.log('[MEDIA MESSAGE RECEIVED]', {
+      chatDebug('[MEDIA MESSAGE RECEIVED]', {
         type: messageType,
         mimeType: persistedMimeType,
         url: attachmentUrl,
@@ -1290,7 +1290,7 @@ exports.processGupshupWebhook = async (body) => {
       persistedMimeType = mirrored.mimeType || persistedMimeType;
       persistedMediaType = resolveMediaType(messageType, persistedMimeType, persistedFilename, persistedAttachmentUrl);
       if (persistedMediaType === 'video') {
-        console.log('[VIDEO MESSAGE RECEIVED]', {
+        chatDebug('[VIDEO MESSAGE RECEIVED]', {
           mimeType: persistedMimeType,
           mediaType: persistedMediaType,
           fileName: persistedFilename,
@@ -1301,7 +1301,7 @@ exports.processGupshupWebhook = async (body) => {
     }
 
     if (persistedMediaType === 'video' && !videoMessageLogged) {
-      console.log('[VIDEO MESSAGE RECEIVED]', {
+      chatDebug('[VIDEO MESSAGE RECEIVED]', {
         mimeType: persistedMimeType,
         mediaType: persistedMediaType,
         fileName: persistedFilename,
@@ -1320,7 +1320,7 @@ exports.processGupshupWebhook = async (body) => {
       }
     }
 
-    console.log('[INCOMING PARSED]', {
+    chatDebug('[INCOMING PARSED]', {
       phone: normalizedCustomerPhone,
       direction: inboundDirection,
       messageId: resolvedMessageId,
@@ -1344,7 +1344,7 @@ exports.processGupshupWebhook = async (body) => {
       destination,
     });
 
-    console.log('[INCOMING MESSAGE SAVED]', {
+    chatDebug('[INCOMING MESSAGE SAVED]', {
       phone: normalizedCustomerPhone,
       rawPhone: phone,
       source,
@@ -1498,10 +1498,7 @@ exports.getChatConversations = async (req, res, next) => {
     const rawConversations = await getConversationSummaries({ search });
     const phoneKeys = [...new Set(rawConversations.map((item) => normalizePhone(item.phoneNumber)).filter(Boolean))];
 
-    const lookupValues = [...new Set(phoneKeys.flatMap((phone) => {
-      const withCountryCode = phone.startsWith('91') ? phone : `91${phone}`;
-      return [phone, withCountryCode, `+${phone}`, `+${withCountryCode}`];
-    }))];
+    const lookupValues = [...new Set(phoneKeys.flatMap((phone) => buildPhoneLookupCandidates(phone)))];
 
     const clients = lookupValues.length
       ? await Client.find({
@@ -1509,7 +1506,7 @@ exports.getChatConversations = async (req, res, next) => {
             { mobile: { $in: lookupValues } },
             { alternateMobile: { $in: lookupValues } },
           ],
-        }).select('name mobile alternateMobile')
+        }).select('name mobile alternateMobile').lean()
       : [];
 
     const nameByPhone = new Map();

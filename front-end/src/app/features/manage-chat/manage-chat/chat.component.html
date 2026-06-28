@@ -69,7 +69,7 @@
         class="conversation-card"
         *cdkVirtualFor="let conversation of displayedConversations; trackBy: trackConversation"
         [class.active]="selectedConversation?._id === conversation._id"
-        [class.unread]="getUnreadCount(conversation._id) > 0"
+        [class.unread]="(conversation.unreadCount || 0) > 0"
         (click)="selectConversation(conversation)"
       >
         <div class="avatar">{{ conversation.phoneNumber.slice(-2) }}</div>
@@ -78,7 +78,7 @@
             <h3>{{ conversation.clientName || conversation.phoneNumber }}</h3>
             <div class="conversation-right-meta">
               <time>{{ (conversation.lastMessageAt || conversation.updatedAt) | date:'shortTime' }}</time>
-              <span class="conversation-unread" *ngIf="getUnreadCount(conversation._id) > 0">{{ getUnreadCount(conversation._id) }}</span>
+              <span class="conversation-unread" *ngIf="(conversation.unreadCount || 0) > 0">{{ conversation.unreadCount }}</span>
             </div>
           </div>
           <p class="conversation-phone" *ngIf="conversation.clientName">{{ conversation.phoneNumber }}</p>
@@ -289,8 +289,8 @@
           [class.image-row]="isImageFileMessage(message) && !isMessageDeleted(message)"
           [class.message-row--highlighted]="highlightedMessageId === message.messageId"
         >
-          <div class="date-separator" *ngIf="shouldShowDateSeparator(i)">
-            <span>{{ getDateSeparatorLabel(message.timestamp) }}</span>
+          <div class="date-separator" *ngIf="message.showDateSeparator">
+            <span>{{ message.dateSeparatorLabel }}</span>
           </div>
           <article
             class="bubble"

@@ -33,6 +33,8 @@ import {
 
 interface PendingMessage extends ChatMessage {
   isPending?: boolean;
+  showDateSeparator?: boolean;
+  dateSeparatorLabel?: string;
 }
 
 interface SelectedAttachment {
@@ -332,6 +334,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly CONVERSATION_POLL_FALLBACK_MS = 20000;
   private readonly MESSAGE_POLL_SOCKET_MS = 45000;
   private readonly MESSAGE_POLL_FALLBACK_MS = 8000;
+  private activeMessageRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   constructor(
     private readonly chatService: ChatService,
     private readonly sanitizer: DomSanitizer,
@@ -438,6 +441,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnDestroy(): void {
+    if (this.activeMessageRefreshTimer) {
+      clearTimeout(this.activeMessageRefreshTimer);
+      this.activeMessageRefreshTimer = null;
+    }
     this.resetAttachmentDraftState();
     this.activeFileViewer = null;
     this.activeFileViewerResourceUrl = null;
@@ -478,7 +485,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const term = this.searchTerm.trim().toLowerCase();
     this.displayedConversations = this.conversations.filter((conversation) => {
-      if (this.conversationFilter === 'unread' && this.getUnreadCount(conversation._id) <= 0) {
+      if (this.conversationFilter === 'unread' && Number(conversation.unreadCount || 0) <= 0) {
         return false;
       }
 
@@ -524,7 +531,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
       const sorted = this.sortConversationsForInbox(response.data || []);
       this.displayedConversations = sorted.filter((conversation) => {
-        if (this.conversationFilter === 'unread' && this.getUnreadCount(conversation._id) <= 0) {
+        if (this.conversationFilter === 'unread' && Number(conversation.unreadCount || 0) <= 0) {
           return false;
         }
         return true;
@@ -534,7 +541,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   get totalUnreadConversations(): number {
     return this.conversations.reduce((count, conversation) => {
-      return count + (this.getUnreadCount(conversation._id) > 0 ? 1 : 0);
+      return count + (Number(conversation.unreadCount || 0) > 0 ? 1 : 0);
     }, 0);
   }
 
@@ -1858,14 +1865,14 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     return message.messageId || message._id || `${message.timestamp}-${message.text}`;
   }
 
-  shouldShowDateSeparator(index: number): boolean {
-    if (index <= 0 || index >= this.messages.length) {
-      return index === 0;
+  private syncMessagePresentationMetadata(): void {
+    for (let index = 0; index < this.messages.length; index += 1) {
+      const message = this.messages[index];
+      const showSeparator = index === 0
+        || this.getDateGroupingKey(message.timestamp) !== this.getDateGroupingKey(this.messages[index - 1]?.timestamp);
+      message.showDateSeparator = showSeparator;
+      message.dateSeparatorLabel = showSeparator ? this.getDateSeparatorLabel(message.timestamp) : undefined;
     }
-
-    const currentKey = this.getDateGroupingKey(this.messages[index]?.timestamp);
-    const previousKey = this.getDateGroupingKey(this.messages[index - 1]?.timestamp);
-    return currentKey !== previousKey;
   }
 
   getDateSeparatorLabel(timestamp: string): string {
@@ -3364,8 +3371,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   private startConversationPolling(): void {
     this.chatService.onSocketConnectionState().pipe(
       startWith(this.socketConnected),
-      switchMap(() => {
-        const pollMs = this.socketConnected
+      switchMap((connected) => {
+        const pollMs = connected
           ? this.CONVERSATION_POLL_SOCKET_MS
           : this.CONVERSATION_POLL_FALLBACK_MS;
         return interval(pollMs).pipe(startWith(0));
@@ -3438,6 +3445,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
           this.messages = [...older, ...this.messages];
           this.hasMoreMessages = Boolean(response.hasMore);
           this.oldestMessageCursor = response.oldestTimestamp || this.messages[0]?.timestamp || null;
+          this.syncMessagePresentationMetadata();
           older.forEach((message) => {
             if (message.messageId) {
               this.revealedMediaMessageIds.add(message.messageId);
@@ -3473,6 +3481,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.hasMoreMessages = Boolean(response.hasMore);
     this.oldestMessageCursor = response.oldestTimestamp || this.messages[0]?.timestamp || null;
+    this.syncMessagePresentationMetadata();
     this.primeMediaRevealForTail();
 
     if (this.forceScrollOnNextMessageUpdate) {
@@ -3499,6 +3508,21 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     });
 
     return [...preservedPrefix, ...incoming];
+  }
+
+  private scheduleActiveConversationMessageRefresh(conversationId: string): void {
+    if (!conversationId || this.isMockConversation(conversationId)) {
+      return;
+    }
+
+    if (this.activeMessageRefreshTimer) {
+      clearTimeout(this.activeMessageRefreshTimer);
+    }
+
+    this.activeMessageRefreshTimer = setTimeout(() => {
+      this.activeMessageRefreshTimer = null;
+      this.refreshActiveConversationMessages(conversationId);
+    }, 400);
   }
 
   private refreshActiveConversationMessages(conversationId: string): void {
@@ -3655,11 +3679,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
         return this.chatService.onSocketConnectionState().pipe(
           startWith(this.socketConnected),
-          switchMap(() => {
-            const pollMs = this.socketConnected
+          switchMap((connected) => {
+            const pollMs = connected
               ? this.MESSAGE_POLL_SOCKET_MS
               : this.MESSAGE_POLL_FALLBACK_MS;
-            return interval(pollMs);
+            return interval(pollMs).pipe(startWith(0));
           }),
           switchMap(() => this.chatService.getMessages(conversationId, { limit: this.MESSAGE_PAGE_SIZE }).pipe(
             catchError(() => of({ success: false, data: [] as ChatMessage[], hasMore: false, oldestTimestamp: null })),
@@ -3808,7 +3832,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    this.refreshActiveConversationMessages(this.selectedConversation._id);
+    this.scheduleActiveConversationMessageRefresh(this.selectedConversation._id);
   }
 
   private patchConversationFromRealtimeEvent(event: RealtimeChatEvent, eventPhone: string): void {
@@ -4900,6 +4924,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     for (const existing of this.conversations) {
       const next = incomingById.get(existing._id);
       if (!next) {
+        preserved.push(existing);
         continue;
       }
 

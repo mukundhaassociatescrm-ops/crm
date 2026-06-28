@@ -85,6 +85,91 @@ const shouldShowInChatList = (conversation) => {
   return true;
 };
 
+const CONVERSATION_LIST_FIELDS = 'phoneNumber lastMessage unreadCount lastReadAt lastMessageAt updatedAt createdAt';
+const EXCLUDED_CHAT_PHONE_LIST = Array.from(EXCLUDED_CHAT_PHONE_VARIANTS);
+
+const buildInboxListFilter = (searchTerm = '') => {
+  const term = String(searchTerm || '').trim();
+  const inboxFilter = {
+    updatedAt: { $gte: CHAT_LIST_MIN_UPDATED_AT },
+    phoneNumber: { $nin: EXCLUDED_CHAT_PHONE_LIST },
+  };
+
+  if (!term) {
+    return inboxFilter;
+  }
+
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const rx = new RegExp(escaped, 'i');
+  return {
+    $and: [
+      inboxFilter,
+      { $or: [{ phoneNumber: rx }, { lastMessage: rx }] },
+    ],
+  };
+};
+
+const getConversationActivityMs = (conversation) => {
+  const activityAt = conversation?.lastMessageAt || conversation?.updatedAt || conversation?.createdAt;
+  const parsed = activityAt ? new Date(activityAt).getTime() : 0;
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const pickConversationForCanonicalPhone = (current, candidate) => {
+  if (!current) {
+    return candidate;
+  }
+
+  const currentActivity = getConversationActivityMs(current);
+  const candidateActivity = getConversationActivityMs(candidate);
+  if (candidateActivity !== currentActivity) {
+    return candidateActivity > currentActivity ? candidate : current;
+  }
+
+  const currentUnread = Number(current.unreadCount || 0);
+  const candidateUnread = Number(candidate.unreadCount || 0);
+  if (candidateUnread !== currentUnread) {
+    return candidateUnread > currentUnread ? candidate : current;
+  }
+
+  return current;
+};
+
+const dedupeConversationsByPhone = (rows) => {
+  const byCanonical = new Map();
+
+  for (const conversation of rows) {
+    const canonicalPhone = normalizePhone(conversation.phoneNumber);
+    if (!canonicalPhone) {
+      continue;
+    }
+
+    byCanonical.set(
+      canonicalPhone,
+      pickConversationForCanonicalPhone(byCanonical.get(canonicalPhone), conversation),
+    );
+  }
+
+  return Array.from(byCanonical.values()).sort(
+    (left, right) => getConversationActivityMs(right) - getConversationActivityMs(left),
+  );
+};
+
+const mapConversationSummary = (item) => {
+  const phoneNumber = normalizePhone(item.phoneNumber) || item.phoneNumber;
+  return {
+    _id: phoneNumber,
+    conversationMongoId: String(item._id),
+    phoneNumber,
+    lastMessage: item.lastMessage || '',
+    unreadCount: Number(item.unreadCount || 0),
+    lastReadAt: item.lastReadAt || null,
+    lastMessageAt: item.lastMessageAt || item.updatedAt || null,
+    updatedAt: item.updatedAt,
+    createdAt: item.createdAt,
+  };
+};
+
 const isPhoneLike = (value) => {
   const digits = String(value || '').replace(/\D/g, '');
   return digits.length >= 10;
@@ -561,7 +646,9 @@ const findBestOutgoingMatch = async ({ phone, timestamp }) => {
     direction: { $in: OUTBOUND_DIRECTIONS },
     timestamp: { $gte: windowStart, $lte: windowEnd },
   };
-  const candidates = await Message.find(candidatesQuery).sort({ timestamp: -1 });
+  const candidates = await Message.find(candidatesQuery)
+    .sort({ timestamp: -1 })
+    .limit(50);
 
   let best = null;
   let bestDelta = Number.MAX_SAFE_INTEGER;
@@ -864,6 +951,7 @@ const getMessagesByPhone = async (phone, options = {}) => {
   }
 
   const batch = await Message.find(query)
+    .select('messageId conversationId from to text type fileUrl filename mimeType mediaType mediaUrl direction status timestamp templateId templateName templateBody deleted deletedAt important linkedTaskId createdAt')
     .sort({ timestamp: -1 })
     .limit(limit + 1)
     .lean();
@@ -950,57 +1038,13 @@ const toggleMessageImportant = async ({ messageId, important }) => {
 };
 
 const getConversationSummaries = async ({ search = '' } = {}) => {
-  const term = String(search || '').trim();
-  let dbFilter = {};
-  if (term) {
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const rx = new RegExp(escaped, 'i');
-    dbFilter = { $or: [{ phoneNumber: rx }, { lastMessage: rx }] };
-  }
+  const dbFilter = buildInboxListFilter(search);
+  const conversations = await Conversation.find(dbFilter)
+    .select(CONVERSATION_LIST_FIELDS)
+    .sort({ lastMessageAt: -1, updatedAt: -1 })
+    .lean();
 
-  const conversations = await Conversation.find(dbFilter).sort({ lastMessageAt: -1, updatedAt: -1 });
-  const groupedByCanonical = new Map();
-
-  for (const conversation of conversations) {
-    if (!shouldShowInChatList(conversation)) {
-      continue;
-    }
-    const canonicalPhone = normalizePhone(conversation.phoneNumber);
-    if (!canonicalPhone) {
-      continue;
-    }
-    if (!groupedByCanonical.has(canonicalPhone)) {
-      groupedByCanonical.set(canonicalPhone, []);
-    }
-    groupedByCanonical.get(canonicalPhone).push(conversation);
-  }
-
-  for (const [canonicalPhone, group] of groupedByCanonical.entries()) {
-    if (group.length > 1) {
-      await mergeDuplicateConversations(canonicalPhone, group);
-    } else if (group[0].phoneNumber !== canonicalPhone) {
-      group[0].phoneNumber = canonicalPhone;
-      await group[0].save();
-    }
-  }
-
-  const mergedConversations = await Conversation.find(dbFilter).sort({ lastMessageAt: -1, updatedAt: -1 }).lean();
-  return mergedConversations
-    .filter(shouldShowInChatList)
-    .map((item) => {
-      const phoneNumber = normalizePhone(item.phoneNumber) || item.phoneNumber;
-      return {
-        _id: phoneNumber,
-        conversationMongoId: String(item._id),
-        phoneNumber,
-        lastMessage: item.lastMessage || '',
-        unreadCount: Number(item.unreadCount || 0),
-        lastReadAt: item.lastReadAt || null,
-        lastMessageAt: item.lastMessageAt || item.updatedAt || null,
-        updatedAt: item.updatedAt,
-        createdAt: item.createdAt,
-      };
-    });
+  return dedupeConversationsByPhone(conversations).map(mapConversationSummary);
 };
 
 const markConversationAsRead = async (phone) => {

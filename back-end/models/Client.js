@@ -10,7 +10,7 @@ const clientSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-    alternateMobile: { type: String, default: '', trim: true },
+    alternateMobile: { type: String, default: '', trim: true, index: true },
     whatsappOptIn: { type: Boolean, default: true },
     notes: { type: String, default: '' },
     groups: {

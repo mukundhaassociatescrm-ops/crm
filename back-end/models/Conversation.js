@@ -33,4 +33,6 @@ const conversationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+conversationSchema.index({ updatedAt: -1, lastMessageAt: -1 });
+
 module.exports = mongoose.model('Conversation', conversationSchema);

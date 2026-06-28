@@ -137,4 +137,7 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+messageSchema.index({ conversationId: 1, timestamp: -1 });
+messageSchema.index({ conversationId: 1, direction: 1, timestamp: -1 });
+
 module.exports = mongoose.model('Message', messageSchema);
