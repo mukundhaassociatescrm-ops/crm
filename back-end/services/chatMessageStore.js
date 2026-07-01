@@ -41,12 +41,28 @@ const buildPhoneLookupCandidates = (normalizedPhone) => {
   if (!normalizedPhone) {
     return [];
   }
+
   const candidates = new Set([normalizedPhone]);
+
+  let tenDigit = '';
+  let twelveDigit = '';
+
   if (normalizedPhone.length === 12 && normalizedPhone.startsWith('91')) {
-    candidates.add(normalizedPhone.slice(2));
+    twelveDigit = normalizedPhone;
+    tenDigit = normalizedPhone.slice(2);
   } else if (normalizedPhone.length === 10) {
-    candidates.add(`91${normalizedPhone}`);
+    tenDigit = normalizedPhone;
+    twelveDigit = `91${normalizedPhone}`;
+  } else {
+    candidates.add(`+${normalizedPhone}`);
+    return Array.from(candidates);
   }
+
+  candidates.add(tenDigit);
+  candidates.add(twelveDigit);
+  candidates.add(`+${tenDigit}`);
+  candidates.add(`+${twelveDigit}`);
+
   return Array.from(candidates);
 };
 
