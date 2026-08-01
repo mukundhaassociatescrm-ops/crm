@@ -41,8 +41,10 @@ export class ManageReportComponent implements OnInit {
   mode: Mode = 'list';
   selectedReport: Report | null = null;
   companyBankDetails: CompanyBankDetails = DEFAULT_COMPANY_BANK_DETAILS;
-  private readonly logoPath = 'assets/Logo.png';
+  private readonly logoPath = 'assets/invoice-logo-banner.png';
   private readonly paymentQrPath = 'assets/payment-qr.png';
+  private readonly logoCellWidthPt = 82;
+  private readonly logoCellBackground = '#132348';
   private logoDataUrl: string | null = null;
   private paymentQrDataUrl: string | null = null;
   private logoLoadPromise: Promise<string | null> | null = null;
@@ -52,8 +54,10 @@ export class ManageReportComponent implements OnInit {
     name: 'MUKUNDHA ASSOCIATES',
     address: '3rd Floor, 73-27 TF7, Block C, Swamy Iyer New Street, Katteri Chettiar Thottam, Coimbatore - 641001',
     gst: '33CXJPS3712H1ZF',
-    state: 'Tamil Nadu, Code: 33',
-    email: 'tpksathyan@gmail.com'
+    state: 'Tamil Nadu',
+    code: '33',
+    email: 'tpksathyan@gmail.com',
+    phone: '',
   };
 
   constructor(
@@ -182,23 +186,110 @@ export class ManageReportComponent implements OnInit {
     const sgst = this.round2(taxableSubtotal * 0.09);
     const total = this.round2(taxableSubtotal + cgst + sgst + nonTaxableSubtotal);
     const taxableHsnSummary = this.getTaxableHsnSummary(report);
-    const logoContent = this.logoDataUrl
+    const companyPhone = String(
+      this.company.phone || (this.authService.getUser() as { ownerWhatsappNumber?: string } | null)?.ownerWhatsappNumber || '',
+    ).trim();
+    const dateText = new Date(report.date).toLocaleDateString('en-IN');
+    // A4 content ≈ 563pt → ~14.5% / ~50.5% / ~35%
+    // Square invoice logo banner (pre-centered on #132348) fills the logo cell.
+    const headerLogoWidth = this.logoCellWidthPt;
+    const headerInvoiceWidth = 196;
+    const companyPhoneLabel = companyPhone || '-';
+    const addressLines = this.splitCompanyAddress(this.company.address);
+
+    const logoCell = this.logoDataUrl
       ? {
+          // Cell fill matches banner so stretched row height never shows white under the logo.
+          fillColor: this.logoCellBackground,
           image: this.logoDataUrl,
-          width: 72,
+          width: headerLogoWidth,
           alignment: 'center' as const,
-          margin: [0, 0, 0, 0],
-          fillColor: '#0d1c3e',
         }
       : {
-          text: 'M.A.',
+          fillColor: this.logoCellBackground,
           alignment: 'center' as const,
+          text: 'M.A.',
           bold: true,
           color: '#ffffff',
-          fontSize: 20,
-          fillColor: '#0d1c3e',
-          margin: [0, 24, 0, 24],
+          fontSize: 13,
+          margin: [0, 18, 0, 18],
         };
+
+    const companyDetailsStack: any[] = [
+      {
+        text: this.company.name,
+        bold: true,
+        fontSize: 11,
+        margin: [0, 0, 0, 2],
+      },
+      {
+        text: addressLines[0] || this.company.address,
+        fontSize: 7.5,
+        lineHeight: 1.15,
+        margin: [0, 0, 0, 0],
+      },
+      {
+        text: addressLines[1] || '',
+        fontSize: 7.5,
+        lineHeight: 1.15,
+        margin: [0, 0, 0, 2],
+      },
+      {
+        text: `GSTIN : ${this.company.gst}`,
+        fontSize: 7.5,
+        lineHeight: 1.2,
+        margin: [0, 0, 0, 1.5],
+      },
+      {
+        text: `State : ${this.company.state}     Code : ${this.company.code}`,
+        fontSize: 7.5,
+        lineHeight: 1.2,
+        margin: [0, 0, 0, 1.5],
+      },
+      {
+        text: `Email : ${this.company.email}`,
+        fontSize: 7.5,
+        lineHeight: 1.2,
+        margin: [0, 0, 0, 1.5],
+      },
+      {
+        text: `Phone : ${companyPhoneLabel}`,
+        fontSize: 7.5,
+        lineHeight: 1.2,
+        margin: [0, 0, 0, 0],
+      },
+    ];
+
+    const invoiceDetailRows: any[][] = [
+      [
+        {
+          text: 'Tax Invoice',
+          colSpan: 2,
+          bold: true,
+          alignment: 'center',
+          fontSize: 8.5,
+          fillColor: '#eef2f7',
+          margin: [0, 0, 0, 0],
+        },
+        {},
+      ],
+      [
+        { text: 'Invoice No.', bold: true, fontSize: 7.5 },
+        { text: report.invoiceNumber, fontSize: 7.5 },
+      ],
+      [
+        { text: 'Invoice Date', bold: true, fontSize: 7.5 },
+        { text: dateText, fontSize: 7.5 },
+      ],
+      [
+        { text: 'Payment Terms', bold: true, fontSize: 7.5 },
+        { text: 'Credit', fontSize: 7.5 },
+      ],
+      [
+        { text: 'Status', bold: true, fontSize: 7.5 },
+        { text: report.status, fontSize: 7.5 },
+      ],
+    ];
 
     const itemRows = report.items.map((item, index) => {
       const qty = Number(item.quantity || 0);
@@ -236,7 +327,6 @@ export class ManageReportComponent implements OnInit {
       ]);
     }
 
-    const dateText = new Date(report.date).toLocaleDateString('en-IN');
     const amountWords = this.numberToWords(total);
 
     return {
@@ -247,57 +337,54 @@ export class ManageReportComponent implements OnInit {
         ? { text: 'PAID', color: '#16a34a', opacity: 0.07, bold: true, fontSize: 90, angle: -45 }
         : { text: 'MUKUNDHA ASSOCIATES', color: '#124a8b', opacity: 0.04, bold: true, fontSize: 50, angle: -45 },
       content: [
-        { text: 'ORIGINAL FOR RECIPIENT', alignment: 'right', bold: true, fontSize: 7, margin: [0, 0, 0, 3] },
+        {
+          text: 'ORIGINAL FOR RECIPIENT',
+          alignment: 'right',
+          bold: true,
+          fontSize: 8,
+          color: '#334155',
+          margin: [0, 0, 0, 2],
+        },
         {
           table: {
-            widths: [72, '*', 188],
+            widths: [headerLogoWidth, '*', headerInvoiceWidth],
             body: [
               [
-                logoContent,
-                [
-                  { text: this.company.name + ',', bold: true, fontSize: 10 },
-                  { text: this.company.address, margin: [0, 1, 0, 0] },
-                  { text: `GSTIN/UIN: ${this.company.gst}`, margin: [0, 1, 0, 0] },
-                  { text: `State Name: ${this.company.state}`, margin: [0, 1, 0, 0] },
-                  { text: `E-Mail: ${this.company.email}`, margin: [0, 1, 0, 0] },
-                ],
+                logoCell,
                 {
+                  stack: companyDetailsStack.filter((line) => String(line?.text || '').trim().length > 0),
+                  margin: [18, 8, 6, 4],
+                },
+                {
+                  margin: [2, 2, 2, 2],
                   table: {
-                    widths: [80, '*'],
-                    body: [
-                      [{ text: 'Tax Invoice', colSpan: 2, bold: true, alignment: 'center', fillColor: '#f1f3f5' }, {}],
-                      [{ text: 'Invoice No.', bold: true }, report.invoiceNumber],
-                      [{ text: 'Dated', bold: true }, dateText],
-                      [{ text: 'Delivery Note', bold: true }, '-'],
-                      [{ text: 'Mode/Terms', bold: true }, 'Credit'],
-                      [{ text: 'Reference No.', bold: true }, '-'],
-                      [{ text: 'Other Ref.', bold: true }, report.status],
-                    ]
+                    widths: [66, '*'],
+                    body: invoiceDetailRows,
                   },
                   layout: {
-                    hLineWidth: () => 0.8,
-                    vLineWidth: () => 0.8,
+                    hLineWidth: () => 0.7,
+                    vLineWidth: () => 0.7,
                     hLineColor: () => '#111',
                     vLineColor: () => '#111',
-                    paddingTop: () => 2,
-                    paddingBottom: () => 2,
-                    paddingLeft: () => 3,
-                    paddingRight: () => 3,
-                  }
-                }
-              ]
-            ]
+                    paddingTop: () => 1.5,
+                    paddingBottom: () => 1.5,
+                    paddingLeft: () => 4,
+                    paddingRight: () => 4,
+                  },
+                },
+              ],
+            ],
           },
           layout: {
             hLineWidth: () => 1,
             vLineWidth: () => 1,
             hLineColor: () => '#111',
             vLineColor: () => '#111',
-            paddingTop: (_r: any, _n: any, col: number) => col === 0 ? 0 : 3,
-            paddingBottom: (_r: any, _n: any, col: number) => col === 0 ? 0 : 3,
-            paddingLeft: (_r: any, _n: any, col: number) => col === 0 ? 0 : 4,
-            paddingRight: (_r: any, _n: any, col: number) => col === 0 ? 0 : 4,
-          }
+            paddingTop: (_rowIndex: number, _node: any, columnIndex: number) => (columnIndex === 0 ? 0 : 2),
+            paddingBottom: (_rowIndex: number, _node: any, columnIndex: number) => (columnIndex === 0 ? 0 : 2),
+            paddingLeft: () => 0,
+            paddingRight: () => 0,
+          },
         },
         {
           table: {
@@ -316,7 +403,7 @@ export class ManageReportComponent implements OnInit {
                   { text: report.client.name, margin: [0, 1, 0, 0] },
                   { text: report.client.address, margin: [0, 1, 0, 0] },
                   { text: `GSTIN/UIN: ${report.client.gst}`, margin: [0, 1, 0, 0] },
-                  { text: `State Name: ${this.company.state}`, margin: [0, 1, 0, 0] },
+                  { text: `State Name: ${this.company.state}, Code: ${this.company.code}`, margin: [0, 1, 0, 0] },
                 ]
               ]
             ]
@@ -604,6 +691,32 @@ export class ManageReportComponent implements OnInit {
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(blob);
     });
+  }
+
+  private splitCompanyAddress(address: string): [string, string] {
+    const normalized = String(address || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return ['', ''];
+    }
+
+    const preferredBreak = normalized.indexOf(', Katteri');
+    if (preferredBreak > 0) {
+      return [
+        normalized.slice(0, preferredBreak + 1).trim(),
+        normalized.slice(preferredBreak + 1).trim(),
+      ];
+    }
+
+    const mid = Math.floor(normalized.length / 2);
+    const splitAt = normalized.lastIndexOf(',', mid);
+    if (splitAt > 20) {
+      return [
+        normalized.slice(0, splitAt + 1).trim(),
+        normalized.slice(splitAt + 1).trim(),
+      ];
+    }
+
+    return [normalized, ''];
   }
 
   private resolveTaxableSubtotal(report: Report): number {
