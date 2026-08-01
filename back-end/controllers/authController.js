@@ -36,6 +36,7 @@ const serializeUser = (user, accountContext = {}, appSettings = null) => ({
   ...(appSettings
     ? {
         bankDetails: appSettings.bankDetails,
+        upiPaymentDetails: appSettings.upiPaymentDetails,
         ownerNotificationsEnabled: appSettings.ownerNotificationsEnabled,
         ownerWhatsappNumber: appSettings.ownerWhatsappNumber,
         whatsappDailyTemplateLimit: appSettings.whatsappDailyTemplateLimit,
@@ -103,6 +104,7 @@ exports.updateProfile = async (req, res, next) => {
       name,
       newPassword,
       bankDetails,
+      upiPaymentDetails,
       ownerNotificationsEnabled,
       ownerWhatsappNumber,
       whatsappDailyTemplateLimit,
@@ -134,6 +136,7 @@ exports.updateProfile = async (req, res, next) => {
       appSettings = await updateAppSettings(
         {
           bankDetails,
+          upiPaymentDetails,
           ownerNotificationsEnabled:
             typeof ownerNotificationsEnabled === 'boolean' ? ownerNotificationsEnabled : undefined,
           ownerWhatsappNumber,
@@ -153,6 +156,7 @@ exports.updateProfile = async (req, res, next) => {
         ...(appSettings
           ? {
               bankDetails: appSettings.bankDetails,
+              upiPaymentDetails: appSettings.upiPaymentDetails,
               ownerNotificationsEnabled: appSettings.ownerNotificationsEnabled,
               ownerWhatsappNumber: appSettings.ownerWhatsappNumber,
               whatsappDailyTemplateLimit: appSettings.whatsappDailyTemplateLimit,

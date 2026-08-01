@@ -175,6 +175,13 @@
   padding: 8px;
 }
 
+.preview-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
 @media (max-width: 900px) {
   .invoice-header,
   .client-grid,

@@ -280,6 +280,62 @@
   }
 }
 
+.upi-payment-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.upi-qr-upload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-upload,
+.btn-remove-qr {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-upload {
+  border: 1px solid #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.btn-remove-qr {
+  border: 1px solid #fecaca;
+  background: #fff7f7;
+  color: #b91c1c;
+}
+
+.upi-qr-preview {
+  margin-top: 10px;
+  width: min(220px, 100%);
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 10px;
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: contain;
+    border-radius: 8px;
+    background: #fff;
+  }
+}
+
 @media (max-width: 768px) {
   .profile-page {
     padding: 8px;

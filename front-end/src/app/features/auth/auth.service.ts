@@ -61,10 +61,17 @@ export interface ProfileBankDetails {
   ifsc: string;
 }
 
+export interface ProfileUpiPaymentDetails {
+  upiQrImage: string;
+  upiId: string;
+  upiMobileNumber: string;
+}
+
 export interface UpdateProfilePayload {
   name?: string;
   newPassword?: string;
   bankDetails?: ProfileBankDetails;
+  upiPaymentDetails?: ProfileUpiPaymentDetails;
   ownerNotificationsEnabled?: boolean;
   ownerWhatsappNumber?: string;
   whatsappDailyTemplateLimit?: number;
@@ -136,6 +143,15 @@ export class AuthService {
 
   updateProfile(data: UpdateProfilePayload): Observable<any> {
     return this.http.put<any>('/api/auth/profile', data);
+  }
+
+  uploadProfileFile(file: File): Observable<{ success: boolean; data?: { url: string; fileName?: string; mimeType?: string }; message?: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ success: boolean; data?: { url: string; fileName?: string; mimeType?: string }; message?: string }>(
+      '/api/files/upload',
+      formData,
+    );
   }
 
   getUserRole(): string {

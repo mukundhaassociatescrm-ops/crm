@@ -130,11 +130,18 @@
             </label>
           </div>
 
-          <aside class="bank-qr">
+          <aside class="bank-qr" *ngIf="showUpiCard">
             <div class="payment-qr-card">
-              <img src="assets/payment-qr.png" alt="Scan &amp; Pay QR code" width="180" height="180">
-              <span class="qr-title">Scan &amp; Pay</span>
-              <span class="qr-upi">mukundhaassociates&#64;sbi</span>
+              <img
+                *ngIf="hasUpiQrImage"
+                [src]="upiQrImageUrl"
+                alt="Scan &amp; Pay QR code"
+                width="180"
+                height="180"
+              >
+              <span class="qr-title" *ngIf="hasUpiQrImage">Scan &amp; Pay</span>
+              <span class="qr-upi" *ngIf="upiIdLabel">UPI ID: {{ upiIdLabel }}</span>
+              <span class="qr-upi" *ngIf="upiMobileLabel">GPay / PhonePe: {{ upiMobileLabel }}</span>
             </div>
           </aside>
 
@@ -162,6 +169,9 @@
   </div>
 
   <div class="preview-panel">
-    <app-report-preview [report]="previewData"></app-report-preview>
+    <app-report-preview
+      [report]="previewData"
+      [upiPaymentDetails]="upiPaymentDetails"
+    ></app-report-preview>
   </div>
 </section>

@@ -73,15 +73,19 @@
           <p>Bank: {{ data.bankDetails?.bankName || '-' }}</p>
           <p>A/C No: {{ data.bankDetails?.accountNumber || '-' }}</p>
           <p>IFSC: {{ data.bankDetails?.ifsc || '-' }}</p>
-          <p class="upi-id">UPI ID: mukundhaassociates&#64;sbi</p>
+          <p class="upi-id" *ngIf="upiIdLabel">UPI ID: {{ upiIdLabel }}</p>
+          <p class="upi-id" *ngIf="upiMobileLabel">GPay / PhonePe: {{ upiMobileLabel }}</p>
         </div>
-        <img
-          class="payment-qr-img"
-          src="assets/payment-qr.png"
-          alt="Scan &amp; Pay QR code"
-          width="220"
-          height="220"
-        >
+        <div class="preview-qr" *ngIf="showUpiQr">
+          <img
+            class="payment-qr-img"
+            [src]="upiQrImageUrl"
+            alt="Scan &amp; Pay QR code"
+            width="220"
+            height="220"
+          >
+          <p class="upi-id">Scan &amp; Pay</p>
+        </div>
       </div>
     </div>
     <div>

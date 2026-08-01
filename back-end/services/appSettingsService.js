@@ -6,6 +6,12 @@ const DEFAULT_BANK_DETAILS = {
   ifsc: 'SBIN0008608',
 };
 
+const DEFAULT_UPI_PAYMENT_DETAILS = {
+  upiQrImage: '',
+  upiId: '',
+  upiMobileNumber: '',
+};
+
 const resolveDefaultDailyTemplateLimit = () => {
   const fromEnv = Number.parseInt(String(process.env.WHATSAPP_CAMPAIGN_DAILY_TEMPLATE_LIMIT || ''), 10);
   return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 200;
@@ -16,6 +22,7 @@ const DEFAULT_SETTINGS = {
   ownerWhatsappNumber: String(process.env.OWNER_WHATSAPP_NUMBER || '').trim(),
   whatsappDailyTemplateLimit: resolveDefaultDailyTemplateLimit(),
   bankDetails: DEFAULT_BANK_DETAILS,
+  upiPaymentDetails: DEFAULT_UPI_PAYMENT_DETAILS,
 };
 
 const normalizeBankDetails = (bankDetails = {}) => ({
@@ -24,6 +31,30 @@ const normalizeBankDetails = (bankDetails = {}) => ({
   ifsc: String(bankDetails.ifsc || DEFAULT_BANK_DETAILS.ifsc).trim().toUpperCase(),
 });
 
+const normalizeUpiMobileNumber = (value) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) {
+    return '';
+  }
+  // Keep last 10 digits when country code is included (e.g. 91XXXXXXXXXX).
+  if (digits.length > 10) {
+    return digits.slice(-10);
+  }
+  return digits;
+};
+
+const normalizeUpiPaymentDetails = (upiPaymentDetails = {}) => {
+  const upiId = String(upiPaymentDetails.upiId || '').trim().slice(0, 100);
+  const upiQrImage = String(upiPaymentDetails.upiQrImage || '').trim();
+  const upiMobileNumber = normalizeUpiMobileNumber(upiPaymentDetails.upiMobileNumber);
+
+  return {
+    upiQrImage,
+    upiId,
+    upiMobileNumber: upiMobileNumber.length === 10 || upiMobileNumber.length === 0 ? upiMobileNumber : '',
+  };
+};
+
 const serializeSettings = (doc) => ({
   ownerNotificationsEnabled: Boolean(doc?.ownerNotificationsEnabled),
   ownerWhatsappNumber: String(doc?.ownerWhatsappNumber || '').trim(),
@@ -31,6 +62,7 @@ const serializeSettings = (doc) => ({
     ? Number(doc.whatsappDailyTemplateLimit)
     : DEFAULT_SETTINGS.whatsappDailyTemplateLimit,
   bankDetails: normalizeBankDetails(doc?.bankDetails || DEFAULT_BANK_DETAILS),
+  upiPaymentDetails: normalizeUpiPaymentDetails(doc?.upiPaymentDetails || DEFAULT_UPI_PAYMENT_DETAILS),
 });
 
 const getAppSettings = async () => {
@@ -41,6 +73,7 @@ const getAppSettings = async () => {
       ownerWhatsappNumber: DEFAULT_SETTINGS.ownerWhatsappNumber,
       whatsappDailyTemplateLimit: DEFAULT_SETTINGS.whatsappDailyTemplateLimit,
       bankDetails: DEFAULT_SETTINGS.bankDetails,
+      upiPaymentDetails: DEFAULT_SETTINGS.upiPaymentDetails,
     });
   }
 
@@ -71,6 +104,10 @@ const updateAppSettings = async (partial = {}, userId = null) => {
     settings.bankDetails = normalizeBankDetails(partial.bankDetails);
   }
 
+  if (partial.upiPaymentDetails !== undefined) {
+    settings.upiPaymentDetails = normalizeUpiPaymentDetails(partial.upiPaymentDetails);
+  }
+
   if (userId) {
     settings.updatedBy = userId;
   }
@@ -81,6 +118,7 @@ const updateAppSettings = async (partial = {}, userId = null) => {
 
 module.exports = {
   DEFAULT_BANK_DETAILS,
+  DEFAULT_UPI_PAYMENT_DETAILS,
   getAppSettings,
   getAppSettingsPayload,
   updateAppSettings,

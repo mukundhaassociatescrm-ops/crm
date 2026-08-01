@@ -6,7 +6,7 @@ import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import { Report, ReportPayload, ReportService } from './report.service';
 import { ReportListComponent } from './report-list/report-list.component';
 import { ReportFormComponent } from './report-form/report-form.component';
-import { AuthService } from '../auth/auth.service';
+import { AuthService, ProfileUpiPaymentDetails } from '../auth/auth.service';
 import { FullscreenToggleComponent } from '../../shared/components/fullscreen-toggle/fullscreen-toggle.component';
 
 const fontVfs = (pdfFonts as any).pdfMake?.vfs || (pdfFonts as any).vfs;
@@ -28,6 +28,12 @@ const DEFAULT_COMPANY_BANK_DETAILS: CompanyBankDetails = {
   ifsc: 'SBIN0008608',
 };
 
+const DEFAULT_UPI_PAYMENT_DETAILS: ProfileUpiPaymentDetails = {
+  upiQrImage: '',
+  upiId: '',
+  upiMobileNumber: '',
+};
+
 @Component({
   selector: 'app-manage-report',
   standalone: true,
@@ -41,8 +47,8 @@ export class ManageReportComponent implements OnInit {
   mode: Mode = 'list';
   selectedReport: Report | null = null;
   companyBankDetails: CompanyBankDetails = DEFAULT_COMPANY_BANK_DETAILS;
+  companyUpiPaymentDetails: ProfileUpiPaymentDetails = { ...DEFAULT_UPI_PAYMENT_DETAILS };
   private readonly logoPath = 'assets/invoice-logo-banner.png';
-  private readonly paymentQrPath = 'assets/payment-qr.png';
   private readonly logoCellWidthPt = 82;
   private readonly logoCellBackground = '#132348';
   private logoDataUrl: string | null = null;
@@ -67,13 +73,13 @@ export class ManageReportComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.syncCompanyBankDetailsFromSession();
+    this.syncCompanyPaymentDetailsFromSession();
     void this.ensureLogoDataUrl();
     void this.ensurePaymentQrDataUrl();
     this.loadReports();
   }
 
-  private syncCompanyBankDetailsFromSession(): void {
+  private syncCompanyPaymentDetailsFromSession(): void {
     const user = this.authService.getUser();
     const bankDetails = user?.bankDetails;
     this.companyBankDetails = {
@@ -81,6 +87,15 @@ export class ManageReportComponent implements OnInit {
       accountNumber: String(bankDetails?.accountNumber || DEFAULT_COMPANY_BANK_DETAILS.accountNumber),
       ifsc: String(bankDetails?.ifsc || DEFAULT_COMPANY_BANK_DETAILS.ifsc).toUpperCase(),
     };
+
+    const upi = user?.upiPaymentDetails || {};
+    this.companyUpiPaymentDetails = {
+      upiQrImage: String(upi.upiQrImage || '').trim(),
+      upiId: String(upi.upiId || '').trim(),
+      upiMobileNumber: String(upi.upiMobileNumber || '').replace(/\D/g, '').slice(0, 10),
+    };
+    this.paymentQrDataUrl = null;
+    this.paymentQrLoadPromise = null;
   }
 
   loadReports(): void {
@@ -562,28 +577,7 @@ export class ManageReportComponent implements OnInit {
             body: [
               [
                 {
-                  columns: [
-                    {
-                      width: 'auto',
-                      stack: [
-                        { text: 'Company Bank Details', bold: true, fillColor: '#f7f7f7', margin: [0, 0, 0, 2] },
-                        { text: `Bank Name: ${report.bankDetails.bankName}`, margin: [0, 1, 0, 0] },
-                        { text: `A/c No.: ${report.bankDetails.accountNumber}`, margin: [0, 1, 0, 0] },
-                        { text: `IFSC Code: ${report.bankDetails.ifsc}`, margin: [0, 1, 0, 0] },
-                        { text: 'UPI ID: mukundhaassociates@sbi', margin: [0, 3, 0, 0], bold: true },
-                        { text: 'UPI NUumber: 8508169948', margin: [0, 3, 0, 0], bold: true },
-                      ],
-                    },
-                    this.paymentQrDataUrl
-                      ? {
-                          width: 140,
-                          image: this.paymentQrDataUrl,
-                          fit: [130, 130],
-                          alignment: 'right',
-                          margin: [0, 0, 0, 0],
-                        }
-                      : { width: 0, text: '' },
-                  ],
+                  columns: this.buildBankAndUpiColumns(report),
                   columnGap: 10,
                 },
                 [
@@ -626,6 +620,60 @@ export class ManageReportComponent implements OnInit {
     };
   }
 
+  private buildBankAndUpiColumns(report: Report): any[] {
+    const upiId = String(this.companyUpiPaymentDetails.upiId || '').trim();
+    const upiMobile = String(this.companyUpiPaymentDetails.upiMobileNumber || '').trim();
+    const bankStack: any[] = [
+      { text: 'Company Bank Details', bold: true, fillColor: '#f7f7f7', margin: [0, 0, 0, 2] },
+      { text: `Bank Name: ${report.bankDetails.bankName}`, margin: [0, 1, 0, 0] },
+      { text: `A/c No.: ${report.bankDetails.accountNumber}`, margin: [0, 1, 0, 0] },
+      { text: `IFSC Code: ${report.bankDetails.ifsc}`, margin: [0, 1, 0, 0] },
+    ];
+
+    // When QR is missing, still show UPI text under bank details if configured.
+    if (!this.paymentQrDataUrl) {
+      if (upiId) {
+        bankStack.push({ text: `UPI ID: ${upiId}`, margin: [0, 3, 0, 0], bold: true });
+      }
+      if (upiMobile) {
+        bankStack.push({ text: `GPay / PhonePe: ${upiMobile}`, margin: [0, 3, 0, 0], bold: true });
+      }
+    }
+
+    const columns: any[] = [
+      {
+        width: '*',
+        stack: bankStack,
+      },
+    ];
+
+    if (this.paymentQrDataUrl) {
+      const qrStack: any[] = [
+        {
+          image: this.paymentQrDataUrl,
+          fit: [110, 110],
+          alignment: 'center',
+          margin: [0, 0, 0, 4],
+        },
+        { text: 'Scan & Pay', alignment: 'center', bold: true, fontSize: 8, margin: [0, 0, 0, 3] },
+      ];
+      if (upiId) {
+        qrStack.push({ text: `UPI ID:\n${upiId}`, alignment: 'center', fontSize: 7, margin: [0, 0, 0, 2] });
+      }
+      if (upiMobile) {
+        qrStack.push({ text: `GPay / PhonePe:\n${upiMobile}`, alignment: 'center', fontSize: 7 });
+      }
+
+      columns.push({
+        width: 130,
+        stack: qrStack,
+        alignment: 'center',
+      });
+    }
+
+    return columns;
+  }
+
   private async ensureLogoDataUrl(): Promise<string | null> {
     if (this.logoDataUrl) {
       return this.logoDataUrl;
@@ -639,12 +687,19 @@ export class ManageReportComponent implements OnInit {
   }
 
   private async ensurePaymentQrDataUrl(): Promise<string | null> {
+    const qrUrl = String(this.companyUpiPaymentDetails.upiQrImage || '').trim();
+    if (!qrUrl) {
+      this.paymentQrDataUrl = null;
+      this.paymentQrLoadPromise = null;
+      return null;
+    }
+
     if (this.paymentQrDataUrl) {
       return this.paymentQrDataUrl;
     }
 
     if (!this.paymentQrLoadPromise) {
-      this.paymentQrLoadPromise = this.loadPaymentQrDataUrl();
+      this.paymentQrLoadPromise = this.loadPaymentQrDataUrl(qrUrl);
     }
 
     return this.paymentQrLoadPromise;
@@ -667,9 +722,9 @@ export class ManageReportComponent implements OnInit {
     }
   }
 
-  private async loadPaymentQrDataUrl(): Promise<string | null> {
+  private async loadPaymentQrDataUrl(qrUrl: string): Promise<string | null> {
     try {
-      const response = await fetch(this.paymentQrPath);
+      const response = await fetch(qrUrl);
       if (!response.ok) {
         return null;
       }

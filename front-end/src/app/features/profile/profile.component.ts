@@ -1,15 +1,39 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { AuthService, ProfileBankDetails, UpdateProfilePayload } from '../auth/auth.service';
+import { Observable, of } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
+import {
+  AuthService,
+  ProfileBankDetails,
+  ProfileUpiPaymentDetails,
+  UpdateProfilePayload,
+} from '../auth/auth.service';
 
 const DEFAULT_BANK_DETAILS: ProfileBankDetails = {
   bankName: 'State Bank of India, Coimbatore Nagar Branch',
   accountNumber: '44344893154',
   ifsc: 'SBIN0008608',
 };
+
+const DEFAULT_UPI_PAYMENT_DETAILS: ProfileUpiPaymentDetails = {
+  upiQrImage: '',
+  upiId: '',
+  upiMobileNumber: '',
+};
+
+const UPI_QR_MAX_BYTES = 2 * 1024 * 1024;
+const UPI_QR_ALLOWED_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png']);
+
+function optionalTenDigitPhone(control: AbstractControl): ValidationErrors | null {
+  const raw = String(control.value || '').trim();
+  if (!raw) {
+    return null;
+  }
+  return /^\d{10}$/.test(raw) ? null : { tenDigitPhone: true };
+}
 
 @Component({
   selector: 'app-profile',
@@ -21,6 +45,9 @@ const DEFAULT_BANK_DETAILS: ProfileBankDetails = {
 export class ProfileComponent implements OnInit {
   currentUser: any = null;
   saving = false;
+  upiQrPreviewUrl = '';
+  private pendingUpiQrFile: File | null = null;
+  private upiQrRemoved = false;
 
   profileForm = this.fb.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
@@ -35,6 +62,11 @@ export class ProfileComponent implements OnInit {
       accountNumber: ['', Validators.required],
       ifsc: ['', Validators.required],
     }),
+    upiPaymentDetails: this.fb.group({
+      upiQrImage: [''],
+      upiId: ['', [Validators.maxLength(100)]],
+      upiMobileNumber: ['', [optionalTenDigitPhone]],
+    }),
   });
 
   get isAdmin(): boolean {
@@ -47,6 +79,15 @@ export class ProfileComponent implements OnInit {
       bankName: String(raw?.bankName || '').trim(),
       accountNumber: String(raw?.accountNumber || '').trim(),
       ifsc: String(raw?.ifsc || '').trim().toUpperCase(),
+    };
+  }
+
+  private get upiPaymentDetailsValue(): ProfileUpiPaymentDetails {
+    const raw = this.profileForm.getRawValue().upiPaymentDetails;
+    return {
+      upiQrImage: String(raw?.upiQrImage || '').trim(),
+      upiId: String(raw?.upiId || '').trim().slice(0, 100),
+      upiMobileNumber: String(raw?.upiMobileNumber || '').replace(/\D/g, '').slice(0, 10),
     };
   }
 
@@ -66,6 +107,10 @@ export class ProfileComponent implements OnInit {
     return !!pw && !!cpw && pw !== cpw;
   }
 
+  get hasUpiQrPreview(): boolean {
+    return !!this.upiQrPreviewUrl;
+  }
+
   constructor(
     private readonly fb: FormBuilder,
     private readonly authService: AuthService,
@@ -76,6 +121,10 @@ export class ProfileComponent implements OnInit {
   ngOnInit(): void {
     this.currentUser = this.authService.getUser();
     const profileBankDetails = this.currentUser?.bankDetails || DEFAULT_BANK_DETAILS;
+    const profileUpiDetails: ProfileUpiPaymentDetails = {
+      ...DEFAULT_UPI_PAYMENT_DETAILS,
+      ...(this.currentUser?.upiPaymentDetails || {}),
+    };
 
     if (this.currentUser) {
       this.profileForm.patchValue({
@@ -85,16 +134,57 @@ export class ProfileComponent implements OnInit {
         ownerWhatsappNumber: this.currentUser.ownerWhatsappNumber || '',
         whatsappDailyTemplateLimit: this.currentUser.whatsappDailyTemplateLimit || 200,
         bankDetails: profileBankDetails,
+        upiPaymentDetails: profileUpiDetails,
       });
+      this.upiQrPreviewUrl = String(profileUpiDetails.upiQrImage || '').trim();
     }
 
     if (!this.isAdmin) {
       this.profileForm.get('bankDetails')?.disable({ emitEvent: false });
+      this.profileForm.get('upiPaymentDetails')?.disable({ emitEvent: false });
     }
+  }
+
+  onUpiQrSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] || null;
+    input.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    const mime = String(file.type || '').toLowerCase();
+    if (!UPI_QR_ALLOWED_TYPES.has(mime)) {
+      this.toastr.error('Invalid file type. Please upload JPG, JPEG, or PNG.', 'Validation Error');
+      return;
+    }
+
+    if (file.size > UPI_QR_MAX_BYTES) {
+      this.toastr.error('QR image must be 2MB or smaller.', 'Validation Error');
+      return;
+    }
+
+    this.pendingUpiQrFile = file;
+    this.upiQrRemoved = false;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.upiQrPreviewUrl = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeUpiQrImage(): void {
+    this.pendingUpiQrFile = null;
+    this.upiQrRemoved = true;
+    this.upiQrPreviewUrl = '';
+    this.profileForm.get('upiPaymentDetails.upiQrImage')?.setValue('');
   }
 
   saveProfile(): void {
     if (this.profileForm.invalid) {
+      this.profileForm.markAllAsTouched();
       this.toastr.error('Please fill in all required fields.', 'Validation Error');
       return;
     }
@@ -119,20 +209,42 @@ export class ProfileComponent implements OnInit {
       payload.newPassword = newPassword;
     }
 
-    if (this.isAdmin) {
-      const raw = this.profileForm.getRawValue();
-      payload.bankDetails = this.bankDetailsValue;
-      payload.ownerNotificationsEnabled = !!raw.ownerNotificationsEnabled;
-      payload.ownerWhatsappNumber = String(raw.ownerWhatsappNumber || '').trim();
-      const limit = Number.parseInt(String(raw.whatsappDailyTemplateLimit ?? ''), 10);
-      if (Number.isFinite(limit) && limit > 0) {
-        payload.whatsappDailyTemplateLimit = limit;
-      }
-    }
+    const upload$: Observable<string | null> = this.pendingUpiQrFile
+      ? this.authService.uploadProfileFile(this.pendingUpiQrFile).pipe(
+          switchMap((res) => {
+            if (!res?.success || !res.data?.url) {
+              throw new Error(res?.message || 'QR image upload failed.');
+            }
+            return of(String(res.data.url));
+          }),
+        )
+      : of(null);
 
-    console.log('PROFILE UPDATE PAYLOAD', payload);
+    upload$.pipe(
+      switchMap((uploadedUrl) => {
+        if (this.isAdmin) {
+          const raw = this.profileForm.getRawValue();
+          payload.bankDetails = this.bankDetailsValue;
 
-    this.authService.updateProfile(payload).subscribe({
+          const upi = this.upiPaymentDetailsValue;
+          if (uploadedUrl) {
+            upi.upiQrImage = uploadedUrl;
+          } else if (this.upiQrRemoved) {
+            upi.upiQrImage = '';
+          }
+          payload.upiPaymentDetails = upi;
+
+          payload.ownerNotificationsEnabled = !!raw.ownerNotificationsEnabled;
+          payload.ownerWhatsappNumber = String(raw.ownerWhatsappNumber || '').trim();
+          const limit = Number.parseInt(String(raw.whatsappDailyTemplateLimit ?? ''), 10);
+          if (Number.isFinite(limit) && limit > 0) {
+            payload.whatsappDailyTemplateLimit = limit;
+          }
+        }
+
+        return this.authService.updateProfile(payload);
+      }),
+    ).subscribe({
       next: (res) => {
         if (res?.success) {
           this.applyProfileUpdate(
@@ -152,16 +264,22 @@ export class ProfileComponent implements OnInit {
         }
 
         this.saving = false;
-        this.toastr.error(err?.error?.message || 'Update failed. Please try again.', 'Error');
+        this.toastr.error(err?.error?.message || err?.message || 'Update failed. Please try again.', 'Error');
       }
     });
   }
 
-  private applyProfileUpdate(name: string, persistedToApi: boolean, profileData?: Partial<UpdateProfilePayload> & { whatsappDailyTemplateLimit?: number }): void {
+  private applyProfileUpdate(
+    name: string,
+    persistedToApi: boolean,
+    profileData?: Partial<UpdateProfilePayload> & { whatsappDailyTemplateLimit?: number },
+  ): void {
     const updatedUser = {
       ...this.currentUser,
       name,
       bankDetails: profileData?.bankDetails || this.currentUser?.bankDetails || DEFAULT_BANK_DETAILS,
+      upiPaymentDetails:
+        profileData?.upiPaymentDetails || this.currentUser?.upiPaymentDetails || DEFAULT_UPI_PAYMENT_DETAILS,
       ownerNotificationsEnabled: profileData?.ownerNotificationsEnabled ?? this.currentUser?.ownerNotificationsEnabled,
       ownerWhatsappNumber: profileData?.ownerWhatsappNumber ?? this.currentUser?.ownerWhatsappNumber,
       whatsappDailyTemplateLimit:
@@ -171,6 +289,10 @@ export class ProfileComponent implements OnInit {
     this.authService.saveUser(updatedUser);
     this.currentUser = updatedUser;
     this.saving = false;
+    this.pendingUpiQrFile = null;
+    this.upiQrRemoved = false;
+    this.upiQrPreviewUrl = String(updatedUser.upiPaymentDetails?.upiQrImage || '').trim();
+
     this.profileForm.patchValue({
       name,
       newPassword: '',
@@ -181,6 +303,7 @@ export class ProfileComponent implements OnInit {
         ? Number(updatedUser.whatsappDailyTemplateLimit)
         : 200,
       bankDetails: updatedUser.bankDetails,
+      upiPaymentDetails: updatedUser.upiPaymentDetails || DEFAULT_UPI_PAYMENT_DETAILS,
     });
 
     if (persistedToApi) {

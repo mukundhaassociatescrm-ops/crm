@@ -131,6 +131,82 @@
               <input formControlName="ifsc" type="text" />
             </div>
           </div>
+
+          <div class="section-title-row section-gap">
+            <div class="section-title no-margin">UPI Payment Details</div>
+            <span class="admin-only-badge">Admin Only</span>
+          </div>
+          <p class="section-hint">
+            These details appear on Manage Report invoices. Leave blank to hide that field on the PDF.
+          </p>
+
+          <div formGroupName="upiPaymentDetails" class="upi-payment-section">
+            <div class="form-group">
+              <label>QR Code Image</label>
+              <div class="upi-qr-upload">
+                <label class="btn-upload">
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                    (change)="onUpiQrSelected($event)"
+                    hidden
+                  >
+                  <i class="fa-solid fa-upload"></i>
+                  {{ hasUpiQrPreview ? 'Replace Image' : 'Upload Image' }}
+                </label>
+                <button
+                  *ngIf="hasUpiQrPreview"
+                  type="button"
+                  class="btn-remove-qr"
+                  (click)="removeUpiQrImage()"
+                >
+                  Remove
+                </button>
+              </div>
+              <span class="field-hint">JPG, JPEG, or PNG. Max 2MB.</span>
+
+              <div class="upi-qr-preview" *ngIf="hasUpiQrPreview">
+                <img [src]="upiQrPreviewUrl" alt="UPI QR preview">
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label>UPI ID</label>
+                <input
+                  formControlName="upiId"
+                  type="text"
+                  maxlength="100"
+                  placeholder="e.g. mukundhaassociates@okaxis"
+                  [class.field-invalid]="profileForm.get('upiPaymentDetails.upiId')?.invalid && profileForm.get('upiPaymentDetails.upiId')?.touched"
+                >
+                <span
+                  class="field-error"
+                  *ngIf="profileForm.get('upiPaymentDetails.upiId')?.invalid && profileForm.get('upiPaymentDetails.upiId')?.touched"
+                >
+                  UPI ID must be at most 100 characters.
+                </span>
+              </div>
+
+              <div class="form-group">
+                <label>Google Pay / PhonePe Number</label>
+                <input
+                  formControlName="upiMobileNumber"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="10"
+                  placeholder="e.g. 8508169948"
+                  [class.field-invalid]="profileForm.get('upiPaymentDetails.upiMobileNumber')?.invalid && profileForm.get('upiPaymentDetails.upiMobileNumber')?.touched"
+                >
+                <span
+                  class="field-error"
+                  *ngIf="profileForm.get('upiPaymentDetails.upiMobileNumber')?.invalid && profileForm.get('upiPaymentDetails.upiMobileNumber')?.touched"
+                >
+                  Enter a valid 10-digit mobile number.
+                </span>
+              </div>
+            </div>
+          </div>
         </ng-container>
 
         <!-- Actions -->

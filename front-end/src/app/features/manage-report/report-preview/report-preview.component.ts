@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { Report, ReportItem } from '../report.service';
+import { ProfileUpiPaymentDetails } from '../../auth/auth.service';
 
 @Component({
   selector: 'app-report-preview',
@@ -11,6 +12,7 @@ import { Report, ReportItem } from '../report.service';
 })
 export class ReportPreviewComponent {
   @Input() report: Partial<Report> | null = null;
+  @Input() upiPaymentDetails: ProfileUpiPaymentDetails | null = null;
 
   readonly company = {
     name: 'MUKUNDHA ASSOCIATES',
@@ -19,6 +21,22 @@ export class ReportPreviewComponent {
     state: 'Tamil Nadu, Code: 33',
     email: 'tpksathyan@gmail.com'
   };
+
+  get upiQrImageUrl(): string {
+    return String(this.upiPaymentDetails?.upiQrImage || '').trim();
+  }
+
+  get upiIdLabel(): string {
+    return String(this.upiPaymentDetails?.upiId || '').trim();
+  }
+
+  get upiMobileLabel(): string {
+    return String(this.upiPaymentDetails?.upiMobileNumber || '').trim();
+  }
+
+  get showUpiQr(): boolean {
+    return !!this.upiQrImageUrl;
+  }
 
   get subtotal(): number {
     if (typeof this.report?.subtotal === 'number') {

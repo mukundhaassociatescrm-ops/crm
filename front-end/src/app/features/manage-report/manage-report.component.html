@@ -28,6 +28,7 @@
     [viewMode]="mode === 'view'"
     [editMode]="mode === 'edit'"
     [defaultBankDetails]="companyBankDetails"
+    [upiPaymentDetails]="companyUpiPaymentDetails"
     (save)="onSave($event)"
     (cancel)="backToList()">
   </app-report-form>

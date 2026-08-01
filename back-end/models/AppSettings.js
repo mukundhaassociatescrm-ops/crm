@@ -9,6 +9,15 @@ const bankDetailsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const upiPaymentDetailsSchema = new mongoose.Schema(
+  {
+    upiQrImage: { type: String, trim: true, default: '' },
+    upiId: { type: String, trim: true, default: '', maxlength: 100 },
+    upiMobileNumber: { type: String, trim: true, default: '' },
+  },
+  { _id: false }
+);
+
 const appSettingsSchema = new mongoose.Schema(
   {
     ownerNotificationsEnabled: { type: Boolean, default: false },
@@ -18,7 +27,7 @@ const appSettingsSchema = new mongoose.Schema(
     ownerNotificationSessionExpiresAt: { type: Date, default: null },
     ownerSessionReminderSentAt: { type: Date, default: null },
     ownerSessionReminderWindowExpiresAt: { type: Date, default: null },
-  /** Rolling 24h cap on new WhatsApp template conversation initiations (campaign queue). */
+    /** Rolling 24h cap on new WhatsApp template conversation initiations (campaign queue). */
     whatsappDailyTemplateLimit: {
       type: Number,
       default: () => {
@@ -33,6 +42,14 @@ const appSettingsSchema = new mongoose.Schema(
         bankName: 'State Bank of India, Coimbatore Nagar Branch',
         accountNumber: '44344893154',
         ifsc: 'SBIN0008608',
+      }),
+    },
+    upiPaymentDetails: {
+      type: upiPaymentDetailsSchema,
+      default: () => ({
+        upiQrImage: '',
+        upiId: '',
+        upiMobileNumber: '',
       }),
     },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },

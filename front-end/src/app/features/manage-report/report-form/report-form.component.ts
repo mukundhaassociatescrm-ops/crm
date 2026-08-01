@@ -6,6 +6,7 @@ import { ReportPreviewComponent } from '../report-preview/report-preview.compone
 import { DateTimePickerComponent } from '../../../shared/components/date-time-picker/date-time-picker.component';
 import { AutocompleteTextComponent } from '../../../shared/components/autocomplete-text/autocomplete-text.component';
 import { REPORT_DESCRIPTION_SUGGESTIONS } from '../report-description-suggestions';
+import { ProfileUpiPaymentDetails } from '../../auth/auth.service';
 
 @Component({
   selector: 'app-report-form',
@@ -25,6 +26,7 @@ export class ReportFormComponent implements OnChanges {
   @Input() viewMode = false;
   @Input() editMode = false;
   @Input() defaultBankDetails: ReportBankDetails | null = null;
+  @Input() upiPaymentDetails: ProfileUpiPaymentDetails | null = null;
 
   @Output() save = new EventEmitter<ReportPayload>();
   @Output() cancel = new EventEmitter<void>();
@@ -68,6 +70,26 @@ export class ReportFormComponent implements OnChanges {
       // Company bank account is managed in admin profile, not in report form.
       this.form.get('bankDetails')?.disable({ emitEvent: false });
     }
+  }
+
+  get hasUpiQrImage(): boolean {
+    return !!String(this.upiPaymentDetails?.upiQrImage || '').trim();
+  }
+
+  get upiQrImageUrl(): string {
+    return String(this.upiPaymentDetails?.upiQrImage || '').trim();
+  }
+
+  get upiIdLabel(): string {
+    return String(this.upiPaymentDetails?.upiId || '').trim();
+  }
+
+  get upiMobileLabel(): string {
+    return String(this.upiPaymentDetails?.upiMobileNumber || '').trim();
+  }
+
+  get showUpiCard(): boolean {
+    return this.hasUpiQrImage || !!this.upiIdLabel || !!this.upiMobileLabel;
   }
 
   get itemsArray(): FormArray<FormGroup> {
