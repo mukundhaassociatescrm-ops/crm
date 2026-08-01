@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
+import { firstValueFrom } from 'rxjs';
 import { Report, ReportPayload, ReportService } from './report.service';
 import { ReportListComponent } from './report-list/report-list.component';
 import { ReportFormComponent } from './report-form/report-form.component';
@@ -51,8 +52,10 @@ export class ManageReportComponent implements OnInit {
   private readonly logoPath = 'assets/invoice-logo-banner.png';
   private readonly logoCellWidthPt = 82;
   private readonly logoCellBackground = '#132348';
+  private readonly paymentQrBoxPt = 175;
   private logoDataUrl: string | null = null;
   private paymentQrDataUrl: string | null = null;
+  private paymentQrSourceUrl: string | null = null;
   private logoLoadPromise: Promise<string | null> | null = null;
   private paymentQrLoadPromise: Promise<string | null> | null = null;
 
@@ -74,28 +77,67 @@ export class ManageReportComponent implements OnInit {
 
   ngOnInit(): void {
     this.syncCompanyPaymentDetailsFromSession();
+    void this.refreshCompanyPaymentDetailsFromApi();
     void this.ensureLogoDataUrl();
-    void this.ensurePaymentQrDataUrl();
     this.loadReports();
   }
 
   private syncCompanyPaymentDetailsFromSession(): void {
     const user = this.authService.getUser();
-    const bankDetails = user?.bankDetails;
+    this.applyCompanyPaymentDetails({
+      bankDetails: user?.bankDetails,
+      upiPaymentDetails: user?.upiPaymentDetails,
+    });
+  }
+
+  private async refreshCompanyPaymentDetailsFromApi(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.authService.getCompanyPaymentDetails());
+      if (!response?.success || !response.data) {
+        return;
+      }
+
+      this.applyCompanyPaymentDetails(response.data);
+
+      const user = this.authService.getUser() || {};
+      this.authService.saveUser({
+        ...user,
+        bankDetails: this.companyBankDetails,
+        upiPaymentDetails: this.companyUpiPaymentDetails,
+      });
+    } catch {
+      // Keep session/default fallback when API is unavailable.
+    }
+  }
+
+  private applyCompanyPaymentDetails(data: {
+    bankDetails?: Partial<CompanyBankDetails> | null;
+    upiPaymentDetails?: Partial<ProfileUpiPaymentDetails> | null;
+  }): void {
+    const bankDetails = data?.bankDetails || {};
     this.companyBankDetails = {
-      bankName: String(bankDetails?.bankName || DEFAULT_COMPANY_BANK_DETAILS.bankName),
-      accountNumber: String(bankDetails?.accountNumber || DEFAULT_COMPANY_BANK_DETAILS.accountNumber),
-      ifsc: String(bankDetails?.ifsc || DEFAULT_COMPANY_BANK_DETAILS.ifsc).toUpperCase(),
+      bankName: String(bankDetails.bankName || DEFAULT_COMPANY_BANK_DETAILS.bankName),
+      accountNumber: String(bankDetails.accountNumber || DEFAULT_COMPANY_BANK_DETAILS.accountNumber),
+      ifsc: String(bankDetails.ifsc || DEFAULT_COMPANY_BANK_DETAILS.ifsc).toUpperCase(),
     };
 
-    const upi = user?.upiPaymentDetails || {};
-    this.companyUpiPaymentDetails = {
+    const upi = data?.upiPaymentDetails || {};
+    const nextUpi: ProfileUpiPaymentDetails = {
       upiQrImage: String(upi.upiQrImage || '').trim(),
       upiId: String(upi.upiId || '').trim(),
       upiMobileNumber: String(upi.upiMobileNumber || '').replace(/\D/g, '').slice(0, 10),
     };
-    this.paymentQrDataUrl = null;
-    this.paymentQrLoadPromise = null;
+
+    const qrChanged = nextUpi.upiQrImage !== this.companyUpiPaymentDetails.upiQrImage;
+    this.companyUpiPaymentDetails = nextUpi;
+
+    if (qrChanged) {
+      this.paymentQrDataUrl = null;
+      this.paymentQrSourceUrl = null;
+      this.paymentQrLoadPromise = null;
+    }
+
+    void this.ensurePaymentQrDataUrl();
   }
 
   loadReports(): void {
@@ -188,7 +230,21 @@ export class ManageReportComponent implements OnInit {
   }
 
   async onDownload(report: Report): Promise<void> {
+    await this.refreshCompanyPaymentDetailsFromApi();
+
+    const companyProfile = {
+      bankDetails: this.companyBankDetails,
+      upiPaymentDetails: this.companyUpiPaymentDetails,
+    };
+    console.log('Company Profile', companyProfile);
+    console.log('QR Image:', companyProfile.upiPaymentDetails.upiQrImage);
+    console.log('UPI ID', companyProfile.upiPaymentDetails.upiId);
+    console.log('UPI Mobile', companyProfile.upiPaymentDetails.upiMobileNumber);
+
     await Promise.all([this.ensureLogoDataUrl(), this.ensurePaymentQrDataUrl()]);
+    console.log('QR Image Source:', this.companyUpiPaymentDetails.upiQrImage);
+    console.log('QR PDF data URL ready:', !!this.paymentQrDataUrl, this.paymentQrDataUrl?.slice(0, 48));
+
     const docDefinition = this.buildPdfDefinition(report);
     pdfMake.createPdf(docDefinition as any).download(`${report.invoiceNumber}.pdf`);
   }
@@ -623,27 +679,19 @@ export class ManageReportComponent implements OnInit {
   private buildBankAndUpiColumns(report: Report): any[] {
     const upiId = String(this.companyUpiPaymentDetails.upiId || '').trim();
     const upiMobile = String(this.companyUpiPaymentDetails.upiMobileNumber || '').trim();
-    const bankStack: any[] = [
-      { text: 'Company Bank Details', bold: true, fillColor: '#f7f7f7', margin: [0, 0, 0, 2] },
-      { text: `Bank Name: ${report.bankDetails.bankName}`, margin: [0, 1, 0, 0] },
-      { text: `A/c No.: ${report.bankDetails.accountNumber}`, margin: [0, 1, 0, 0] },
-      { text: `IFSC Code: ${report.bankDetails.ifsc}`, margin: [0, 1, 0, 0] },
-    ];
 
-    // When QR is missing, still show UPI text under bank details if configured.
-    if (!this.paymentQrDataUrl) {
-      if (upiId) {
-        bankStack.push({ text: `UPI ID: ${upiId}`, margin: [0, 3, 0, 0], bold: true });
-      }
-      if (upiMobile) {
-        bankStack.push({ text: `GPay / PhonePe: ${upiMobile}`, margin: [0, 3, 0, 0], bold: true });
-      }
-    }
-
+    // Restore original left/right bank cell: ~60% bank text, ~40% QR column.
     const columns: any[] = [
       {
         width: '*',
-        stack: bankStack,
+        stack: [
+          { text: 'Company Bank Details', bold: true, fillColor: '#f7f7f7', margin: [0, 0, 0, 2] },
+          { text: `Bank Name: ${report.bankDetails.bankName}`, margin: [0, 1, 0, 0] },
+          { text: `A/c No.: ${report.bankDetails.accountNumber}`, margin: [0, 1, 0, 0] },
+          { text: `IFSC Code: ${report.bankDetails.ifsc}`, margin: [0, 1, 0, 0] },
+          { text: `UPI ID: ${upiId}`, margin: [0, 3, 0, 0], bold: true },
+          { text: `UPI Number: ${upiMobile}`, margin: [0, 3, 0, 0], bold: true },
+        ],
       },
     ];
 
@@ -651,21 +699,18 @@ export class ManageReportComponent implements OnInit {
       const qrStack: any[] = [
         {
           image: this.paymentQrDataUrl,
-          fit: [110, 110],
+          width: this.paymentQrBoxPt,
+          height: this.paymentQrBoxPt,
           alignment: 'center',
-          margin: [0, 0, 0, 4],
+          margin: [0, 0, 0, 2],
         },
-        { text: 'Scan & Pay', alignment: 'center', bold: true, fontSize: 8, margin: [0, 0, 0, 3] },
+        { text: 'Scan & Pay', alignment: 'center', bold: true, fontSize: 8, margin: [0, 0, 0, 2] },
+        { text: `UPI ID: ${upiId}`, alignment: 'center', fontSize: 7, margin: [0, 0, 0, 1] },
+        { text: `UPI Number: ${upiMobile}`, alignment: 'center', fontSize: 7 },
       ];
-      if (upiId) {
-        qrStack.push({ text: `UPI ID:\n${upiId}`, alignment: 'center', fontSize: 7, margin: [0, 0, 0, 2] });
-      }
-      if (upiMobile) {
-        qrStack.push({ text: `GPay / PhonePe:\n${upiMobile}`, alignment: 'center', fontSize: 7 });
-      }
 
       columns.push({
-        width: 130,
+        width: 180,
         stack: qrStack,
         alignment: 'center',
       });
@@ -690,11 +735,12 @@ export class ManageReportComponent implements OnInit {
     const qrUrl = String(this.companyUpiPaymentDetails.upiQrImage || '').trim();
     if (!qrUrl) {
       this.paymentQrDataUrl = null;
+      this.paymentQrSourceUrl = null;
       this.paymentQrLoadPromise = null;
       return null;
     }
 
-    if (this.paymentQrDataUrl) {
+    if (this.paymentQrDataUrl && this.paymentQrSourceUrl === qrUrl) {
       return this.paymentQrDataUrl;
     }
 
@@ -724,19 +770,125 @@ export class ManageReportComponent implements OnInit {
 
   private async loadPaymentQrDataUrl(qrUrl: string): Promise<string | null> {
     try {
-      const response = await fetch(qrUrl);
-      if (!response.ok) {
-        return null;
+      const candidates = this.buildPaymentQrFetchCandidates(qrUrl);
+      console.log('QR Image Source:', qrUrl);
+      console.log('QR fetch candidates:', candidates);
+
+      for (const candidate of candidates) {
+        try {
+          const rawDataUrl = candidate.startsWith('data:')
+            ? candidate
+            : await this.fetchImageAsDataUrl(candidate);
+
+          if (!rawDataUrl || !rawDataUrl.startsWith('data:image/')) {
+            console.warn('QR candidate did not return an image data URL:', candidate);
+            continue;
+          }
+
+          const normalized = await this.normalizeQrImageDataUrl(rawDataUrl, this.paymentQrBoxPt);
+          if (!normalized || !normalized.startsWith('data:image/')) {
+            console.warn('QR normalize failed for candidate:', candidate);
+            continue;
+          }
+
+          this.paymentQrDataUrl = normalized;
+          this.paymentQrSourceUrl = qrUrl;
+          console.log('QR loaded for PDF from:', candidate);
+          return this.paymentQrDataUrl;
+        } catch (error) {
+          console.warn('QR fetch failed for candidate:', candidate, error);
+        }
       }
 
-      const blob = await response.blob();
-      this.paymentQrDataUrl = await this.blobToDataUrl(blob);
-      return this.paymentQrDataUrl;
-    } catch {
+      this.paymentQrDataUrl = null;
+      this.paymentQrSourceUrl = null;
+      console.error('QR image could not be loaded for PDF from any candidate.');
       return null;
     } finally {
       this.paymentQrLoadPromise = null;
     }
+  }
+
+  private buildPaymentQrFetchCandidates(qrUrl: string): string[] {
+    const raw = String(qrUrl || '').trim();
+    const candidates: string[] = [];
+    const add = (value: string) => {
+      const next = String(value || '').trim();
+      if (next && !candidates.includes(next)) {
+        candidates.push(next);
+      }
+    };
+
+    add(raw);
+    if (!raw || raw.startsWith('data:')) {
+      return candidates;
+    }
+
+    // Absolute public URL first (production API host). Relative /uploads is only a local-proxy fallback.
+    try {
+      const absolute = new URL(raw, window.location.origin);
+      add(absolute.href);
+      if (absolute.pathname.startsWith('/uploads/')) {
+        add(`${absolute.pathname}${absolute.search}`);
+      }
+    } catch {
+      // Ignore invalid URL; keep original candidate.
+    }
+
+    if (raw.startsWith('/uploads/')) {
+      add(raw);
+    }
+
+    return candidates;
+  }
+
+  private async fetchImageAsDataUrl(url: string): Promise<string | null> {
+    const response = await fetch(url, { mode: 'cors', credentials: 'omit', cache: 'no-cache' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} for ${url}`);
+    }
+
+    const blob = await response.blob();
+    const mime = String(blob.type || '').toLowerCase();
+    if (mime && !mime.startsWith('image/')) {
+      throw new Error(`Non-image response (${mime || 'unknown'}) for ${url}`);
+    }
+
+    return this.blobToDataUrl(blob);
+  }
+
+  private normalizeQrImageDataUrl(dataUrl: string, boxSize: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = boxSize;
+          canvas.height = boxSize;
+          const ctx = canvas.getContext('2d');
+          if (!ctx || !img.width || !img.height) {
+            resolve(dataUrl);
+            return;
+          }
+
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, boxSize, boxSize);
+
+          // Contain inside the square; never upscale past original pixel size.
+          const scale = Math.min(1, boxSize / img.width, boxSize / img.height);
+          const drawW = img.width * scale;
+          const drawH = img.height * scale;
+          const dx = (boxSize - drawW) / 2;
+          const dy = (boxSize - drawH) / 2;
+          ctx.drawImage(img, dx, dy, drawW, drawH);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      img.onerror = () => reject(new Error('Failed to decode QR image for PDF'));
+      img.src = dataUrl;
+    });
   }
 
   private blobToDataUrl(blob: Blob): Promise<string> {

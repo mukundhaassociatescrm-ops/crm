@@ -145,6 +145,24 @@ export class AuthService {
     return this.http.put<any>('/api/auth/profile', data);
   }
 
+  getCompanyPaymentDetails(): Observable<{
+    success: boolean;
+    data?: {
+      bankDetails?: ProfileBankDetails;
+      upiPaymentDetails?: ProfileUpiPaymentDetails;
+    };
+    message?: string;
+  }> {
+    return this.http.get<{
+      success: boolean;
+      data?: {
+        bankDetails?: ProfileBankDetails;
+        upiPaymentDetails?: ProfileUpiPaymentDetails;
+      };
+      message?: string;
+    }>('/api/auth/company-payment-details');
+  }
+
   uploadProfileFile(file: File): Observable<{ success: boolean; data?: { url: string; fileName?: string; mimeType?: string }; message?: string }> {
     const formData = new FormData();
     formData.append('file', file);

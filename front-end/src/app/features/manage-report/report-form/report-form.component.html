@@ -114,7 +114,7 @@
         <h3>Bank Details</h3>
         <p class="section-note">These values are managed in Admin My Profile.</p>
 
-        <div class="bank-layout">
+        <div class="bank-layout" [class.has-qr]="hasUpiQrImage">
           <div class="bank-fields" formGroupName="bankDetails">
             <label class="form-field">
               <span class="field-label">Bank Name</span>
@@ -130,18 +130,17 @@
             </label>
           </div>
 
-          <aside class="bank-qr" *ngIf="showUpiCard">
+          <aside class="bank-qr" *ngIf="hasUpiQrImage">
             <div class="payment-qr-card">
-              <img
-                *ngIf="hasUpiQrImage"
-                [src]="upiQrImageUrl"
-                alt="Scan &amp; Pay QR code"
-                width="180"
-                height="180"
-              >
-              <span class="qr-title" *ngIf="hasUpiQrImage">Scan &amp; Pay</span>
+              <div class="payment-qr-frame">
+                <img
+                  [src]="upiQrImageUrl"
+                  alt="Scan &amp; Pay QR code"
+                >
+              </div>
+              <span class="qr-title">Scan &amp; Pay</span>
               <span class="qr-upi" *ngIf="upiIdLabel">UPI ID: {{ upiIdLabel }}</span>
-              <span class="qr-upi" *ngIf="upiMobileLabel">GPay / PhonePe: {{ upiMobileLabel }}</span>
+              <span class="qr-upi" *ngIf="upiMobileLabel">UPI Number: {{ upiMobileLabel }}</span>
             </div>
           </aside>
 

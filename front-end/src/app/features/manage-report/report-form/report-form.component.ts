@@ -88,10 +88,6 @@ export class ReportFormComponent implements OnChanges {
     return String(this.upiPaymentDetails?.upiMobileNumber || '').trim();
   }
 
-  get showUpiCard(): boolean {
-    return this.hasUpiQrImage || !!this.upiIdLabel || !!this.upiMobileLabel;
-  }
-
   get itemsArray(): FormArray<FormGroup> {
     return this.form.get('items') as FormArray<FormGroup>;
   }

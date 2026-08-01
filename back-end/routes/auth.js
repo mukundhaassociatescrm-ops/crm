@@ -1,5 +1,13 @@
 const express = require('express');
-const { login, updateProfile, checkUser, setPassword, createPassword, createAdmin } = require('../controllers/authController');
+const {
+  login,
+  updateProfile,
+  getCompanyPaymentDetails,
+  checkUser,
+  setPassword,
+  createPassword,
+  createAdmin,
+} = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRole } = require('../middleware/roleMiddleware');
 const router = express.Router();
@@ -66,6 +74,7 @@ router.post('/check-user', checkUser);
 router.post('/create-password', createPassword);
 router.post('/set-password', setPassword);
 router.put('/profile', protect, updateProfile);
+router.get('/company-payment-details', protect, authorizeRole('admin'), getCompanyPaymentDetails);
 
 /**
  * @openapi

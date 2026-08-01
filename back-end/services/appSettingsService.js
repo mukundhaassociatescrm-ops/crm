@@ -55,14 +55,26 @@ const normalizeUpiPaymentDetails = (upiPaymentDetails = {}) => {
   };
 };
 
+const toPlainObject = (value) => {
+  if (!value) {
+    return null;
+  }
+  if (typeof value.toObject === 'function') {
+    return value.toObject();
+  }
+  return value;
+};
+
 const serializeSettings = (doc) => ({
   ownerNotificationsEnabled: Boolean(doc?.ownerNotificationsEnabled),
   ownerWhatsappNumber: String(doc?.ownerWhatsappNumber || '').trim(),
   whatsappDailyTemplateLimit: Number(doc?.whatsappDailyTemplateLimit) > 0
     ? Number(doc.whatsappDailyTemplateLimit)
     : DEFAULT_SETTINGS.whatsappDailyTemplateLimit,
-  bankDetails: normalizeBankDetails(doc?.bankDetails || DEFAULT_BANK_DETAILS),
-  upiPaymentDetails: normalizeUpiPaymentDetails(doc?.upiPaymentDetails || DEFAULT_UPI_PAYMENT_DETAILS),
+  bankDetails: normalizeBankDetails(toPlainObject(doc?.bankDetails) || DEFAULT_BANK_DETAILS),
+  upiPaymentDetails: normalizeUpiPaymentDetails(
+    toPlainObject(doc?.upiPaymentDetails) || DEFAULT_UPI_PAYMENT_DETAILS
+  ),
 });
 
 const getAppSettings = async () => {
@@ -101,11 +113,13 @@ const updateAppSettings = async (partial = {}, userId = null) => {
   }
 
   if (partial.bankDetails !== undefined) {
-    settings.bankDetails = normalizeBankDetails(partial.bankDetails);
+    settings.set('bankDetails', normalizeBankDetails(partial.bankDetails));
+    settings.markModified('bankDetails');
   }
 
   if (partial.upiPaymentDetails !== undefined) {
-    settings.upiPaymentDetails = normalizeUpiPaymentDetails(partial.upiPaymentDetails);
+    settings.set('upiPaymentDetails', normalizeUpiPaymentDetails(partial.upiPaymentDetails));
+    settings.markModified('upiPaymentDetails');
   }
 
   if (userId) {

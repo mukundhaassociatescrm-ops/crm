@@ -1,8 +1,10 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
-const { normalizeRole } = require('../utils/roles');
+const { normalizeRole, hasRequiredRole } = require('../utils/roles');
 const { getAppSettingsPayload, updateAppSettings } = require('../services/appSettingsService');
+
+const canManageCompanySettings = (role) => hasRequiredRole(role, ['admin']);
 
 const generateToken = (user) => {
   return jwt.sign({ id: user._id, tokenVersion: user.tokenVersion || 0 }, process.env.JWT_SECRET, { expiresIn: '24h' });
@@ -84,13 +86,31 @@ exports.login = async (req, res, next) => {
 
     const token = generateToken(user);
     const role = normalizeRole(accountContext.effectiveRole || user.role);
-    const appSettings = role === 'admin' ? await getAppSettingsPayload() : null;
+    const appSettings = canManageCompanySettings(role) ? await getAppSettingsPayload() : null;
 
     res.status(200).json({
       success: true,
       data: {
         user: serializeUser(user, accountContext, appSettings),
         token,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getCompanyPaymentDetails = async (req, res, next) => {
+  try {
+    const settings = await getAppSettingsPayload();
+    console.log('[company-payment-details] upiQrImage:', settings?.upiPaymentDetails?.upiQrImage || '(empty)');
+    console.log('[company-payment-details] upiId:', settings?.upiPaymentDetails?.upiId || '(empty)');
+    console.log('[company-payment-details] upiMobileNumber:', settings?.upiPaymentDetails?.upiMobileNumber || '(empty)');
+    res.status(200).json({
+      success: true,
+      data: {
+        bankDetails: settings.bankDetails,
+        upiPaymentDetails: settings.upiPaymentDetails,
       },
     });
   } catch (error) {
@@ -129,9 +149,10 @@ exports.updateProfile = async (req, res, next) => {
 
     await user.save();
 
-    const role = normalizeRole(user.role);
+    const accountContext = await getEmployeeAccountContext(user.email);
+    const role = normalizeRole(accountContext.effectiveRole || user.role);
     let appSettings = null;
-    if (role === 'admin') {
+    if (canManageCompanySettings(role)) {
       const limitRaw = whatsappDailyTemplateLimit ?? req.body?.safeDailyLimit;
       appSettings = await updateAppSettings(
         {
@@ -153,6 +174,8 @@ exports.updateProfile = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role,
+        isTemporaryAdmin: !!accountContext.isTemporaryAdmin,
+        isEmployeeAccount: !!accountContext.isEmployeeAccount,
         ...(appSettings
           ? {
               bankDetails: appSettings.bankDetails,
@@ -271,7 +294,7 @@ exports.setPassword = async (req, res, next) => {
 
     const token = generateToken(user);
     const role = normalizeRole(accountContext.effectiveRole || user.role);
-    const appSettings = role === 'admin' ? await getAppSettingsPayload() : null;
+    const appSettings = canManageCompanySettings(role) ? await getAppSettingsPayload() : null;
 
     res.status(200).json({
       success: true,

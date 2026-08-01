@@ -120,19 +120,24 @@ export class ProfileComponent implements OnInit {
 
   ngOnInit(): void {
     this.currentUser = this.authService.getUser();
-    const profileBankDetails = this.currentUser?.bankDetails || DEFAULT_BANK_DETAILS;
+    this.hydrateProfileFormFromUser(this.currentUser);
+    this.loadCompanyPaymentDetailsFromApi();
+  }
+
+  private hydrateProfileFormFromUser(user: any): void {
+    const profileBankDetails = user?.bankDetails || DEFAULT_BANK_DETAILS;
     const profileUpiDetails: ProfileUpiPaymentDetails = {
       ...DEFAULT_UPI_PAYMENT_DETAILS,
-      ...(this.currentUser?.upiPaymentDetails || {}),
+      ...(user?.upiPaymentDetails || {}),
     };
 
-    if (this.currentUser) {
+    if (user) {
       this.profileForm.patchValue({
-        name: this.currentUser.name,
-        email: this.currentUser.email,
-        ownerNotificationsEnabled: !!this.currentUser.ownerNotificationsEnabled,
-        ownerWhatsappNumber: this.currentUser.ownerWhatsappNumber || '',
-        whatsappDailyTemplateLimit: this.currentUser.whatsappDailyTemplateLimit || 200,
+        name: user.name,
+        email: user.email,
+        ownerNotificationsEnabled: !!user.ownerNotificationsEnabled,
+        ownerWhatsappNumber: user.ownerWhatsappNumber || '',
+        whatsappDailyTemplateLimit: user.whatsappDailyTemplateLimit || 200,
         bankDetails: profileBankDetails,
         upiPaymentDetails: profileUpiDetails,
       });
@@ -143,6 +148,43 @@ export class ProfileComponent implements OnInit {
       this.profileForm.get('bankDetails')?.disable({ emitEvent: false });
       this.profileForm.get('upiPaymentDetails')?.disable({ emitEvent: false });
     }
+  }
+
+  private loadCompanyPaymentDetailsFromApi(): void {
+    if (!this.isAdmin) {
+      return;
+    }
+
+    this.authService.getCompanyPaymentDetails().subscribe({
+      next: (res) => {
+        if (!res?.success || !res.data) {
+          return;
+        }
+
+        const profileBankDetails = res.data.bankDetails || DEFAULT_BANK_DETAILS;
+        const profileUpiDetails: ProfileUpiPaymentDetails = {
+          ...DEFAULT_UPI_PAYMENT_DETAILS,
+          ...(res.data.upiPaymentDetails || {}),
+        };
+
+        this.profileForm.patchValue({
+          bankDetails: profileBankDetails,
+          upiPaymentDetails: profileUpiDetails,
+        });
+        this.upiQrPreviewUrl = String(profileUpiDetails.upiQrImage || '').trim();
+
+        const updatedUser = {
+          ...(this.currentUser || {}),
+          bankDetails: profileBankDetails,
+          upiPaymentDetails: profileUpiDetails,
+        };
+        this.currentUser = updatedUser;
+        this.authService.saveUser(updatedUser);
+      },
+      error: () => {
+        // Keep session values if company details API is unavailable.
+      },
+    });
   }
 
   onUpiQrSelected(event: Event): void {
