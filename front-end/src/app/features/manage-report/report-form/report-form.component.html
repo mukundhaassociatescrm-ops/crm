@@ -114,35 +114,39 @@
         <h3>Bank Details</h3>
         <p class="section-note">These values are managed in Admin My Profile.</p>
 
-        <div class="bank-layout" [class.has-qr]="hasUpiQrImage">
-          <div class="bank-fields" formGroupName="bankDetails">
-            <label class="form-field">
-              <span class="field-label">Bank Name</span>
-              <input type="text" formControlName="bankName" readonly>
-            </label>
-            <label class="form-field">
-              <span class="field-label">Account Number</span>
-              <input type="text" formControlName="accountNumber" readonly>
-            </label>
-            <label class="form-field">
-              <span class="field-label">IFSC</span>
-              <input type="text" formControlName="ifsc" readonly>
-            </label>
-          </div>
-
-          <aside class="bank-qr" *ngIf="hasUpiQrImage">
-            <div class="payment-qr-card">
-              <div class="payment-qr-frame">
-                <img
-                  [src]="upiQrImageUrl"
-                  alt="Scan &amp; Pay QR code"
-                >
+        <div class="bank-section-layout">
+          <div class="company-bank-details">
+            <div class="company-bank-grid" [class.has-qr]="hasUpiQrImage">
+              <div class="bank-fields" formGroupName="bankDetails">
+                <label class="form-field">
+                  <span class="field-label">Bank Name</span>
+                  <input type="text" formControlName="bankName" readonly>
+                </label>
+                <label class="form-field">
+                  <span class="field-label">Account Number</span>
+                  <input type="text" formControlName="accountNumber" readonly>
+                </label>
+                <label class="form-field">
+                  <span class="field-label">IFSC</span>
+                  <input type="text" formControlName="ifsc" readonly>
+                </label>
+                <div class="form-field" *ngIf="upiIdLabel">
+                  <span class="field-label">UPI ID</span>
+                  <input type="text" [value]="upiIdLabel" readonly>
+                </div>
+                <div class="form-field" *ngIf="upiMobileLabel">
+                  <span class="field-label">UPI Number</span>
+                  <input type="text" [value]="upiMobileLabel" readonly>
+                </div>
               </div>
-              <span class="qr-title">Scan &amp; Pay</span>
-              <span class="qr-upi" *ngIf="upiIdLabel">UPI ID: {{ upiIdLabel }}</span>
-              <span class="qr-upi" *ngIf="upiMobileLabel">UPI Number: {{ upiMobileLabel }}</span>
+
+              <aside class="bank-qr" *ngIf="hasUpiQrImage">
+                <div class="payment-qr-frame">
+                  <img [src]="upiQrImageUrl" alt="Payment QR code">
+                </div>
+              </aside>
             </div>
-          </aside>
+          </div>
 
           <label class="form-field bank-declaration">
             <span class="field-label">Declaration</span>

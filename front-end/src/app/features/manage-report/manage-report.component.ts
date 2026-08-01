@@ -52,7 +52,9 @@ export class ManageReportComponent implements OnInit {
   private readonly logoPath = 'assets/invoice-logo-banner.png';
   private readonly logoCellWidthPt = 82;
   private readonly logoCellBackground = '#132348';
-  private readonly paymentQrBoxPt = 175;
+  private readonly paymentQrBoxPt = 200;
+  /** High-DPI factor so a fixed 200pt QR stays sharp in the PDF. */
+  private readonly paymentQrRenderScale = 3;
   private logoDataUrl: string | null = null;
   private paymentQrDataUrl: string | null = null;
   private paymentQrSourceUrl: string | null = null;
@@ -629,21 +631,19 @@ export class ManageReportComponent implements OnInit {
         },
         {
           table: {
-            widths: ['*', '*'],
+            // Fixed footer proportions — image size must never change these widths.
+            widths: ['70%', '30%'],
             body: [
               [
-                {
-                  columns: this.buildBankAndUpiColumns(report),
-                  columnGap: 10,
-                },
+                this.buildCompanyBankDetailsBlock(report),
                 [
                   { text: 'Declaration', bold: true, fillColor: '#f7f7f7' },
                   { text: report.declaration, margin: [0, 1, 0, 0] },
                   { text: '\n\n\nfor ' + this.company.name, alignment: 'right', bold: true },
                   { text: '\nAuthorized Signatory', alignment: 'right' },
-                ]
-              ]
-            ]
+                ],
+              ],
+            ],
           },
           layout: {
             hLineWidth: () => 1,
@@ -676,47 +676,58 @@ export class ManageReportComponent implements OnInit {
     };
   }
 
-  private buildBankAndUpiColumns(report: Report): any[] {
+  private buildCompanyBankDetailsBlock(report: Report): any {
     const upiId = String(this.companyUpiPaymentDetails.upiId || '').trim();
     const upiMobile = String(this.companyUpiPaymentDetails.upiMobileNumber || '').trim();
 
-    // Restore original left/right bank cell: ~60% bank text, ~40% QR column.
-    const columns: any[] = [
-      {
-        width: '*',
-        stack: [
-          { text: 'Company Bank Details', bold: true, fillColor: '#f7f7f7', margin: [0, 0, 0, 2] },
-          { text: `Bank Name: ${report.bankDetails.bankName}`, margin: [0, 1, 0, 0] },
-          { text: `A/c No.: ${report.bankDetails.accountNumber}`, margin: [0, 1, 0, 0] },
-          { text: `IFSC Code: ${report.bankDetails.ifsc}`, margin: [0, 1, 0, 0] },
-          { text: `UPI ID: ${upiId}`, margin: [0, 3, 0, 0], bold: true },
-          { text: `UPI Number: ${upiMobile}`, margin: [0, 3, 0, 0], bold: true },
-        ],
-      },
+    const bankFieldsStack: any[] = [
+      { text: `Bank Name: ${report.bankDetails.bankName}`, margin: [0, 1, 0, 0], noWrap: true },
+      { text: `A/c No.: ${report.bankDetails.accountNumber}`, margin: [0, 1, 0, 0] },
+      { text: `IFSC Code: ${report.bankDetails.ifsc}`, margin: [0, 1, 0, 0] },
+      { text: `UPI ID: ${upiId}`, margin: [0, 3, 0, 0], bold: true },
+      { text: `UPI Number: ${upiMobile}`, margin: [0, 3, 0, 0], bold: true },
     ];
 
-    if (this.paymentQrDataUrl) {
-      const qrStack: any[] = [
-        {
-          image: this.paymentQrDataUrl,
-          width: this.paymentQrBoxPt,
-          height: this.paymentQrBoxPt,
-          alignment: 'center',
-          margin: [0, 0, 0, 2],
-        },
-        { text: 'Scan & Pay', alignment: 'center', bold: true, fontSize: 8, margin: [0, 0, 0, 2] },
-        { text: `UPI ID: ${upiId}`, alignment: 'center', fontSize: 7, margin: [0, 0, 0, 1] },
-        { text: `UPI Number: ${upiMobile}`, alignment: 'center', fontSize: 7 },
-      ];
+    const header = {
+      text: 'Company Bank Details',
+      bold: true,
+      fillColor: '#f7f7f7',
+      margin: [0, 0, 0, 4],
+    };
 
-      columns.push({
-        width: 180,
-        stack: qrStack,
-        alignment: 'center',
-      });
+    if (!this.paymentQrDataUrl) {
+      return {
+        stack: [header, ...bankFieldsStack],
+      };
     }
 
-    return columns;
+    // Fixed internal layout: bank text takes remaining width, QR slot is always 200×200.
+    return {
+      stack: [
+        header,
+        {
+          columns: [
+            {
+              width: '*',
+              stack: bankFieldsStack,
+            },
+            {
+              width: this.paymentQrBoxPt,
+              alignment: 'center',
+              stack: [
+                {
+                  image: this.paymentQrDataUrl,
+                  width: this.paymentQrBoxPt,
+                  height: this.paymentQrBoxPt,
+                  alignment: 'center',
+                },
+              ],
+            },
+          ],
+          columnGap: 8,
+        },
+      ],
+    };
   }
 
   private async ensureLogoDataUrl(): Promise<string | null> {
@@ -785,13 +796,10 @@ export class ManageReportComponent implements OnInit {
             continue;
           }
 
-          const normalized = await this.normalizeQrImageDataUrl(rawDataUrl, this.paymentQrBoxPt);
-          if (!normalized || !normalized.startsWith('data:image/')) {
-            console.warn('QR normalize failed for candidate:', candidate);
-            continue;
-          }
-
-          this.paymentQrDataUrl = normalized;
+          // Fit original image into a fixed 200×200 PDF slot (high-DPI canvas keeps it sharp).
+          // Layout size is always 200×200 — never driven by upload dimensions.
+          const fitted = await this.fitQrIntoFixedPdfBox(rawDataUrl);
+          this.paymentQrDataUrl = fitted;
           this.paymentQrSourceUrl = qrUrl;
           console.log('QR loaded for PDF from:', candidate);
           return this.paymentQrDataUrl;
@@ -807,6 +815,44 @@ export class ManageReportComponent implements OnInit {
     } finally {
       this.paymentQrLoadPromise = null;
     }
+  }
+
+  private fitQrIntoFixedPdfBox(dataUrl: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const boxPx = Math.round(this.paymentQrBoxPt * this.paymentQrRenderScale);
+          const canvas = document.createElement('canvas');
+          canvas.width = boxPx;
+          canvas.height = boxPx;
+          const ctx = canvas.getContext('2d');
+          if (!ctx || !img.naturalWidth || !img.naturalHeight) {
+            reject(new Error('Unable to prepare QR image for PDF'));
+            return;
+          }
+
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, boxPx, boxPx);
+
+          // Contain inside the fixed box; never upscale past native resolution.
+          const scale = Math.min(1, boxPx / img.naturalWidth, boxPx / img.naturalHeight);
+          const drawW = img.naturalWidth * scale;
+          const drawH = img.naturalHeight * scale;
+          const dx = (boxPx - drawW) / 2;
+          const dy = (boxPx - drawH) / 2;
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, dx, dy, drawW, drawH);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      img.onerror = () => reject(new Error('Failed to decode QR image for PDF'));
+      img.src = dataUrl;
+    });
   }
 
   private buildPaymentQrFetchCandidates(qrUrl: string): string[] {
@@ -855,40 +901,6 @@ export class ManageReportComponent implements OnInit {
     }
 
     return this.blobToDataUrl(blob);
-  }
-
-  private normalizeQrImageDataUrl(dataUrl: string, boxSize: number): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = boxSize;
-          canvas.height = boxSize;
-          const ctx = canvas.getContext('2d');
-          if (!ctx || !img.width || !img.height) {
-            resolve(dataUrl);
-            return;
-          }
-
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, boxSize, boxSize);
-
-          // Contain inside the square; never upscale past original pixel size.
-          const scale = Math.min(1, boxSize / img.width, boxSize / img.height);
-          const drawW = img.width * scale;
-          const drawH = img.height * scale;
-          const dx = (boxSize - drawW) / 2;
-          const dy = (boxSize - drawH) / 2;
-          ctx.drawImage(img, dx, dy, drawW, drawH);
-          resolve(canvas.toDataURL('image/png'));
-        } catch (error) {
-          reject(error);
-        }
-      };
-      img.onerror = () => reject(new Error('Failed to decode QR image for PDF'));
-      img.src = dataUrl;
-    });
   }
 
   private blobToDataUrl(blob: Blob): Promise<string> {

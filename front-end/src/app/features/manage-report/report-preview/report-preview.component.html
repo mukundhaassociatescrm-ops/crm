@@ -68,7 +68,7 @@
   <div class="bottom-grid">
     <div class="bank-block">
       <h4>Bank Details</h4>
-      <div class="bank-with-qr">
+      <div class="bank-with-qr" [class.has-qr]="showUpiQr">
         <div class="bank-text">
           <p>Bank: {{ data.bankDetails?.bankName || '-' }}</p>
           <p>A/C No: {{ data.bankDetails?.accountNumber || '-' }}</p>
@@ -81,12 +81,9 @@
             <img
               class="payment-qr-img"
               [src]="upiQrImageUrl"
-              alt="Scan &amp; Pay QR code"
+              alt="Payment QR code"
             >
           </div>
-          <p class="upi-id">Scan &amp; Pay</p>
-          <p class="upi-id" *ngIf="upiIdLabel">UPI ID: {{ upiIdLabel }}</p>
-          <p class="upi-id" *ngIf="upiMobileLabel">UPI Number: {{ upiMobileLabel }}</p>
         </div>
       </div>
     </div>

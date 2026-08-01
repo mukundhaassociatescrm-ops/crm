@@ -319,19 +319,29 @@
 
 .upi-qr-preview {
   margin-top: 10px;
-  width: min(220px, 100%);
+  width: 200px;
+  height: 200px;
+  max-width: 200px;
+  max-height: 200px;
   border: 1px solid #dbe3ef;
   border-radius: 12px;
   background: #f8fafc;
-  padding: 10px;
+  padding: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
 
   img {
     display: block;
     width: 100%;
-    height: auto;
-    aspect-ratio: 1;
+    height: 100%;
     object-fit: contain;
-    border-radius: 8px;
+    object-position: center;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
     background: #fff;
   }
 }

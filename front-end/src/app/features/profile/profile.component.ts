@@ -25,6 +25,7 @@ const DEFAULT_UPI_PAYMENT_DETAILS: ProfileUpiPaymentDetails = {
 };
 
 const UPI_QR_MAX_BYTES = 2 * 1024 * 1024;
+const UPI_QR_MIN_EDGE = 500;
 const UPI_QR_ALLOWED_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png']);
 
 function optionalTenDigitPhone(control: AbstractControl): ValidationErrors | null {
@@ -207,14 +208,49 @@ export class ProfileComponent implements OnInit {
       return;
     }
 
-    this.pendingUpiQrFile = file;
-    this.upiQrRemoved = false;
+    void this.acceptUpiQrFile(file);
+  }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      this.upiQrPreviewUrl = String(reader.result || '');
-    };
-    reader.readAsDataURL(file);
+  private async acceptUpiQrFile(file: File): Promise<void> {
+    try {
+      const dimensions = await this.readImageDimensions(file);
+      if (dimensions.width < UPI_QR_MIN_EDGE || dimensions.height < UPI_QR_MIN_EDGE) {
+        this.toastr.error(
+          'Please upload a high-resolution QR code (minimum 500×500 pixels).',
+          'Validation Error',
+        );
+        return;
+      }
+
+      this.pendingUpiQrFile = file;
+      this.upiQrRemoved = false;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.upiQrPreviewUrl = String(reader.result || '');
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      this.toastr.error('Unable to read the selected image. Please try another file.', 'Validation Error');
+    }
+  }
+
+  private readImageDimensions(file: File): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const width = img.naturalWidth || img.width || 0;
+        const height = img.naturalHeight || img.height || 0;
+        URL.revokeObjectURL(objectUrl);
+        resolve({ width, height });
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load image'));
+      };
+      img.src = objectUrl;
+    });
   }
 
   removeUpiQrImage(): void {
