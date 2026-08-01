@@ -42,8 +42,11 @@ export class ManageReportComponent implements OnInit {
   selectedReport: Report | null = null;
   companyBankDetails: CompanyBankDetails = DEFAULT_COMPANY_BANK_DETAILS;
   private readonly logoPath = 'assets/Logo.png';
+  private readonly paymentQrPath = 'assets/payment-qr.png';
   private logoDataUrl: string | null = null;
+  private paymentQrDataUrl: string | null = null;
   private logoLoadPromise: Promise<string | null> | null = null;
+  private paymentQrLoadPromise: Promise<string | null> | null = null;
 
   readonly company = {
     name: 'MUKUNDHA ASSOCIATES',
@@ -62,6 +65,7 @@ export class ManageReportComponent implements OnInit {
   ngOnInit(): void {
     this.syncCompanyBankDetailsFromSession();
     void this.ensureLogoDataUrl();
+    void this.ensurePaymentQrDataUrl();
     this.loadReports();
   }
 
@@ -165,7 +169,7 @@ export class ManageReportComponent implements OnInit {
   }
 
   async onDownload(report: Report): Promise<void> {
-    await this.ensureLogoDataUrl();
+    await Promise.all([this.ensureLogoDataUrl(), this.ensurePaymentQrDataUrl()]);
     const docDefinition = this.buildPdfDefinition(report);
     pdfMake.createPdf(docDefinition as any).download(`${report.invoiceNumber}.pdf`);
   }
@@ -470,12 +474,31 @@ export class ManageReportComponent implements OnInit {
             widths: ['*', '*'],
             body: [
               [
-                [
-                  { text: 'Company Bank Details', bold: true, fillColor: '#f7f7f7' },
-                  { text: `Bank Name: ${report.bankDetails.bankName}`, margin: [0, 1, 0, 0] },
-                  { text: `A/c No.: ${report.bankDetails.accountNumber}`, margin: [0, 1, 0, 0] },
-                  { text: `IFSC Code: ${report.bankDetails.ifsc}`, margin: [0, 1, 0, 0] },
-                ],
+                {
+                  columns: [
+                    {
+                      width: 'auto',
+                      stack: [
+                        { text: 'Company Bank Details', bold: true, fillColor: '#f7f7f7', margin: [0, 0, 0, 2] },
+                        { text: `Bank Name: ${report.bankDetails.bankName}`, margin: [0, 1, 0, 0] },
+                        { text: `A/c No.: ${report.bankDetails.accountNumber}`, margin: [0, 1, 0, 0] },
+                        { text: `IFSC Code: ${report.bankDetails.ifsc}`, margin: [0, 1, 0, 0] },
+                        { text: 'UPI ID: mukundhaassociates@sbi', margin: [0, 3, 0, 0], bold: true },
+                        { text: 'UPI NUumber: 8508169948', margin: [0, 3, 0, 0], bold: true },
+                      ],
+                    },
+                    this.paymentQrDataUrl
+                      ? {
+                          width: 140,
+                          image: this.paymentQrDataUrl,
+                          fit: [130, 130],
+                          alignment: 'right',
+                          margin: [0, 0, 0, 0],
+                        }
+                      : { width: 0, text: '' },
+                  ],
+                  columnGap: 10,
+                },
                 [
                   { text: 'Declaration', bold: true, fillColor: '#f7f7f7' },
                   { text: report.declaration, margin: [0, 1, 0, 0] },
@@ -528,6 +551,18 @@ export class ManageReportComponent implements OnInit {
     return this.logoLoadPromise;
   }
 
+  private async ensurePaymentQrDataUrl(): Promise<string | null> {
+    if (this.paymentQrDataUrl) {
+      return this.paymentQrDataUrl;
+    }
+
+    if (!this.paymentQrLoadPromise) {
+      this.paymentQrLoadPromise = this.loadPaymentQrDataUrl();
+    }
+
+    return this.paymentQrLoadPromise;
+  }
+
   private async loadLogoDataUrl(): Promise<string | null> {
     try {
       const response = await fetch(this.logoPath);
@@ -542,6 +577,23 @@ export class ManageReportComponent implements OnInit {
       return null;
     } finally {
       this.logoLoadPromise = null;
+    }
+  }
+
+  private async loadPaymentQrDataUrl(): Promise<string | null> {
+    try {
+      const response = await fetch(this.paymentQrPath);
+      if (!response.ok) {
+        return null;
+      }
+
+      const blob = await response.blob();
+      this.paymentQrDataUrl = await this.blobToDataUrl(blob);
+      return this.paymentQrDataUrl;
+    } catch {
+      return null;
+    } finally {
+      this.paymentQrLoadPromise = null;
     }
   }
 

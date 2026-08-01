@@ -4,11 +4,19 @@ import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } fr
 import { Report, ReportBankDetails, ReportItem, ReportPayload } from '../report.service';
 import { ReportPreviewComponent } from '../report-preview/report-preview.component';
 import { DateTimePickerComponent } from '../../../shared/components/date-time-picker/date-time-picker.component';
+import { AutocompleteTextComponent } from '../../../shared/components/autocomplete-text/autocomplete-text.component';
+import { REPORT_DESCRIPTION_SUGGESTIONS } from '../report-description-suggestions';
 
 @Component({
   selector: 'app-report-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ReportPreviewComponent, DateTimePickerComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    ReportPreviewComponent,
+    DateTimePickerComponent,
+    AutocompleteTextComponent,
+  ],
   templateUrl: './report-form.component.html',
   styleUrls: ['./report-form.component.scss']
 })
@@ -22,6 +30,7 @@ export class ReportFormComponent implements OnChanges {
   @Output() cancel = new EventEmitter<void>();
 
   readonly taxRate = 0.09;
+  readonly descriptionSuggestions = REPORT_DESCRIPTION_SUGGESTIONS;
 
   readonly form = this.fb.group({
     date: ['', Validators.required],

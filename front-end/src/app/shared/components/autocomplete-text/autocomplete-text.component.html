@@ -1,0 +1,37 @@
+<div class="autocomplete-text" [class.is-open]="showDropdown">
+  <input
+    #textInput
+    type="text"
+    class="autocomplete-text__input"
+    [attr.id]="inputId || null"
+    [value]="value"
+    [placeholder]="placeholder"
+    [disabled]="isDisabled"
+    autocomplete="off"
+    (input)="onInput($event)"
+    (focus)="onFocus()"
+    (blur)="onBlur()"
+    (keydown)="onKeyDown($event)"
+  >
+
+  <ul
+    class="autocomplete-text__list"
+    *ngIf="showDropdown"
+    role="listbox"
+  >
+    <li
+      *ngFor="let suggestion of filteredSuggestions; let i = index; trackBy: trackBySuggestion"
+      class="autocomplete-text__item"
+      [class.is-active]="i === activeIndex"
+      role="option"
+      [attr.aria-selected]="i === activeIndex"
+      (pointerdown)="onSuggestionPointerDown($event, suggestion)"
+      (mouseenter)="onSuggestionMouseEnter(i)"
+    >
+      <span
+        *ngFor="let part of getHighlightParts(suggestion)"
+        [class.autocomplete-text__match]="part.match"
+      >{{ part.text }}</span>
+    </li>
+  </ul>
+</div>

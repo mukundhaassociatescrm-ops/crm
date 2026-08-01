@@ -3,22 +3,22 @@
     <h2>{{ viewMode ? 'View Report' : (editMode ? 'Edit Report' : 'Create Report') }}</h2>
 
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
-      <div class="form-grid">
-        <label>
-          Date
+      <div class="form-grid report-meta">
+        <label class="form-field">
+          <span class="field-label">Date</span>
           <app-date-time-picker
             formControlName="date"
             placeholder="Select date and time">
           </app-date-time-picker>
         </label>
 
-        <label>
-          Place of Supply
+        <label class="form-field">
+          <span class="field-label">Place of Supply</span>
           <input type="text" formControlName="placeOfSupply" placeholder="Tamil Nadu">
         </label>
 
-        <label>
-          Status
+        <label class="form-field">
+          <span class="field-label">Status</span>
           <select formControlName="status">
             <option value="Pending">Pending</option>
             <option value="Paid">Paid</option>
@@ -26,12 +26,23 @@
         </label>
       </div>
 
-      <div formGroupName="client" class="section">
+      <div formGroupName="client" class="section client-section">
         <h3>Client Details</h3>
         <div class="form-grid">
-          <label>Client Name<input type="text" formControlName="name"></label>
-          <label>GST<input type="text" formControlName="gst"></label>
-          <label class="full">Address<textarea rows="2" formControlName="address"></textarea></label>
+          <label class="form-field">
+            <span class="field-label">Client Name</span>
+            <input type="text" formControlName="name">
+          </label>
+
+          <label class="form-field">
+            <span class="field-label">GST</span>
+            <input type="text" formControlName="gst">
+          </label>
+
+          <label class="form-field span-full">
+            <span class="field-label">Address</span>
+            <textarea formControlName="address" class="address-field"></textarea>
+          </label>
         </div>
       </div>
 
@@ -42,44 +53,96 @@
         </div>
 
         <div class="item-table">
-          <div class="item-head row">
-            <span>Description</span>
-            <span>HSN/SAC</span>
-            <span>Qty</span>
-            <span>Rate</span>
-            <span>Amount</span>
-            <span>Action</span>
+          <div class="item-head item-row">
+            <span class="col-desc">Description</span>
+            <span class="col-hsn">HSN/SAC</span>
+            <span class="col-qty">Qty</span>
+            <span class="col-rate">Rate</span>
+            <span class="col-amount">Amount</span>
+            <span class="col-action">Action</span>
           </div>
 
-          <div class="row" *ngFor="let item of itemsArray.controls; let i = index" [formGroupName]="i">
-            <div class="desc-cell">
-              <input type="text" formControlName="description" placeholder="Professional fee">
-              <input type="text" formControlName="subDescription" placeholder="Sub-description (optional)">
+          <div
+            class="item-row item-body"
+            *ngFor="let item of itemsArray.controls; let i = index"
+            [formGroupName]="i"
+          >
+            <div class="desc-cell col-desc">
+              <label class="mobile-label">Description</label>
+              <app-autocomplete-text
+                formControlName="description"
+                [suggestions]="descriptionSuggestions"
+                placeholder="Professional fee"
+              ></app-autocomplete-text>
+              <input
+                type="text"
+                class="sub-description"
+                formControlName="subDescription"
+                placeholder="Sub-description (optional)"
+              >
             </div>
-            <input type="text" formControlName="hsn" placeholder="9983">
-            <input type="number" min="0" formControlName="quantity" (input)="updateAmountFromQtyRate(i)">
-            <input type="number" min="0" formControlName="rate" (input)="updateAmountFromQtyRate(i)">
-            <input type="number" min="0" formControlName="amount">
-            <button type="button" class="danger" (click)="removeItem(i)" [disabled]="viewMode || itemsArray.length <= 1">Remove</button>
+            <div class="field-cell col-hsn">
+              <label class="mobile-label">HSN/SAC</label>
+              <input type="text" formControlName="hsn" placeholder="9983">
+            </div>
+            <div class="field-cell col-qty">
+              <label class="mobile-label">Qty</label>
+              <input type="number" min="0" formControlName="quantity" (input)="updateAmountFromQtyRate(i)">
+            </div>
+            <div class="field-cell col-rate">
+              <label class="mobile-label">Rate</label>
+              <input type="number" min="0" formControlName="rate" (input)="updateAmountFromQtyRate(i)">
+            </div>
+            <div class="field-cell col-amount">
+              <label class="mobile-label">Amount</label>
+              <input type="number" min="0" formControlName="amount">
+            </div>
+            <div class="action-cell col-action">
+              <label class="mobile-label">Action</label>
+              <button
+                type="button"
+                class="danger"
+                (click)="removeItem(i)"
+                [disabled]="viewMode || itemsArray.length <= 1"
+              >Remove</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div formGroupName="bankDetails" class="section">
+      <div class="section bank-section">
         <h3>Bank Details</h3>
         <p class="section-note">These values are managed in Admin My Profile.</p>
-        <div class="form-grid">
-          <label>Bank Name<input type="text" formControlName="bankName" readonly></label>
-          <label>Account Number<input type="text" formControlName="accountNumber" readonly></label>
-          <label>IFSC<input type="text" formControlName="ifsc" readonly></label>
-        </div>
-      </div>
 
-      <div class="section">
-        <label>
-          Declaration
-          <textarea rows="2" formControlName="declaration"></textarea>
-        </label>
+        <div class="bank-layout">
+          <div class="bank-fields" formGroupName="bankDetails">
+            <label class="form-field">
+              <span class="field-label">Bank Name</span>
+              <input type="text" formControlName="bankName" readonly>
+            </label>
+            <label class="form-field">
+              <span class="field-label">Account Number</span>
+              <input type="text" formControlName="accountNumber" readonly>
+            </label>
+            <label class="form-field">
+              <span class="field-label">IFSC</span>
+              <input type="text" formControlName="ifsc" readonly>
+            </label>
+          </div>
+
+          <aside class="bank-qr">
+            <div class="payment-qr-card">
+              <img src="assets/payment-qr.png" alt="Scan &amp; Pay QR code" width="180" height="180">
+              <span class="qr-title">Scan &amp; Pay</span>
+              <span class="qr-upi">mukundhaassociates&#64;sbi</span>
+            </div>
+          </aside>
+
+          <label class="form-field bank-declaration">
+            <span class="field-label">Declaration</span>
+            <textarea formControlName="declaration" class="declaration-field"></textarea>
+          </label>
+        </div>
       </div>
 
       <div class="totals">

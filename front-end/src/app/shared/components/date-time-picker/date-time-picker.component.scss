@@ -1,6 +1,13 @@
+:host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
 .date-time-wrapper {
   display: block;
   width: 100%;
+  min-width: 0;
 
   &.disabled {
     opacity: 0.8;
@@ -8,22 +15,25 @@
 }
 
 .date-time-input {
+  display: block;
   width: 100%;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid #d7dee7;
+  min-width: 0;
+  box-sizing: border-box;
+  height: var(--control-height, 2.5rem);
+  border-radius: var(--control-radius, 0.5rem);
+  border: 1px solid #cbd5e1;
   background: #ffffff;
   color: #0f172a;
-  font-size: 14px;
+  font-size: var(--control-font-size, 0.875rem);
+  line-height: 1.25;
+  padding: var(--control-padding, 0.5rem 0.75rem);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  box-sizing: border-box;
 
   &:focus {
     outline: none;
-    border-color: #2b6ef2;
-    box-shadow: 0 0 0 3px rgba(43, 110, 242, 0.12);
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
   }
-  padding: 10px 12px;
 }
 
 :host ::ng-deep .flatpickr-calendar {

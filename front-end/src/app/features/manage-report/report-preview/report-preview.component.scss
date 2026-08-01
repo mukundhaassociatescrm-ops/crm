@@ -125,8 +125,9 @@
 .bottom-grid {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: 14px;
+  align-items: start;
 
   h4 {
     margin: 0 0 8px;
@@ -146,6 +147,34 @@
   }
 }
 
+.bank-with-qr {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bank-text {
+  flex: 0 1 auto;
+  min-width: 0;
+
+  .upi-id {
+    margin-top: 6px;
+    font-weight: 600;
+    color: #0b3b7c;
+  }
+}
+
+.payment-qr-img {
+  flex: 0 0 auto;
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+  border: 1px solid #dbe3f0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
 @media (max-width: 900px) {
   .invoice-header,
   .client-grid,
@@ -156,5 +185,9 @@
 
   .invoice-meta {
     text-align: left;
+  }
+
+  .bank-with-qr {
+    flex-wrap: wrap;
   }
 }

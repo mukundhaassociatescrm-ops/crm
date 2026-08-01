@@ -66,11 +66,23 @@
   <p class="amount-words"><strong>Amount in words:</strong> {{ amountInWords }}</p>
 
   <div class="bottom-grid">
-    <div>
+    <div class="bank-block">
       <h4>Bank Details</h4>
-      <p>Bank: {{ data.bankDetails?.bankName || '-' }}</p>
-      <p>A/C No: {{ data.bankDetails?.accountNumber || '-' }}</p>
-      <p>IFSC: {{ data.bankDetails?.ifsc || '-' }}</p>
+      <div class="bank-with-qr">
+        <div class="bank-text">
+          <p>Bank: {{ data.bankDetails?.bankName || '-' }}</p>
+          <p>A/C No: {{ data.bankDetails?.accountNumber || '-' }}</p>
+          <p>IFSC: {{ data.bankDetails?.ifsc || '-' }}</p>
+          <p class="upi-id">UPI ID: mukundhaassociates&#64;sbi</p>
+        </div>
+        <img
+          class="payment-qr-img"
+          src="assets/payment-qr.png"
+          alt="Scan &amp; Pay QR code"
+          width="220"
+          height="220"
+        >
+      </div>
     </div>
     <div>
       <h4>Declaration</h4>
