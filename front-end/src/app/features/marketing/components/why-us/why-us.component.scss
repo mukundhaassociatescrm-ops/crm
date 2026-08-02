@@ -1,0 +1,84 @@
+@import '../../shared/tokens';
+
+.mkt-why {
+  @include mkt-section;
+  background: $mkt-bg;
+}
+
+.mkt-why__inner {
+  @include mkt-container;
+}
+
+.mkt-why__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.mkt-why__stat {
+  padding: 1.25rem;
+  border-radius: $mkt-radius;
+  background: $mkt-primary;
+  color: #fff;
+
+  strong {
+    display: block;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    letter-spacing: -0.03em;
+  }
+
+  span {
+    opacity: 0.8;
+    font-size: 0.88rem;
+  }
+}
+
+.mkt-why__grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.mkt-why__card {
+  @include mkt-card;
+  padding: 1.35rem;
+
+  h3 {
+    margin: 0.9rem 0 0.45rem;
+    color: $mkt-primary;
+    font-size: 1.08rem;
+  }
+
+  p {
+    margin: 0;
+    color: $mkt-muted;
+    line-height: 1.6;
+    font-size: 0.94rem;
+  }
+}
+
+.mkt-why__icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  display: grid;
+  place-items: center;
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+@media (min-width: 800px) {
+  .mkt-why__stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mkt-why__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .mkt-why__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

@@ -1,0 +1,13 @@
+<section class="mkt-trusted" aria-label="Trusted by businesses" mktReveal>
+  <div class="mkt-trusted__inner">
+    <p class="mkt-trusted__label">Trusted by ambitious teams across India</p>
+    <ul class="mkt-trusted__row">
+      @for (logo of logos; track logo.name) {
+        <li>
+          <span class="mkt-trusted__badge" [attr.aria-label]="logo.name">{{ logo.initials }}</span>
+          <span>{{ logo.name }}</span>
+        </li>
+      }
+    </ul>
+  </div>
+</section>

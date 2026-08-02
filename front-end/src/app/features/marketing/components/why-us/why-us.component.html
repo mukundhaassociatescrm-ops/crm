@@ -1,0 +1,29 @@
+<section class="mkt-why" id="why-us">
+  <div class="mkt-why__inner">
+    <app-marketing-section-heading
+      mktReveal
+      eyebrow="Why choose us"
+      title="The finance partner that feels like product infrastructure"
+      subtitle="Experience, speed, and advisory depth—packaged with the polish of a modern fintech workflow."
+    />
+
+    <div class="mkt-why__stats" mktReveal>
+      @for (stat of stats; track stat.label) {
+        <div class="mkt-why__stat">
+          <strong #statValue>0{{ stat.suffix }}</strong>
+          <span>{{ stat.label }}</span>
+        </div>
+      }
+    </div>
+
+    <div class="mkt-why__grid">
+      @for (feature of features; track feature.title; let i = $index) {
+        <article class="mkt-why__card" mktReveal [mktRevealDelay]="i * 0.06">
+          <div class="mkt-why__icon" aria-hidden="true"><i [class]="feature.icon"></i></div>
+          <h3>{{ feature.title }}</h3>
+          <p>{{ feature.description }}</p>
+        </article>
+      }
+    </div>
+  </div>
+</section>

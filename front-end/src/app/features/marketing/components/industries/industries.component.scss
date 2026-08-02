@@ -1,0 +1,54 @@
+@import '../../shared/tokens';
+
+.mkt-industries {
+  @include mkt-section;
+  background: $mkt-bg;
+}
+
+.mkt-industries__inner {
+  @include mkt-container;
+}
+
+.mkt-industries__grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.mkt-industry {
+  @include mkt-card;
+  padding: 1.35rem;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+  }
+
+  i {
+    color: $mkt-secondary;
+    font-size: 1.2rem;
+  }
+
+  h3 {
+    margin: 0.8rem 0 0.4rem;
+    color: $mkt-primary;
+  }
+
+  p {
+    margin: 0;
+    color: $mkt-muted;
+    line-height: 1.6;
+    font-size: 0.92rem;
+  }
+}
+
+@media (min-width: 700px) {
+  .mkt-industries__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .mkt-industries__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

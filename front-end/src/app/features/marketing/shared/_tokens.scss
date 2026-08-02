@@ -1,0 +1,29 @@
+// Shared marketing design tokens — import inside marketing component SCSS only.
+$mkt-primary: #0f172a;
+$mkt-secondary: #1e3a8a;
+$mkt-accent: #f59e0b;
+$mkt-bg: #ffffff;
+$mkt-light: #f8fafc;
+$mkt-text: #111827;
+$mkt-muted: #64748b;
+$mkt-border: #e2e8f0;
+$mkt-radius: 1.25rem;
+$mkt-radius-sm: 0.875rem;
+$mkt-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+$mkt-max: 1120px;
+
+@mixin mkt-container {
+  width: min(100% - 2.5rem, $mkt-max);
+  margin-inline: auto;
+}
+
+@mixin mkt-section {
+  padding: clamp(4rem, 8vw, 6.5rem) 0;
+}
+
+@mixin mkt-card {
+  background: $mkt-bg;
+  border: 1px solid $mkt-border;
+  border-radius: $mkt-radius;
+  box-shadow: $mkt-shadow;
+}

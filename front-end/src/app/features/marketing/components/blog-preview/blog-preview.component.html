@@ -1,0 +1,25 @@
+<section class="mkt-blog" id="insights">
+  <div class="mkt-blog__inner">
+    <app-marketing-section-heading
+      mktReveal
+      eyebrow="Latest tax updates"
+      title="Insights that keep your calendar ahead of the law"
+      subtitle="Short, actionable notes from our practice—not recycled press releases."
+    />
+
+    <div class="mkt-blog__grid">
+      @for (post of posts; track post.title; let i = $index) {
+        <article class="mkt-blog-card" mktReveal [mktRevealDelay]="i * 0.06">
+          <div class="mkt-blog-card__meta">
+            <span>{{ post.category }}</span>
+            <time [attr.datetime]="post.date">{{ post.date | date: 'mediumDate' }}</time>
+          </div>
+          <h3>{{ post.title }}</h3>
+          <p>{{ post.excerpt }}</p>
+          <!-- TODO: Link to full blog article route when CMS is connected. -->
+          <a [href]="post.href">Read brief</a>
+        </article>
+      }
+    </div>
+  </div>
+</section>

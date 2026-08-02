@@ -1,0 +1,20 @@
+<section class="mkt-industries" id="industries">
+  <div class="mkt-industries__inner">
+    <app-marketing-section-heading
+      mktReveal
+      eyebrow="Industries"
+      title="Domain fluency across the businesses we serve"
+      subtitle="Patterns we recognize instantly—so you spend less time explaining and more time building."
+    />
+
+    <div class="mkt-industries__grid">
+      @for (item of industries; track item.name; let i = $index) {
+        <article class="mkt-industry" mktReveal [mktRevealDelay]="i * 0.05">
+          <i [class]="item.icon" aria-hidden="true"></i>
+          <h3>{{ item.name }}</h3>
+          <p>{{ item.description }}</p>
+        </article>
+      }
+    </div>
+  </div>
+</section>

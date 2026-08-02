@@ -1,0 +1,61 @@
+<section class="mkt-hero" #heroRoot id="top" aria-labelledby="mkt-hero-title">
+  <div class="mkt-hero__glow" aria-hidden="true"></div>
+  <div class="mkt-hero__orb mkt-hero__orb--one" aria-hidden="true"></div>
+  <div class="mkt-hero__orb mkt-hero__orb--two" aria-hidden="true"></div>
+
+  <div class="mkt-hero__grid">
+    <div class="mkt-hero__copy">
+      <p class="mkt-hero__eyebrow">Chartered Accountants · Coimbatore</p>
+      <h1 id="mkt-hero-title" class="mkt-hero__title">
+        Your Trusted Partner for Tax &amp; Business Compliance
+      </h1>
+      <p class="mkt-hero__sub">
+        Premium advisory and filing for founders and growing businesses—clarity on every return,
+        confidence on every deadline.
+      </p>
+      <div class="mkt-hero__actions">
+        <a class="mkt-btn mkt-btn--primary" href="#contact" (click)="scrollTo('contact', $event)">Book a free consult</a>
+        <a class="mkt-btn mkt-btn--ghost" href="#services" (click)="scrollTo('services', $event)">Explore services</a>
+      </div>
+    </div>
+
+    <div class="mkt-hero__visual" aria-hidden="true">
+      <div class="mkt-hero__panel">
+        <div class="mkt-hero__panel-top">
+          <span>Compliance health</span>
+          <strong>Excellent</strong>
+        </div>
+        <div class="mkt-hero__bars">
+          <span style="--h: 62%"></span>
+          <span style="--h: 78%"></span>
+          <span style="--h: 54%"></span>
+          <span style="--h: 88%"></span>
+          <span style="--h: 70%"></span>
+        </div>
+        <ul class="mkt-hero__metrics">
+          @for (stat of stats; track stat.label) {
+            <li>
+              <strong>{{ stat.value }}{{ stat.suffix }}</strong>
+              <span>{{ stat.label }}</span>
+            </li>
+          }
+        </ul>
+      </div>
+
+      <article class="mkt-hero__float mkt-hero__float--a">
+        <i class="fa-solid fa-circle-check"></i>
+        <div>
+          <strong>GST filed</strong>
+          <span>2 days early</span>
+        </div>
+      </article>
+      <article class="mkt-hero__float mkt-hero__float--b">
+        <i class="fa-solid fa-shield-halved"></i>
+        <div>
+          <strong>Partner reviewed</strong>
+          <span>Every engagement</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>

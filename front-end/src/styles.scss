@@ -24,6 +24,21 @@ html.poster-landing-page app-root {
   min-height: 100%;
 }
 
+/* Public marketing website — normal document scroll (outside CRM shell) */
+html.marketing-website-page,
+body.marketing-website-page {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html.marketing-website-page app-root {
+  display: block;
+  height: auto;
+  min-height: 100%;
+}
+
 * {
   box-sizing: border-box;
 }

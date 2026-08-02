@@ -38,6 +38,13 @@ export const routes: Routes = [
   { path: 'posters/:slug', component: PosterLandingComponent },
   { path: 'superadmin/create-admin', component: SuperadminCreateAdminComponent },
 
+  // Public marketing website (lazy). Uses /website to avoid colliding with CRM /marketing hub.
+  {
+    path: 'website',
+    loadChildren: () =>
+      import('./features/marketing/marketing.routes').then((m) => m.MARKETING_ROUTES),
+  },
+
   {
     path: '',
     component: MainLayoutComponent,

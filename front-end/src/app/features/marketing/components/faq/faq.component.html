@@ -1,0 +1,24 @@
+<section class="mkt-faq" id="faq">
+  <div class="mkt-faq__inner">
+    <app-marketing-section-heading
+      mktReveal
+      eyebrow="FAQ"
+      title="Answers before the first meeting"
+      subtitle="Straight responses to the questions we hear most often."
+    />
+
+    <div class="mkt-faq__list" mktReveal>
+      @for (item of faqs; track item.question; let i = $index) {
+        <div class="mkt-faq__item" [class.is-open]="openIndex() === i">
+          <button type="button" [attr.aria-expanded]="openIndex() === i" (click)="toggle(i)">
+            <span>{{ item.question }}</span>
+            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          </button>
+          @if (openIndex() === i) {
+            <p>{{ item.answer }}</p>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</section>

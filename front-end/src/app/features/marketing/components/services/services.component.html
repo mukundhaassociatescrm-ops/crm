@@ -1,0 +1,23 @@
+<section class="mkt-services" id="services">
+  <div class="mkt-services__inner">
+    <app-marketing-section-heading
+      mktReveal
+      eyebrow="Services"
+      title="Compliance products built like modern software"
+      subtitle="From GST to advisory—each engagement runs on clear scopes, timelines, and partner review."
+    />
+
+    <div class="mkt-services__grid">
+      @for (service of services; track service.id; let i = $index) {
+        <article class="mkt-service-card" mktReveal [mktRevealDelay]="i * 0.05">
+          <div class="mkt-service-card__icon" aria-hidden="true">
+            <i [class]="service.icon"></i>
+          </div>
+          <h3>{{ service.title }}</h3>
+          <p>{{ service.description }}</p>
+          <a href="#contact" (click)="scrollToContact($event)">Learn more <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+        </article>
+      }
+    </div>
+  </div>
+</section>

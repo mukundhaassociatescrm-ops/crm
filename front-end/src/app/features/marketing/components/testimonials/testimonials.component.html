@@ -1,0 +1,42 @@
+<section class="mkt-testimonials" id="testimonials">
+  <div class="mkt-testimonials__inner" mktReveal>
+    <app-marketing-section-heading
+      eyebrow="Testimonials"
+      title="Operators who sleep better at filing time"
+      subtitle="Real outcomes from teams that outgrew DIY compliance."
+    />
+
+    <div class="mkt-testimonials__viewport">
+      <div class="mkt-testimonials__track" #track>
+        @for (item of items; track item.name) {
+          <article class="mkt-testimonial">
+            <p>“{{ item.quote }}”</p>
+            <footer>
+              <strong>{{ item.name }}</strong>
+              <span>{{ item.role }}, {{ item.company }}</span>
+            </footer>
+          </article>
+        }
+      </div>
+    </div>
+
+    <div class="mkt-testimonials__controls">
+      <button type="button" (click)="prev()" aria-label="Previous testimonial">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+      </button>
+      <div class="mkt-testimonials__dots">
+        @for (item of items; track item.name; let i = $index) {
+          <button
+            type="button"
+            [class.is-active]="active() === i"
+            [attr.aria-label]="'Show testimonial ' + (i + 1)"
+            (click)="goTo(i)"
+          ></button>
+        }
+      </div>
+      <button type="button" (click)="next()" aria-label="Next testimonial">
+        <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+</section>

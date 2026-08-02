@@ -1,0 +1,55 @@
+<header class="mkt-nav" [class.mkt-nav--solid]="scrolled()" [class.mkt-nav--open]="menuOpen()">
+  <div class="mkt-nav__inner">
+    <a
+      class="mkt-nav__brand"
+      href="#top"
+      (click)="scrollTo('top', $event)"
+      [attr.aria-label]="brand.name + ' — Home'"
+    >
+      <span class="mkt-nav__logo-wrap">
+        <img
+          class="mkt-nav__logo"
+          [src]="brand.logoPath"
+          [alt]="brand.logoAlt"
+          width="120"
+          height="60"
+          loading="eager"
+          decoding="async"
+        >
+      </span>
+      <span class="mkt-nav__brand-text">
+        <strong>{{ brand.name }}</strong>
+        <small>{{ brand.tagline }}</small>
+      </span>
+    </a>
+
+    <div class="mkt-nav__right">
+      <nav class="mkt-nav__links" aria-label="Primary">
+        @for (link of links; track link.fragment) {
+          <a [href]="'#' + link.fragment" (click)="scrollTo(link.fragment, $event)">{{ link.label }}</a>
+        }
+      </nav>
+
+      <a class="mkt-nav__cta" href="#contact" (click)="scrollTo('contact', $event)">Book Consultation</a>
+
+      <button
+        type="button"
+        class="mkt-nav__burger"
+        [attr.aria-expanded]="menuOpen()"
+        aria-label="Toggle menu"
+        (click)="toggleMenu()"
+      >
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+
+  @if (menuOpen()) {
+    <div class="mkt-nav__drawer" role="dialog" aria-label="Mobile menu">
+      @for (link of links; track link.fragment) {
+        <a [href]="'#' + link.fragment" (click)="scrollTo(link.fragment, $event)">{{ link.label }}</a>
+      }
+      <a class="mkt-nav__cta mkt-nav__cta--block" href="#contact" (click)="scrollTo('contact', $event)">Book Consultation</a>
+    </div>
+  }
+</header>

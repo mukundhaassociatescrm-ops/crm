@@ -1,0 +1,243 @@
+@import '../../shared/tokens';
+
+.mkt-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(3.5rem, 8vw, 6rem) 0 clamp(4rem, 9vw, 7rem);
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(30, 58, 138, 0.12), transparent 60%),
+    radial-gradient(900px 420px at 90% 10%, rgba(245, 158, 11, 0.14), transparent 55%),
+    linear-gradient(180deg, #fff 0%, $mkt-light 100%);
+}
+
+.mkt-hero__glow,
+.mkt-hero__orb {
+  position: absolute;
+  pointer-events: none;
+}
+
+.mkt-hero__orb {
+  border-radius: 50%;
+  filter: blur(2px);
+}
+
+.mkt-hero__orb--one {
+  width: 14rem;
+  height: 14rem;
+  top: 12%;
+  right: 8%;
+  background: rgba(30, 58, 138, 0.12);
+}
+
+.mkt-hero__orb--two {
+  width: 10rem;
+  height: 10rem;
+  bottom: 8%;
+  left: 4%;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.mkt-hero__grid {
+  @include mkt-container;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 3rem;
+  align-items: center;
+}
+
+.mkt-hero__eyebrow {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: $mkt-secondary;
+}
+
+.mkt-hero__title {
+  margin: 0;
+  max-width: 14ch;
+  font-size: clamp(2.35rem, 5.5vw, 4rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: $mkt-primary;
+  font-weight: 800;
+}
+
+.mkt-hero__sub {
+  margin: 1.25rem 0 0;
+  max-width: 36rem;
+  font-size: 1.08rem;
+  line-height: 1.7;
+  color: $mkt-muted;
+}
+
+.mkt-hero__actions {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.mkt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.75rem 1.35rem;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.mkt-btn--primary {
+  background: $mkt-primary;
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+
+  &:hover {
+    background: $mkt-secondary;
+    transform: translateY(-2px);
+  }
+}
+
+.mkt-btn--ghost {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid $mkt-border;
+  color: $mkt-primary;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $mkt-shadow;
+  }
+}
+
+.mkt-hero__visual {
+  position: relative;
+  min-height: 22rem;
+}
+
+.mkt-hero__panel {
+  @include mkt-card;
+  padding: 1.4rem;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(10px);
+}
+
+.mkt-hero__panel-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1.25rem;
+
+  span {
+    color: $mkt-muted;
+    font-size: 0.85rem;
+  }
+
+  strong {
+    color: #059669;
+    font-size: 0.95rem;
+  }
+}
+
+.mkt-hero__bars {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.65rem;
+  align-items: end;
+  height: 8.5rem;
+  margin-bottom: 1.25rem;
+
+  span {
+    display: block;
+    height: var(--h);
+    border-radius: 0.75rem 0.75rem 0.4rem 0.4rem;
+    background: linear-gradient(180deg, $mkt-secondary, $mkt-primary);
+    opacity: 0.9;
+  }
+}
+
+.mkt-hero__metrics {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+
+  li {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  strong {
+    color: $mkt-primary;
+    font-size: 1.05rem;
+  }
+
+  span {
+    color: $mkt-muted;
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+}
+
+.mkt-hero__float {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid $mkt-border;
+  box-shadow: $mkt-shadow;
+
+  i {
+    color: $mkt-accent;
+  }
+
+  strong {
+    display: block;
+    font-size: 0.86rem;
+    color: $mkt-primary;
+  }
+
+  span {
+    font-size: 0.75rem;
+    color: $mkt-muted;
+  }
+}
+
+.mkt-hero__float--a {
+  top: 1rem;
+  left: -0.5rem;
+}
+
+.mkt-hero__float--b {
+  right: -0.25rem;
+  bottom: 1.5rem;
+}
+
+@media (min-width: 960px) {
+  .mkt-hero__grid {
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 3.5rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .mkt-hero__float--a,
+  .mkt-hero__float--b {
+    position: static;
+    margin-top: 0.85rem;
+  }
+
+  .mkt-hero__visual {
+    min-height: 0;
+  }
+}

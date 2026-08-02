@@ -1,0 +1,87 @@
+@import '../../shared/tokens';
+
+.mkt-testimonials {
+  @include mkt-section;
+  background: $mkt-light;
+}
+
+.mkt-testimonials__inner {
+  @include mkt-container;
+}
+
+.mkt-testimonials__viewport {
+  overflow: hidden;
+  border-radius: $mkt-radius;
+}
+
+.mkt-testimonials__track {
+  display: flex;
+  width: 100%;
+}
+
+.mkt-testimonial {
+  flex: 0 0 100%;
+  @include mkt-card;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  min-height: 14rem;
+
+  p {
+    margin: 0;
+    font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+    line-height: 1.55;
+    color: $mkt-primary;
+    letter-spacing: -0.02em;
+  }
+
+  footer {
+    margin-top: 1.5rem;
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  strong {
+    color: $mkt-primary;
+  }
+
+  span {
+    color: $mkt-muted;
+    font-size: 0.9rem;
+  }
+}
+
+.mkt-testimonials__controls {
+  margin-top: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+
+  > button {
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 999px;
+    border: 1px solid $mkt-border;
+    background: $mkt-bg;
+    color: $mkt-primary;
+    cursor: pointer;
+  }
+}
+
+.mkt-testimonials__dots {
+  display: flex;
+  gap: 0.4rem;
+
+  button {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    border: 0;
+    background: #cbd5e1;
+    cursor: pointer;
+  }
+
+  .is-active {
+    background: $mkt-secondary;
+    width: 1.25rem;
+  }
+}

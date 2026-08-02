@@ -1,0 +1,53 @@
+@import '../../shared/tokens';
+
+.mkt-faq {
+  @include mkt-section;
+  background: $mkt-light;
+}
+
+.mkt-faq__inner {
+  @include mkt-container;
+  max-width: 760px;
+}
+
+.mkt-faq__list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mkt-faq__item {
+  @include mkt-card;
+  overflow: hidden;
+
+  button {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    padding: 1.1rem 1.2rem;
+    text-align: left;
+    cursor: pointer;
+    color: $mkt-primary;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  i {
+    transition: transform 0.2s ease;
+    color: $mkt-muted;
+  }
+
+  p {
+    margin: 0;
+    padding: 0 1.2rem 1.15rem;
+    color: $mkt-muted;
+    line-height: 1.65;
+  }
+}
+
+.mkt-faq__item.is-open i {
+  transform: rotate(180deg);
+}

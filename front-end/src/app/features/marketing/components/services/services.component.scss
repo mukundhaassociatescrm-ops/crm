@@ -1,0 +1,73 @@
+@import '../../shared/tokens';
+
+.mkt-services {
+  @include mkt-section;
+  background: $mkt-light;
+}
+
+.mkt-services__inner {
+  @include mkt-container;
+}
+
+.mkt-services__grid {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.mkt-service-card {
+  @include mkt-card;
+  padding: 1.5rem;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+
+  &:hover {
+    transform: translateY(-6px);
+    border-color: rgba(30, 58, 138, 0.25);
+    box-shadow: 0 22px 50px rgba(30, 58, 138, 0.14);
+  }
+
+  h3 {
+    margin: 1rem 0 0.55rem;
+    font-size: 1.15rem;
+    color: $mkt-primary;
+  }
+
+  p {
+    margin: 0;
+    color: $mkt-muted;
+    line-height: 1.65;
+    font-size: 0.95rem;
+  }
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 1.15rem;
+    color: $mkt-secondary;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+}
+
+.mkt-service-card__icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.9rem;
+  display: grid;
+  place-items: center;
+  background: rgba(30, 58, 138, 0.08);
+  color: $mkt-secondary;
+}
+
+@media (min-width: 720px) {
+  .mkt-services__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .mkt-services__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

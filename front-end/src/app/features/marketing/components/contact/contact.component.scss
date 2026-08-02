@@ -1,0 +1,126 @@
+@import '../../shared/tokens';
+
+.mkt-contact {
+  @include mkt-section;
+  background: $mkt-bg;
+}
+
+.mkt-contact__inner {
+  @include mkt-container;
+}
+
+.mkt-contact__grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.mkt-contact__form,
+.mkt-contact__card {
+  @include mkt-card;
+  padding: 1.35rem;
+}
+
+.mkt-contact__form {
+  display: grid;
+  gap: 0.9rem;
+
+  label {
+    display: grid;
+    gap: 0.4rem;
+    color: $mkt-text;
+    font-size: 0.88rem;
+    font-weight: 650;
+  }
+
+  input,
+  textarea {
+    width: 100%;
+    border: 1px solid $mkt-border;
+    border-radius: 0.8rem;
+    padding: 0.8rem 0.9rem;
+    font: inherit;
+    color: $mkt-text;
+    background: $mkt-light;
+  }
+
+  button {
+    border: 0;
+    border-radius: 999px;
+    min-height: 3rem;
+    background: $mkt-primary;
+    color: #fff;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    opacity: 0.7;
+    cursor: wait;
+  }
+}
+
+.mkt-contact__success {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 0.8rem;
+  background: #ecfdf5;
+  color: #047857;
+  font-weight: 650;
+}
+
+.mkt-contact__aside {
+  display: grid;
+  gap: 1rem;
+}
+
+.mkt-contact__card {
+  h3 {
+    margin: 0 0 0.75rem;
+    color: $mkt-primary;
+  }
+
+  p {
+    margin: 0 0 0.65rem;
+    color: $mkt-muted;
+    line-height: 1.55;
+  }
+
+  a {
+    color: $mkt-secondary;
+  }
+}
+
+.mkt-contact__wa {
+  margin-top: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  background: #25d366;
+  color: #fff !important;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.mkt-contact__map {
+  min-height: 14rem;
+  border-radius: $mkt-radius;
+  border: 1px dashed $mkt-border;
+  background:
+    linear-gradient(135deg, rgba(30, 58, 138, 0.08), rgba(245, 158, 11, 0.1)),
+    $mkt-light;
+  display: grid;
+  place-items: center;
+  color: $mkt-muted;
+  font-weight: 650;
+  text-align: center;
+  padding: 1rem;
+}
+
+@media (min-width: 960px) {
+  .mkt-contact__grid {
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: start;
+  }
+}

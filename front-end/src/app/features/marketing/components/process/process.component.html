@@ -1,0 +1,22 @@
+<section class="mkt-process" id="process">
+  <div class="mkt-process__inner">
+    <app-marketing-section-heading
+      mktReveal
+      eyebrow="Our process"
+      title="Four steps from first call to filed return"
+      subtitle="A calm operating system for compliance—no chasing, no surprises."
+    />
+
+    <ol class="mkt-process__timeline">
+      @for (step of steps; track step.step; let i = $index) {
+        <li mktReveal [mktRevealDelay]="i * 0.08">
+          <div class="mkt-process__node" aria-hidden="true">{{ step.step }}</div>
+          <div class="mkt-process__copy">
+            <h3>{{ step.title }}</h3>
+            <p>{{ step.description }}</p>
+          </div>
+        </li>
+      }
+    </ol>
+  </div>
+</section>
