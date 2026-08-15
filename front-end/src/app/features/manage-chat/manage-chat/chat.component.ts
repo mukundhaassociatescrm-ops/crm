@@ -1807,6 +1807,49 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     this.composerDragActive = false;
   }
 
+  private isSupportedClipboardFile(file: File | null | undefined): boolean {
+    if (!file) {
+      return false;
+    }
+
+    const mimeType = String(file.type || '').toLowerCase();
+    const fileName = String(file.name || '').toLowerCase();
+    const allowedImageMimeTypes = new Set([
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'image/webp',
+      'image/gif',
+    ]);
+
+    const isAllowedImage = allowedImageMimeTypes.has(mimeType)
+      || /\.(png|jpe?g|webp|gif)$/i.test(fileName);
+    const isAllowedPdf = mimeType === 'application/pdf' || fileName.endsWith('.pdf');
+
+    return isAllowedImage || isAllowedPdf;
+  }
+
+  onComposerPaste(event: ClipboardEvent): void {
+    const clipboardData = event.clipboardData ?? (window as Window & typeof globalThis & { clipboardData?: DataTransfer }).clipboardData;
+    if (!clipboardData) {
+      return;
+    }
+
+    const items = Array.from(clipboardData.items || []);
+    const pastedFiles = items
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => this.isSupportedClipboardFile(file));
+
+    if (!pastedFiles.length) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.applyAttachmentFiles(pastedFiles);
+  }
+
   onComposerKeydown(event: KeyboardEvent): void {
     if (event.key !== 'Enter' || event.shiftKey) {
       return;

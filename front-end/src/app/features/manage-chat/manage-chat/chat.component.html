@@ -569,6 +569,7 @@
               placeholder="Type a message"
               [disabled]="hasAttachmentDrafts || !isSessionActive"
               (keydown)="onComposerKeydown($event)"
+              (paste)="onComposerPaste($event)"
             ></textarea>
           </div>
           <div class="session-expired-notice" *ngIf="!isSessionActive && !isCheckingSession">
