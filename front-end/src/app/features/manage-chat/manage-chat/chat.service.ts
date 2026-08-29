@@ -42,7 +42,7 @@ export interface ChatMessage {
   from: string;
   to: string;
   text: string;
-  type: 'text' | 'file';
+  type: 'text' | 'file' | 'contact';
   fileUrl?: string;
   filename?: string;
   mimeType?: string;

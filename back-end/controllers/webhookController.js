@@ -49,14 +49,60 @@ const parseMetaEvent = (body) => {
   const incomingMessages = (change.messages || []).map((message) => {
     const rawFrom = message.from;
     const rawTo = metadata.display_phone_number || metadata.phone_number_id;
+    // Detect contact messages and extract contact name/phone when present.
+    let parsedType = message.type || 'text';
+    let contactName = null;
+    let contactPhone = null;
+
+    try {
+      // Meta/WhatsApp uses 'contacts' array in messages for contact shares
+      const contacts = message.contacts || message.contact || message.contacts?.length ? message.contacts : null;
+      if (Array.isArray(contacts) && contacts.length) {
+        parsedType = 'contact';
+        // Support multiple formats: name.formatted_name, name[0].formatted_name, contacts[].name.formatted_name
+        const first = contacts[0];
+        if (first) {
+          // name could be string or object
+          if (first.name && typeof first.name === 'object') {
+            contactName = first.name.formatted_name || first.name.display_name || first.name || null;
+          } else if (first.name && typeof first.name === 'string') {
+            contactName = first.name;
+          } else if (first.formatted_name) {
+            contactName = first.formatted_name;
+          }
+
+          // phones may be array of phone objects or single phone
+          const phones = first.phones || first.phone || null;
+          if (Array.isArray(phones) && phones.length) {
+            contactPhone = phones[0].phone || phones[0].wa_id || phones[0].value || null;
+          } else if (phones && typeof phones === 'object') {
+            contactPhone = phones.phone || phones.wa_id || phones.value || null;
+          } else if (first.wa_id) {
+            contactPhone = first.wa_id;
+          }
+        }
+      }
+    } catch (err) {
+      console.log('[WEBHOOK][CONTACT_PARSE_ERROR]', err && err.stack ? err.stack : err);
+    }
+
+    // Fallback text (do not leave just the literal 'contact') — keep empty so UI uses contact fields
+    const fallbackText = message.text?.body || message.button?.text || message.interactive?.button_reply?.title || '';
+
+    if (parsedType === 'contact') {
+      console.log('[META][CONTACT_PAYLOAD] Raw message payload:\n' + prettyPrint(message));
+    }
+
     return ({
     source: 'meta',
     eventType: 'message',
     messageId: message.id,
     from: normalizePhoneNumber(rawFrom),
     to: normalizePhoneNumber(rawTo),
-    text: message.text?.body || message.button?.text || message.interactive?.button_reply?.title || '',
-    type: message.type || 'text',
+    text: fallbackText,
+    type: parsedType,
+    contactName,
+    contactPhone,
     direction: 'incoming',
     status: 'sent',
     timestamp: message.timestamp ? new Date(Number(message.timestamp) * 1000) : new Date(),
@@ -203,6 +249,12 @@ const persistWebhookEvent = async (event) => {
     if (event.text) {
       existingMessage.text = event.text;
     }
+    // Preserve contact details if present
+    if (event.type === 'contact') {
+      existingMessage.type = 'contact';
+      if (event.contactName) existingMessage.contactName = String(event.contactName);
+      if (event.contactPhone) existingMessage.contactPhone = String(event.contactPhone);
+    }
     if (event.replyTo) {
       existingMessage.replyTo = event.replyTo;
     }
@@ -218,6 +270,8 @@ const persistWebhookEvent = async (event) => {
     to: event.to,
     text: event.text || '',
     type: event.type || 'text',
+    contactName: event.contactName || '',
+    contactPhone: event.contactPhone || '',
     direction: event.direction,
     status: event.status,
     timestamp: event.timestamp || new Date(),

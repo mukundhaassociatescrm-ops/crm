@@ -35,6 +35,8 @@ interface PendingMessage extends ChatMessage {
   isPending?: boolean;
   showDateSeparator?: boolean;
   dateSeparatorLabel?: string;
+  contactName?: string;
+  contactPhone?: string;
 }
 
 interface SelectedAttachment {

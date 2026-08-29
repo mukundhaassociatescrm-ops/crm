@@ -462,7 +462,13 @@
               </div>
             </ng-container>
             <ng-template #textMessageTpl>
-              <p>{{ getMessageDisplayText(message) }}</p>
+              <ng-container *ngIf="message.type === 'contact'; else normalTextTpl">
+                <p class="contact-name" *ngIf="message.contactName">{{ message.contactName }}</p>
+                <p class="contact-phone">{{ message.contactPhone || getMessageDisplayText(message) }}</p>
+              </ng-container>
+              <ng-template #normalTextTpl>
+                <p>{{ getMessageDisplayText(message) }}</p>
+              </ng-template>
             </ng-template>
             </ng-template>
             <div class="meta-row">
