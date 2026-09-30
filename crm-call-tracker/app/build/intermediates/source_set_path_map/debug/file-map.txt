@@ -1,0 +1,64 @@
+com.techzeno.crmtracker.app-pngs-0 C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\build\generated\res\pngs\debug
+com.techzeno.crmtracker.app-resValues-1 C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\build\generated\res\resValues\debug
+com.techzeno.crmtracker.app-packageDebugResources-2 C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.techzeno.crmtracker.app-packageDebugResources-3 C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.techzeno.crmtracker.app-merged_res-4 C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\build\intermediates\merged_res\debug
+com.techzeno.crmtracker.app-debug-5 C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\debug\res
+com.techzeno.crmtracker.app-main-6 C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\res
+com.techzeno.crmtracker.app-runtime-release-7 C:\Users\vogue\.gradle\caches\transforms-3\04ed712e8f56486aa667b8887a4410cc\transformed\runtime-release\res
+com.techzeno.crmtracker.app-animation-release-8 C:\Users\vogue\.gradle\caches\transforms-3\0e238f3509f5b2814644ba0533f68a89\transformed\animation-release\res
+com.techzeno.crmtracker.app-emoji2-1.4.0-9 C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\res
+com.techzeno.crmtracker.app-foundation-release-10 C:\Users\vogue\.gradle\caches\transforms-3\1c5047d58d55a4eb6c238389dc1ef816\transformed\foundation-release\res
+com.techzeno.crmtracker.app-material-ripple-release-11 C:\Users\vogue\.gradle\caches\transforms-3\1e4c86d0731fa267afdc101575aac353\transformed\material-ripple-release\res
+com.techzeno.crmtracker.app-fragment-1.3.6-12 C:\Users\vogue\.gradle\caches\transforms-3\2182503fdc161f1db2208f20cbdcd142\transformed\fragment-1.3.6\res
+com.techzeno.crmtracker.app-activity-1.7.2-13 C:\Users\vogue\.gradle\caches\transforms-3\26527986637ea945be77b0aa11111307\transformed\activity-1.7.2\res
+com.techzeno.crmtracker.app-core-1.10.1-14 C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\res
+com.techzeno.crmtracker.app-lifecycle-viewmodel-savedstate-2.6.1-15 C:\Users\vogue\.gradle\caches\transforms-3\2cb400c83fc8515b71b24b616f41b3a5\transformed\lifecycle-viewmodel-savedstate-2.6.1\res
+com.techzeno.crmtracker.app-lifecycle-viewmodel-ktx-2.6.1-16 C:\Users\vogue\.gradle\caches\transforms-3\2da01db78a429172002e5c12f8745d5c\transformed\lifecycle-viewmodel-ktx-2.6.1\res
+com.techzeno.crmtracker.app-activity-ktx-1.7.2-17 C:\Users\vogue\.gradle\caches\transforms-3\2dd81cbc16598e10f4fb4ea5be6d6c46\transformed\activity-ktx-1.7.2\res
+com.techzeno.crmtracker.app-ui-tooling-data-release-18 C:\Users\vogue\.gradle\caches\transforms-3\3253083ab958a096b573e754df4d0a51\transformed\ui-tooling-data-release\res
+com.techzeno.crmtracker.app-material3-1.1.2-19 C:\Users\vogue\.gradle\caches\transforms-3\4210db52218faa1a2afda47e07bc2838\transformed\material3-1.1.2\res
+com.techzeno.crmtracker.app-startup-runtime-1.1.1-20 C:\Users\vogue\.gradle\caches\transforms-3\43e54bf35c27526b759c14259603e41c\transformed\startup-runtime-1.1.1\res
+com.techzeno.crmtracker.app-lifecycle-livedata-2.6.1-21 C:\Users\vogue\.gradle\caches\transforms-3\4401f084b1dbbce94e1f29602b737128\transformed\lifecycle-livedata-2.6.1\res
+com.techzeno.crmtracker.app-ui-unit-release-22 C:\Users\vogue\.gradle\caches\transforms-3\526f8e1cf22811973739a724f48eafd9\transformed\ui-unit-release\res
+com.techzeno.crmtracker.app-coordinatorlayout-1.1.0-23 C:\Users\vogue\.gradle\caches\transforms-3\58b3df4f7a024ee6a97d47a815c16351\transformed\coordinatorlayout-1.1.0\res
+com.techzeno.crmtracker.app-viewpager2-1.0.0-24 C:\Users\vogue\.gradle\caches\transforms-3\58fd62f13f54516692265911b6a52c8f\transformed\viewpager2-1.0.0\res
+com.techzeno.crmtracker.app-ui-geometry-release-25 C:\Users\vogue\.gradle\caches\transforms-3\609f6f3c1346fdeca598212b25f7b729\transformed\ui-geometry-release\res
+com.techzeno.crmtracker.app-appcompat-resources-1.5.0-26 C:\Users\vogue\.gradle\caches\transforms-3\634471eed6cf73c1d9fc439e7f9136bf\transformed\appcompat-resources-1.5.0\res
+com.techzeno.crmtracker.app-lifecycle-livedata-core-2.6.1-27 C:\Users\vogue\.gradle\caches\transforms-3\67715eaeda18ae153cece18fb5941a9b\transformed\lifecycle-livedata-core-2.6.1\res
+com.techzeno.crmtracker.app-ui-tooling-preview-release-28 C:\Users\vogue\.gradle\caches\transforms-3\6f2dc3cea1a28c6535c13414af245493\transformed\ui-tooling-preview-release\res
+com.techzeno.crmtracker.app-lifecycle-process-2.6.1-29 C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\res
+com.techzeno.crmtracker.app-appcompat-1.5.0-30 C:\Users\vogue\.gradle\caches\transforms-3\7e9719d9caa673253813c5ca0e86ea6a\transformed\appcompat-1.5.0\res
+com.techzeno.crmtracker.app-lifecycle-runtime-ktx-2.6.1-31 C:\Users\vogue\.gradle\caches\transforms-3\7ea152c977dff3b4bcde338eab8c8628\transformed\lifecycle-runtime-ktx-2.6.1\res
+com.techzeno.crmtracker.app-drawerlayout-1.1.1-32 C:\Users\vogue\.gradle\caches\transforms-3\7ef869f91552aa8ebd6d2a310a60ef8c\transformed\drawerlayout-1.1.1\res
+com.techzeno.crmtracker.app-material-icons-core-release-33 C:\Users\vogue\.gradle\caches\transforms-3\7fe9f0f02c4145973e42a54d1fa8926c\transformed\material-icons-core-release\res
+com.techzeno.crmtracker.app-recyclerview-1.1.0-34 C:\Users\vogue\.gradle\caches\transforms-3\80d05cd129c56dffac93c2641153945b\transformed\recyclerview-1.1.0\res
+com.techzeno.crmtracker.app-room-runtime-2.6.1-35 C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\res
+com.techzeno.crmtracker.app-lifecycle-viewmodel-2.6.1-36 C:\Users\vogue\.gradle\caches\transforms-3\85af08ba7abf53ff8ca0a5074f56737a\transformed\lifecycle-viewmodel-2.6.1\res
+com.techzeno.crmtracker.app-activity-compose-1.7.2-37 C:\Users\vogue\.gradle\caches\transforms-3\8f209c64c9c0f324a51bf67263bb984e\transformed\activity-compose-1.7.2\res
+com.techzeno.crmtracker.app-foundation-layout-release-38 C:\Users\vogue\.gradle\caches\transforms-3\968ab98d4694815f6688c8525228d5f5\transformed\foundation-layout-release\res
+com.techzeno.crmtracker.app-material-1.9.0-39 C:\Users\vogue\.gradle\caches\transforms-3\974f25aba6f1f524254cf7edd8cc8216\transformed\material-1.9.0\res
+com.techzeno.crmtracker.app-material-release-40 C:\Users\vogue\.gradle\caches\transforms-3\9a761927b4f284676c09c9c3b6f5000a\transformed\material-release\res
+com.techzeno.crmtracker.app-ui-tooling-release-41 C:\Users\vogue\.gradle\caches\transforms-3\9bfe1adbd72b98f10065062bbb3da0c7\transformed\ui-tooling-release\res
+com.techzeno.crmtracker.app-ui-release-42 C:\Users\vogue\.gradle\caches\transforms-3\a37a06a7ce6474ed81b6b240e207d04c\transformed\ui-release\res
+com.techzeno.crmtracker.app-savedstate-ktx-1.2.1-43 C:\Users\vogue\.gradle\caches\transforms-3\a4bccace89ed47ff2139f16fce02f518\transformed\savedstate-ktx-1.2.1\res
+com.techzeno.crmtracker.app-customview-poolingcontainer-1.0.0-44 C:\Users\vogue\.gradle\caches\transforms-3\a4ebeefc28daed6d85a64800c2ddb18c\transformed\customview-poolingcontainer-1.0.0\res
+com.techzeno.crmtracker.app-annotation-experimental-1.3.0-45 C:\Users\vogue\.gradle\caches\transforms-3\a50d4ac953700fdbac96bf5ba5099480\transformed\annotation-experimental-1.3.0\res
+com.techzeno.crmtracker.app-lifecycle-viewmodel-compose-2.6.1-46 C:\Users\vogue\.gradle\caches\transforms-3\b01289ef76e26dacdcaa80ec312308aa\transformed\lifecycle-viewmodel-compose-2.6.1\res
+com.techzeno.crmtracker.app-ui-util-release-47 C:\Users\vogue\.gradle\caches\transforms-3\b32c62927847b7b917c41b641fac6387\transformed\ui-util-release\res
+com.techzeno.crmtracker.app-constraintlayout-2.0.1-48 C:\Users\vogue\.gradle\caches\transforms-3\b39bd8486a11e1a52883f25a0e22d6be\transformed\constraintlayout-2.0.1\res
+com.techzeno.crmtracker.app-core-runtime-2.2.0-49 C:\Users\vogue\.gradle\caches\transforms-3\b54aa2edbe2d41069339e2aecc9fda1b\transformed\core-runtime-2.2.0\res
+com.techzeno.crmtracker.app-ui-text-release-50 C:\Users\vogue\.gradle\caches\transforms-3\b5fce21312c9253ae0670474567b3d65\transformed\ui-text-release\res
+com.techzeno.crmtracker.app-room-ktx-2.6.1-51 C:\Users\vogue\.gradle\caches\transforms-3\c21aeff160b5e52db2bb4979d7f3c410\transformed\room-ktx-2.6.1\res
+com.techzeno.crmtracker.app-ui-graphics-release-52 C:\Users\vogue\.gradle\caches\transforms-3\c2670157073467ea0388da55d66c33d8\transformed\ui-graphics-release\res
+com.techzeno.crmtracker.app-emoji2-views-helper-1.4.0-53 C:\Users\vogue\.gradle\caches\transforms-3\c517241a859a9b7509b2c1c5ef64f8cc\transformed\emoji2-views-helper-1.4.0\res
+com.techzeno.crmtracker.app-animation-core-release-54 C:\Users\vogue\.gradle\caches\transforms-3\c592a601f56bf26db29024b3420e5e45\transformed\animation-core-release\res
+com.techzeno.crmtracker.app-sqlite-2.4.0-55 C:\Users\vogue\.gradle\caches\transforms-3\cb3cc708824483a7bc07aafddad16714\transformed\sqlite-2.4.0\res
+com.techzeno.crmtracker.app-sqlite-framework-2.4.0-56 C:\Users\vogue\.gradle\caches\transforms-3\ce996f11cfe607f9c47666d60ea0ac3e\transformed\sqlite-framework-2.4.0\res
+com.techzeno.crmtracker.app-cardview-1.0.0-57 C:\Users\vogue\.gradle\caches\transforms-3\d8af82ace53f2c4e93958e796cd7d64e\transformed\cardview-1.0.0\res
+com.techzeno.crmtracker.app-core-ktx-1.10.1-58 C:\Users\vogue\.gradle\caches\transforms-3\d94dcbcb267dd69e4936b6bc86d28491\transformed\core-ktx-1.10.1\res
+com.techzeno.crmtracker.app-transition-1.2.0-59 C:\Users\vogue\.gradle\caches\transforms-3\dfd17118d87ede271c9d7afeed910b9c\transformed\transition-1.2.0\res
+com.techzeno.crmtracker.app-savedstate-1.2.1-60 C:\Users\vogue\.gradle\caches\transforms-3\e83df9779fcf1e06ec3d04e77f70049c\transformed\savedstate-1.2.1\res
+com.techzeno.crmtracker.app-profileinstaller-1.3.0-61 C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\res
+com.techzeno.crmtracker.app-runtime-saveable-release-62 C:\Users\vogue\.gradle\caches\transforms-3\edba2a311a0a1f89db5fa7f7bb2b41fd\transformed\runtime-saveable-release\res
+com.techzeno.crmtracker.app-lifecycle-runtime-2.6.1-63 C:\Users\vogue\.gradle\caches\transforms-3\f5d3e72a01ef49952ae28dfe961f178e\transformed\lifecycle-runtime-2.6.1\res

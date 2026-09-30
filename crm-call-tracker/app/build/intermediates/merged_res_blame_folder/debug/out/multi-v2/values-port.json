@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.techzeno.crmtracker.app-mergeDebugResources-2:/values-port/values-port.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\vogue\\.gradle\\caches\\transforms-3\\7e9719d9caa673253813c5ca0e86ea6a\\transformed\\appcompat-1.5.0\\res\\values-port\\values-port.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "55",
+                        "endOffsets": "106"
+                    }
+                }
+            ]
+        }
+    ]
+}

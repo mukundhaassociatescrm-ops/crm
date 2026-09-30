@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.CrmCallTracker" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">#0b2340</item>
+        <item name="colorPrimaryVariant">#083048</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+</resources>

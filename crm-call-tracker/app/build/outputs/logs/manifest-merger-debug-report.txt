@@ -1,0 +1,457 @@
+-- Merging decision tree log ---
+manifest
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:2:1-38:12
+INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:2:1-38:12
+INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:2:1-38:12
+INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:2:1-38:12
+MERGED from [androidx.compose.material3:material3:1.1.2] C:\Users\vogue\.gradle\caches\transforms-3\4210db52218faa1a2afda47e07bc2838\transformed\material3-1.1.2\AndroidManifest.xml:17:1-22:12
+MERGED from [com.google.accompanist:accompanist-permissions:0.30.1] C:\Users\vogue\.gradle\caches\transforms-3\0ad8afc090871c925d538180fc64bba5\transformed\accompanist-permissions-0.30.1\AndroidManifest.xml:17:1-25:12
+MERGED from [com.google.android.material:material:1.9.0] C:\Users\vogue\.gradle\caches\transforms-3\974f25aba6f1f524254cf7edd8cc8216\transformed\material-1.9.0\AndroidManifest.xml:17:1-26:12
+MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] C:\Users\vogue\.gradle\caches\transforms-3\b39bd8486a11e1a52883f25a0e22d6be\transformed\constraintlayout-2.0.1\AndroidManifest.xml:2:1-11:12
+MERGED from [androidx.appcompat:appcompat-resources:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\634471eed6cf73c1d9fc439e7f9136bf\transformed\appcompat-resources-1.5.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.appcompat:appcompat:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\7e9719d9caa673253813c5ca0e86ea6a\transformed\appcompat-1.5.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.viewpager2:viewpager2:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\58fd62f13f54516692265911b6a52c8f\transformed\viewpager2-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\vogue\.gradle\caches\transforms-3\2182503fdc161f1db2208f20cbdcd142\transformed\fragment-1.3.6\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.activity:activity:1.7.2] C:\Users\vogue\.gradle\caches\transforms-3\26527986637ea945be77b0aa11111307\transformed\activity-1.7.2\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.coordinatorlayout:coordinatorlayout:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\58b3df4f7a024ee6a97d47a815c16351\transformed\coordinatorlayout-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.drawerlayout:drawerlayout:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\7ef869f91552aa8ebd6d2a310a60ef8c\transformed\drawerlayout-1.1.1\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.dynamicanimation:dynamicanimation:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\a2ff0248b505daa538494cc951c35327\transformed\dynamicanimation-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.transition:transition:1.2.0] C:\Users\vogue\.gradle\caches\transforms-3\dfd17118d87ede271c9d7afeed910b9c\transformed\transition-1.2.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\6d15cbbb004a387dd0c6884d50ac5111\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\cb863989026740af35a73697b1bed308\transformed\vectordrawable-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.autofill:autofill:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\4c5351fd5def55276f5b0cb736333323\transformed\autofill-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.recyclerview:recyclerview:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\80d05cd129c56dffac93c2641153945b\transformed\recyclerview-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\ec8d2aea6f93cb073e6c4ee6fa6f9a2e\transformed\viewpager-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.customview:customview:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\a701e255fa8f6077c3d9a339d4c67d12\transformed\customview-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.legacy:legacy-support-core-utils:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\0b8af2af511e0ec4835ae8f611a8e63a\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.compose.material:material-ripple-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\1e4c86d0731fa267afdc101575aac353\transformed\material-ripple-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.material:material-icons-core-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\7fe9f0f02c4145973e42a54d1fa8926c\transformed\material-icons-core-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.material:material-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9a761927b4f284676c09c9c3b6f5000a\transformed\material-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.foundation:foundation-layout-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\968ab98d4694815f6688c8525228d5f5\transformed\foundation-layout-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.foundation:foundation-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\1c5047d58d55a4eb6c238389dc1ef816\transformed\foundation-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.animation:animation-core-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\c592a601f56bf26db29024b3420e5e45\transformed\animation-core-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.animation:animation-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\0e238f3509f5b2814644ba0533f68a89\transformed\animation-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-unit-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\526f8e1cf22811973739a724f48eafd9\transformed\ui-unit-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-geometry-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\609f6f3c1346fdeca598212b25f7b729\transformed\ui-geometry-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-tooling-data-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\3253083ab958a096b573e754df4d0a51\transformed\ui-tooling-data-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-util-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\b32c62927847b7b917c41b641fac6387\transformed\ui-util-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-graphics-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\c2670157073467ea0388da55d66c33d8\transformed\ui-graphics-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-tooling-preview-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\6f2dc3cea1a28c6535c13414af245493\transformed\ui-tooling-preview-release\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.compose.ui:ui-text-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\b5fce21312c9253ae0670474567b3d65\transformed\ui-text-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\4c9af0c302e415bc7bd907e64bd7da9b\transformed\loader-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.emoji2:emoji2-views-helper:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\c517241a859a9b7509b2c1c5ef64f8cc\transformed\emoji2-views-helper-1.4.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:17:1-35:12
+MERGED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:17:1-30:12
+MERGED from [androidx.savedstate:savedstate-ktx:1.2.1] C:\Users\vogue\.gradle\caches\transforms-3\a4bccace89ed47ff2139f16fce02f518\transformed\savedstate-ktx-1.2.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.savedstate:savedstate:1.2.1] C:\Users\vogue\.gradle\caches\transforms-3\e83df9779fcf1e06ec3d04e77f70049c\transformed\savedstate-1.2.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\AndroidManifest.xml:17:1-35:12
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\4401f084b1dbbce94e1f29602b737128\transformed\lifecycle-livedata-2.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\67715eaeda18ae153cece18fb5941a9b\transformed\lifecycle-livedata-core-2.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\2cb400c83fc8515b71b24b616f41b3a5\transformed\lifecycle-viewmodel-savedstate-2.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\2da01db78a429172002e5c12f8745d5c\transformed\lifecycle-viewmodel-ktx-2.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\85af08ba7abf53ff8ca0a5074f56737a\transformed\lifecycle-viewmodel-2.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\f5d3e72a01ef49952ae28dfe961f178e\transformed\lifecycle-runtime-2.6.1\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.lifecycle:lifecycle-runtime-ktx:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\7ea152c977dff3b4bcde338eab8c8628\transformed\lifecycle-runtime-ktx-2.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\b01289ef76e26dacdcaa80ec312308aa\transformed\lifecycle-viewmodel-compose-2.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.compose.ui:ui-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\a37a06a7ce6474ed81b6b240e207d04c\transformed\ui-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-tooling-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9bfe1adbd72b98f10065062bbb3da0c7\transformed\ui-tooling-release\AndroidManifest.xml:17:1-28:12
+MERGED from [androidx.activity:activity-compose:1.7.2] C:\Users\vogue\.gradle\caches\transforms-3\8f209c64c9c0f324a51bf67263bb984e\transformed\activity-compose-1.7.2\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.activity:activity-ktx:1.7.2] C:\Users\vogue\.gradle\caches\transforms-3\2dd81cbc16598e10f4fb4ea5be6d6c46\transformed\activity-ktx-1.7.2\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\a4ebeefc28daed6d85a64800c2ddb18c\transformed\customview-poolingcontainer-1.0.0\AndroidManifest.xml:17:1-23:12
+MERGED from [androidx.core:core-ktx:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\d94dcbcb267dd69e4936b6bc86d28491\transformed\core-ktx-1.10.1\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.room:room-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\AndroidManifest.xml:17:1-31:12
+MERGED from [androidx.room:room-ktx:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\c21aeff160b5e52db2bb4979d7f3c410\transformed\room-ktx-2.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [com.jakewharton.timber:timber:5.0.1] C:\Users\vogue\.gradle\caches\transforms-3\9149a322f68e3f6e941051a5f83fb73d\transformed\timber-5.0.1\AndroidManifest.xml:2:1-9:12
+MERGED from [androidx.sqlite:sqlite-framework:2.4.0] C:\Users\vogue\.gradle\caches\transforms-3\ce996f11cfe607f9c47666d60ea0ac3e\transformed\sqlite-framework-2.4.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.sqlite:sqlite:2.4.0] C:\Users\vogue\.gradle\caches\transforms-3\cb3cc708824483a7bc07aafddad16714\transformed\sqlite-2.4.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\a50d4ac953700fdbac96bf5ba5099480\transformed\annotation-experimental-1.3.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.compose.runtime:runtime-saveable-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\edba2a311a0a1f89db5fa7f7bb2b41fd\transformed\runtime-saveable-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.runtime:runtime-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\04ed712e8f56486aa667b8887a4410cc\transformed\runtime-release\AndroidManifest.xml:2:1-7:12
+MERGED from [io.github.aakira:napier-android-debug:1.4.1] C:\Users\vogue\.gradle\caches\transforms-3\02c7457377485a6112ea93017cd3e5b1\transformed\napier-debug\AndroidManifest.xml:2:1-11:12
+MERGED from [androidx.cardview:cardview:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\d8af82ace53f2c4e93958e796cd7d64e\transformed\cardview-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\vogue\.gradle\caches\transforms-3\b54aa2edbe2d41069339e2aecc9fda1b\transformed\core-runtime-2.2.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\9d03304f8ae59f1e76d73098c04d281a\transformed\interpolator-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\58e4dba6bb76dbe7e0267fffdc38d5e5\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:17:1-27:12
+MERGED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:17:1-55:12
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\43e54bf35c27526b759c14259603e41c\transformed\startup-runtime-1.1.1\AndroidManifest.xml:17:1-33:12
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\fb02e7f40f108909057c103adc283509\transformed\tracing-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\3f3c420e55e3d6c9e82a3b0129d6f832\transformed\cursoradapter-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.documentfile:documentfile:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\662f0b13fda0b714bae8beb18fdf60f9\transformed\documentfile-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.localbroadcastmanager:localbroadcastmanager:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\5c1e075b12d2b813bbed9aea5b763152\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.print:print:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\9142dcf7780b65168d06e7e88450e3f6\transformed\print-1.0.0\AndroidManifest.xml:17:1-22:12
+	package
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:3:5-38
+		INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml
+	android:versionName
+		INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml
+	android:versionCode
+		INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml
+	xmlns:android
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:2:11-69
+uses-permission#android.permission.READ_PHONE_STATE
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:5:5-75
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:5:22-72
+uses-permission#android.permission.READ_CALL_LOG
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:6:5-72
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:6:22-69
+uses-permission#android.permission.READ_PHONE_NUMBERS
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:7:5-77
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:7:22-74
+uses-permission#android.permission.READ_CONTACTS
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:8:5-72
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:8:22-69
+uses-permission#android.permission.RECORD_AUDIO
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:9:5-71
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:9:22-68
+application
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:11:5-36:19
+INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:11:5-36:19
+MERGED from [com.google.android.material:material:1.9.0] C:\Users\vogue\.gradle\caches\transforms-3\974f25aba6f1f524254cf7edd8cc8216\transformed\material-1.9.0\AndroidManifest.xml:24:5-20
+MERGED from [com.google.android.material:material:1.9.0] C:\Users\vogue\.gradle\caches\transforms-3\974f25aba6f1f524254cf7edd8cc8216\transformed\material-1.9.0\AndroidManifest.xml:24:5-20
+MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] C:\Users\vogue\.gradle\caches\transforms-3\b39bd8486a11e1a52883f25a0e22d6be\transformed\constraintlayout-2.0.1\AndroidManifest.xml:9:5-20
+MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] C:\Users\vogue\.gradle\caches\transforms-3\b39bd8486a11e1a52883f25a0e22d6be\transformed\constraintlayout-2.0.1\AndroidManifest.xml:9:5-20
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:28:5-89
+MERGED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:28:5-89
+MERGED from [androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.compose.ui:ui-tooling-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9bfe1adbd72b98f10065062bbb3da0c7\transformed\ui-tooling-release\AndroidManifest.xml:22:5-26:19
+MERGED from [androidx.compose.ui:ui-tooling-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9bfe1adbd72b98f10065062bbb3da0c7\transformed\ui-tooling-release\AndroidManifest.xml:22:5-26:19
+MERGED from [androidx.room:room-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\AndroidManifest.xml:23:5-29:19
+MERGED from [androidx.room:room-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\AndroidManifest.xml:23:5-29:19
+MERGED from [com.jakewharton.timber:timber:5.0.1] C:\Users\vogue\.gradle\caches\transforms-3\9149a322f68e3f6e941051a5f83fb73d\transformed\timber-5.0.1\AndroidManifest.xml:7:5-20
+MERGED from [com.jakewharton.timber:timber:5.0.1] C:\Users\vogue\.gradle\caches\transforms-3\9149a322f68e3f6e941051a5f83fb73d\transformed\timber-5.0.1\AndroidManifest.xml:7:5-20
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\58e4dba6bb76dbe7e0267fffdc38d5e5\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\58e4dba6bb76dbe7e0267fffdc38d5e5\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
+MERGED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:23:5-53:19
+MERGED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:23:5-53:19
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\43e54bf35c27526b759c14259603e41c\transformed\startup-runtime-1.1.1\AndroidManifest.xml:25:5-31:19
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\43e54bf35c27526b759c14259603e41c\transformed\startup-runtime-1.1.1\AndroidManifest.xml:25:5-31:19
+	android:extractNativeLibs
+		INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml
+	android:appComponentFactory
+		ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:28:18-86
+	android:label
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:14:9-41
+	android:roundIcon
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:16:9-54
+	android:icon
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:15:9-43
+	android:allowBackup
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:13:9-35
+	android:theme
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:17:9-52
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:12:9-31
+activity#com.techzeno.crmtracker.MainActivity
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:18:9-23:20
+	android:exported
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:18:48-71
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:18:19-47
+intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:19:13-22:29
+action#android.intent.action.MAIN
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:20:17-69
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:20:25-66
+category#android.intent.category.LAUNCHER
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:21:17-77
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:21:27-74
+receiver#com.techzeno.crmtracker.call.CallStateReceiver
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:25:9-33:20
+	android:enabled
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:27:13-35
+	android:exported
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:28:13-36
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:26:13-51
+intent-filter#action:name:android.intent.action.NEW_OUTGOING_CALL+action:name:android.intent.action.PHONE_STATE
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:29:13-32:29
+action#android.intent.action.PHONE_STATE
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:30:17-76
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:30:25-73
+action#android.intent.action.NEW_OUTGOING_CALL
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:31:17-82
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:31:25-79
+service#com.techzeno.crmtracker.call.CallMonitorService
+ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:35:9-85
+	android:exported
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:35:58-82
+	android:name
+		ADDED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml:35:18-57
+uses-sdk
+INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml
+INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml
+MERGED from [androidx.compose.material3:material3:1.1.2] C:\Users\vogue\.gradle\caches\transforms-3\4210db52218faa1a2afda47e07bc2838\transformed\material3-1.1.2\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.material3:material3:1.1.2] C:\Users\vogue\.gradle\caches\transforms-3\4210db52218faa1a2afda47e07bc2838\transformed\material3-1.1.2\AndroidManifest.xml:20:5-44
+MERGED from [com.google.accompanist:accompanist-permissions:0.30.1] C:\Users\vogue\.gradle\caches\transforms-3\0ad8afc090871c925d538180fc64bba5\transformed\accompanist-permissions-0.30.1\AndroidManifest.xml:21:5-23:42
+MERGED from [com.google.accompanist:accompanist-permissions:0.30.1] C:\Users\vogue\.gradle\caches\transforms-3\0ad8afc090871c925d538180fc64bba5\transformed\accompanist-permissions-0.30.1\AndroidManifest.xml:21:5-23:42
+MERGED from [com.google.android.material:material:1.9.0] C:\Users\vogue\.gradle\caches\transforms-3\974f25aba6f1f524254cf7edd8cc8216\transformed\material-1.9.0\AndroidManifest.xml:20:5-22:41
+MERGED from [com.google.android.material:material:1.9.0] C:\Users\vogue\.gradle\caches\transforms-3\974f25aba6f1f524254cf7edd8cc8216\transformed\material-1.9.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] C:\Users\vogue\.gradle\caches\transforms-3\b39bd8486a11e1a52883f25a0e22d6be\transformed\constraintlayout-2.0.1\AndroidManifest.xml:5:5-7:41
+MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] C:\Users\vogue\.gradle\caches\transforms-3\b39bd8486a11e1a52883f25a0e22d6be\transformed\constraintlayout-2.0.1\AndroidManifest.xml:5:5-7:41
+MERGED from [androidx.appcompat:appcompat-resources:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\634471eed6cf73c1d9fc439e7f9136bf\transformed\appcompat-resources-1.5.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat-resources:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\634471eed6cf73c1d9fc439e7f9136bf\transformed\appcompat-resources-1.5.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\7e9719d9caa673253813c5ca0e86ea6a\transformed\appcompat-1.5.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\7e9719d9caa673253813c5ca0e86ea6a\transformed\appcompat-1.5.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.viewpager2:viewpager2:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\58fd62f13f54516692265911b6a52c8f\transformed\viewpager2-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.viewpager2:viewpager2:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\58fd62f13f54516692265911b6a52c8f\transformed\viewpager2-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\vogue\.gradle\caches\transforms-3\2182503fdc161f1db2208f20cbdcd142\transformed\fragment-1.3.6\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\vogue\.gradle\caches\transforms-3\2182503fdc161f1db2208f20cbdcd142\transformed\fragment-1.3.6\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.activity:activity:1.7.2] C:\Users\vogue\.gradle\caches\transforms-3\26527986637ea945be77b0aa11111307\transformed\activity-1.7.2\AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity:1.7.2] C:\Users\vogue\.gradle\caches\transforms-3\26527986637ea945be77b0aa11111307\transformed\activity-1.7.2\AndroidManifest.xml:20:5-44
+MERGED from [androidx.coordinatorlayout:coordinatorlayout:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\58b3df4f7a024ee6a97d47a815c16351\transformed\coordinatorlayout-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.coordinatorlayout:coordinatorlayout:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\58b3df4f7a024ee6a97d47a815c16351\transformed\coordinatorlayout-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.drawerlayout:drawerlayout:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\7ef869f91552aa8ebd6d2a310a60ef8c\transformed\drawerlayout-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.drawerlayout:drawerlayout:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\7ef869f91552aa8ebd6d2a310a60ef8c\transformed\drawerlayout-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.dynamicanimation:dynamicanimation:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\a2ff0248b505daa538494cc951c35327\transformed\dynamicanimation-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.dynamicanimation:dynamicanimation:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\a2ff0248b505daa538494cc951c35327\transformed\dynamicanimation-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.transition:transition:1.2.0] C:\Users\vogue\.gradle\caches\transforms-3\dfd17118d87ede271c9d7afeed910b9c\transformed\transition-1.2.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.transition:transition:1.2.0] C:\Users\vogue\.gradle\caches\transforms-3\dfd17118d87ede271c9d7afeed910b9c\transformed\transition-1.2.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\6d15cbbb004a387dd0c6884d50ac5111\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\6d15cbbb004a387dd0c6884d50ac5111\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\cb863989026740af35a73697b1bed308\transformed\vectordrawable-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\cb863989026740af35a73697b1bed308\transformed\vectordrawable-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.autofill:autofill:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\4c5351fd5def55276f5b0cb736333323\transformed\autofill-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.autofill:autofill:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\4c5351fd5def55276f5b0cb736333323\transformed\autofill-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.recyclerview:recyclerview:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\80d05cd129c56dffac93c2641153945b\transformed\recyclerview-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.recyclerview:recyclerview:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\80d05cd129c56dffac93c2641153945b\transformed\recyclerview-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\ec8d2aea6f93cb073e6c4ee6fa6f9a2e\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\ec8d2aea6f93cb073e6c4ee6fa6f9a2e\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\a701e255fa8f6077c3d9a339d4c67d12\transformed\customview-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.customview:customview:1.1.0] C:\Users\vogue\.gradle\caches\transforms-3\a701e255fa8f6077c3d9a339d4c67d12\transformed\customview-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.legacy:legacy-support-core-utils:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\0b8af2af511e0ec4835ae8f611a8e63a\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.legacy:legacy-support-core-utils:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\0b8af2af511e0ec4835ae8f611a8e63a\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.material:material-ripple-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\1e4c86d0731fa267afdc101575aac353\transformed\material-ripple-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-ripple-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\1e4c86d0731fa267afdc101575aac353\transformed\material-ripple-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-icons-core-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\7fe9f0f02c4145973e42a54d1fa8926c\transformed\material-icons-core-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-icons-core-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\7fe9f0f02c4145973e42a54d1fa8926c\transformed\material-icons-core-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9a761927b4f284676c09c9c3b6f5000a\transformed\material-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9a761927b4f284676c09c9c3b6f5000a\transformed\material-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-layout-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\968ab98d4694815f6688c8525228d5f5\transformed\foundation-layout-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-layout-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\968ab98d4694815f6688c8525228d5f5\transformed\foundation-layout-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\1c5047d58d55a4eb6c238389dc1ef816\transformed\foundation-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\1c5047d58d55a4eb6c238389dc1ef816\transformed\foundation-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-core-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\c592a601f56bf26db29024b3420e5e45\transformed\animation-core-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-core-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\c592a601f56bf26db29024b3420e5e45\transformed\animation-core-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\0e238f3509f5b2814644ba0533f68a89\transformed\animation-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\0e238f3509f5b2814644ba0533f68a89\transformed\animation-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-unit-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\526f8e1cf22811973739a724f48eafd9\transformed\ui-unit-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-unit-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\526f8e1cf22811973739a724f48eafd9\transformed\ui-unit-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-geometry-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\609f6f3c1346fdeca598212b25f7b729\transformed\ui-geometry-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-geometry-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\609f6f3c1346fdeca598212b25f7b729\transformed\ui-geometry-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-tooling-data-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\3253083ab958a096b573e754df4d0a51\transformed\ui-tooling-data-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-tooling-data-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\3253083ab958a096b573e754df4d0a51\transformed\ui-tooling-data-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-util-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\b32c62927847b7b917c41b641fac6387\transformed\ui-util-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-util-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\b32c62927847b7b917c41b641fac6387\transformed\ui-util-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-graphics-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\c2670157073467ea0388da55d66c33d8\transformed\ui-graphics-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-graphics-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\c2670157073467ea0388da55d66c33d8\transformed\ui-graphics-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-tooling-preview-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\6f2dc3cea1a28c6535c13414af245493\transformed\ui-tooling-preview-release\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.ui:ui-tooling-preview-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\6f2dc3cea1a28c6535c13414af245493\transformed\ui-tooling-preview-release\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.ui:ui-text-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\b5fce21312c9253ae0670474567b3d65\transformed\ui-text-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-text-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\b5fce21312c9253ae0670474567b3d65\transformed\ui-text-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\4c9af0c302e415bc7bd907e64bd7da9b\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\4c9af0c302e415bc7bd907e64bd7da9b\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\c517241a859a9b7509b2c1c5ef64f8cc\transformed\emoji2-views-helper-1.4.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\c517241a859a9b7509b2c1c5ef64f8cc\transformed\emoji2-views-helper-1.4.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate-ktx:1.2.1] C:\Users\vogue\.gradle\caches\transforms-3\a4bccace89ed47ff2139f16fce02f518\transformed\savedstate-ktx-1.2.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate-ktx:1.2.1] C:\Users\vogue\.gradle\caches\transforms-3\a4bccace89ed47ff2139f16fce02f518\transformed\savedstate-ktx-1.2.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate:1.2.1] C:\Users\vogue\.gradle\caches\transforms-3\e83df9779fcf1e06ec3d04e77f70049c\transformed\savedstate-1.2.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate:1.2.1] C:\Users\vogue\.gradle\caches\transforms-3\e83df9779fcf1e06ec3d04e77f70049c\transformed\savedstate-1.2.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\AndroidManifest.xml:21:5-44
+MERGED from [androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\AndroidManifest.xml:21:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\4401f084b1dbbce94e1f29602b737128\transformed\lifecycle-livedata-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\4401f084b1dbbce94e1f29602b737128\transformed\lifecycle-livedata-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\67715eaeda18ae153cece18fb5941a9b\transformed\lifecycle-livedata-core-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\67715eaeda18ae153cece18fb5941a9b\transformed\lifecycle-livedata-core-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\2cb400c83fc8515b71b24b616f41b3a5\transformed\lifecycle-viewmodel-savedstate-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\2cb400c83fc8515b71b24b616f41b3a5\transformed\lifecycle-viewmodel-savedstate-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\2da01db78a429172002e5c12f8745d5c\transformed\lifecycle-viewmodel-ktx-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\2da01db78a429172002e5c12f8745d5c\transformed\lifecycle-viewmodel-ktx-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\85af08ba7abf53ff8ca0a5074f56737a\transformed\lifecycle-viewmodel-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\85af08ba7abf53ff8ca0a5074f56737a\transformed\lifecycle-viewmodel-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\f5d3e72a01ef49952ae28dfe961f178e\transformed\lifecycle-runtime-2.6.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\f5d3e72a01ef49952ae28dfe961f178e\transformed\lifecycle-runtime-2.6.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-ktx:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\7ea152c977dff3b4bcde338eab8c8628\transformed\lifecycle-runtime-ktx-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-ktx:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\7ea152c977dff3b4bcde338eab8c8628\transformed\lifecycle-runtime-ktx-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\b01289ef76e26dacdcaa80ec312308aa\transformed\lifecycle-viewmodel-compose-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\b01289ef76e26dacdcaa80ec312308aa\transformed\lifecycle-viewmodel-compose-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.ui:ui-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\a37a06a7ce6474ed81b6b240e207d04c\transformed\ui-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\a37a06a7ce6474ed81b6b240e207d04c\transformed\ui-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-tooling-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9bfe1adbd72b98f10065062bbb3da0c7\transformed\ui-tooling-release\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.ui:ui-tooling-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9bfe1adbd72b98f10065062bbb3da0c7\transformed\ui-tooling-release\AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity-compose:1.7.2] C:\Users\vogue\.gradle\caches\transforms-3\8f209c64c9c0f324a51bf67263bb984e\transformed\activity-compose-1.7.2\AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity-compose:1.7.2] C:\Users\vogue\.gradle\caches\transforms-3\8f209c64c9c0f324a51bf67263bb984e\transformed\activity-compose-1.7.2\AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity-ktx:1.7.2] C:\Users\vogue\.gradle\caches\transforms-3\2dd81cbc16598e10f4fb4ea5be6d6c46\transformed\activity-ktx-1.7.2\AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity-ktx:1.7.2] C:\Users\vogue\.gradle\caches\transforms-3\2dd81cbc16598e10f4fb4ea5be6d6c46\transformed\activity-ktx-1.7.2\AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\a4ebeefc28daed6d85a64800c2ddb18c\transformed\customview-poolingcontainer-1.0.0\AndroidManifest.xml:20:5-21:38
+MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\a4ebeefc28daed6d85a64800c2ddb18c\transformed\customview-poolingcontainer-1.0.0\AndroidManifest.xml:20:5-21:38
+MERGED from [androidx.core:core-ktx:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\d94dcbcb267dd69e4936b6bc86d28491\transformed\core-ktx-1.10.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.core:core-ktx:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\d94dcbcb267dd69e4936b6bc86d28491\transformed\core-ktx-1.10.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.room:room-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\AndroidManifest.xml:21:5-44
+MERGED from [androidx.room:room-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\AndroidManifest.xml:21:5-44
+MERGED from [androidx.room:room-ktx:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\c21aeff160b5e52db2bb4979d7f3c410\transformed\room-ktx-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.room:room-ktx:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\c21aeff160b5e52db2bb4979d7f3c410\transformed\room-ktx-2.6.1\AndroidManifest.xml:20:5-44
+MERGED from [com.jakewharton.timber:timber:5.0.1] C:\Users\vogue\.gradle\caches\transforms-3\9149a322f68e3f6e941051a5f83fb73d\transformed\timber-5.0.1\AndroidManifest.xml:5:5-44
+MERGED from [com.jakewharton.timber:timber:5.0.1] C:\Users\vogue\.gradle\caches\transforms-3\9149a322f68e3f6e941051a5f83fb73d\transformed\timber-5.0.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.sqlite:sqlite-framework:2.4.0] C:\Users\vogue\.gradle\caches\transforms-3\ce996f11cfe607f9c47666d60ea0ac3e\transformed\sqlite-framework-2.4.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.sqlite:sqlite-framework:2.4.0] C:\Users\vogue\.gradle\caches\transforms-3\ce996f11cfe607f9c47666d60ea0ac3e\transformed\sqlite-framework-2.4.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.sqlite:sqlite:2.4.0] C:\Users\vogue\.gradle\caches\transforms-3\cb3cc708824483a7bc07aafddad16714\transformed\sqlite-2.4.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.sqlite:sqlite:2.4.0] C:\Users\vogue\.gradle\caches\transforms-3\cb3cc708824483a7bc07aafddad16714\transformed\sqlite-2.4.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\a50d4ac953700fdbac96bf5ba5099480\transformed\annotation-experimental-1.3.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\a50d4ac953700fdbac96bf5ba5099480\transformed\annotation-experimental-1.3.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.runtime:runtime-saveable-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\edba2a311a0a1f89db5fa7f7bb2b41fd\transformed\runtime-saveable-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-saveable-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\edba2a311a0a1f89db5fa7f7bb2b41fd\transformed\runtime-saveable-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\04ed712e8f56486aa667b8887a4410cc\transformed\runtime-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\04ed712e8f56486aa667b8887a4410cc\transformed\runtime-release\AndroidManifest.xml:5:5-44
+MERGED from [io.github.aakira:napier-android-debug:1.4.1] C:\Users\vogue\.gradle\caches\transforms-3\02c7457377485a6112ea93017cd3e5b1\transformed\napier-debug\AndroidManifest.xml:7:5-9:41
+MERGED from [io.github.aakira:napier-android-debug:1.4.1] C:\Users\vogue\.gradle\caches\transforms-3\02c7457377485a6112ea93017cd3e5b1\transformed\napier-debug\AndroidManifest.xml:7:5-9:41
+MERGED from [androidx.cardview:cardview:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\d8af82ace53f2c4e93958e796cd7d64e\transformed\cardview-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.cardview:cardview:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\d8af82ace53f2c4e93958e796cd7d64e\transformed\cardview-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\vogue\.gradle\caches\transforms-3\b54aa2edbe2d41069339e2aecc9fda1b\transformed\core-runtime-2.2.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\vogue\.gradle\caches\transforms-3\b54aa2edbe2d41069339e2aecc9fda1b\transformed\core-runtime-2.2.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\9d03304f8ae59f1e76d73098c04d281a\transformed\interpolator-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\9d03304f8ae59f1e76d73098c04d281a\transformed\interpolator-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\58e4dba6bb76dbe7e0267fffdc38d5e5\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\58e4dba6bb76dbe7e0267fffdc38d5e5\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\43e54bf35c27526b759c14259603e41c\transformed\startup-runtime-1.1.1\AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\43e54bf35c27526b759c14259603e41c\transformed\startup-runtime-1.1.1\AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\fb02e7f40f108909057c103adc283509\transformed\tracing-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\fb02e7f40f108909057c103adc283509\transformed\tracing-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\3f3c420e55e3d6c9e82a3b0129d6f832\transformed\cursoradapter-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\3f3c420e55e3d6c9e82a3b0129d6f832\transformed\cursoradapter-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.documentfile:documentfile:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\662f0b13fda0b714bae8beb18fdf60f9\transformed\documentfile-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.documentfile:documentfile:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\662f0b13fda0b714bae8beb18fdf60f9\transformed\documentfile-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.localbroadcastmanager:localbroadcastmanager:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\5c1e075b12d2b813bbed9aea5b763152\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.localbroadcastmanager:localbroadcastmanager:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\5c1e075b12d2b813bbed9aea5b763152\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.print:print:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\9142dcf7780b65168d06e7e88450e3f6\transformed\print-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.print:print:1.0.0] C:\Users\vogue\.gradle\caches\transforms-3\9142dcf7780b65168d06e7e88450e3f6\transformed\print-1.0.0\AndroidManifest.xml:20:5-44
+	android:targetSdkVersion
+		INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml
+	tools:ignore
+		ADDED from [com.google.accompanist:accompanist-permissions:0.30.1] C:\Users\vogue\.gradle\caches\transforms-3\0ad8afc090871c925d538180fc64bba5\transformed\accompanist-permissions-0.30.1\AndroidManifest.xml:23:9-39
+	android:minSdkVersion
+		INJECTED from C:\MUKUNDHA ASSOCIATES CRM\crm-call-tracker\app\src\main\AndroidManifest.xml
+provider#androidx.startup.InitializationProvider
+ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\43e54bf35c27526b759c14259603e41c\transformed\startup-runtime-1.1.1\AndroidManifest.xml:26:9-30:34
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\vogue\.gradle\caches\transforms-3\43e54bf35c27526b759c14259603e41c\transformed\startup-runtime-1.1.1\AndroidManifest.xml:26:9-30:34
+	tools:node
+		ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:28:13-31
+	android:authorities
+		ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:26:13-68
+	android:exported
+		ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:27:13-37
+	android:name
+		ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:25:13-67
+meta-data#androidx.emoji2.text.EmojiCompatInitializer
+ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\vogue\.gradle\caches\transforms-3\0eee1a5fbc7457c2ebaffc0c263dd6c9\transformed\emoji2-1.4.0\AndroidManifest.xml:30:17-75
+permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:23:9-81
+permission#com.techzeno.crmtracker.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:23:9-81
+uses-permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:26:22-94
+uses-permission#com.techzeno.crmtracker.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.10.1] C:\Users\vogue\.gradle\caches\transforms-3\27f1884d43fa543bf31236179597f87a\transformed\core-1.10.1\AndroidManifest.xml:26:22-94
+meta-data#androidx.lifecycle.ProcessLifecycleInitializer
+ADDED from [androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\785d9e977f584666453af38f9a889b38\transformed\lifecycle-process-2.6.1\AndroidManifest.xml:30:17-78
+activity#androidx.compose.ui.tooling.PreviewActivity
+ADDED from [androidx.compose.ui:ui-tooling-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9bfe1adbd72b98f10065062bbb3da0c7\transformed\ui-tooling-release\AndroidManifest.xml:23:9-25:39
+	android:exported
+		ADDED from [androidx.compose.ui:ui-tooling-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9bfe1adbd72b98f10065062bbb3da0c7\transformed\ui-tooling-release\AndroidManifest.xml:25:13-36
+	android:name
+		ADDED from [androidx.compose.ui:ui-tooling-android:1.5.0] C:\Users\vogue\.gradle\caches\transforms-3\9bfe1adbd72b98f10065062bbb3da0c7\transformed\ui-tooling-release\AndroidManifest.xml:24:13-71
+service#androidx.room.MultiInstanceInvalidationService
+ADDED from [androidx.room:room-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\AndroidManifest.xml:24:9-28:63
+	android:exported
+		ADDED from [androidx.room:room-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\AndroidManifest.xml:27:13-37
+	tools:ignore
+		ADDED from [androidx.room:room-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\AndroidManifest.xml:28:13-60
+	android:directBootAware
+		ADDED from [androidx.room:room-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\AndroidManifest.xml:26:13-43
+	android:name
+		ADDED from [androidx.room:room-runtime:2.6.1] C:\Users\vogue\.gradle\caches\transforms-3\8378e47af336c9db4c00c68b37781569\transformed\room-runtime-2.6.1\AndroidManifest.xml:25:13-74
+meta-data#androidx.profileinstaller.ProfileInstallerInitializer
+ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:30:17-85
+receiver#androidx.profileinstaller.ProfileInstallReceiver
+ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:34:9-52:20
+	android:enabled
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:37:13-35
+	android:exported
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:38:13-36
+	android:permission
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:39:13-57
+	android:directBootAware
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:36:13-44
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:35:13-76
+intent-filter#action:name:androidx.profileinstaller.action.INSTALL_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:40:13-42:29
+action#androidx.profileinstaller.action.INSTALL_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:41:17-91
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:41:25-88
+intent-filter#action:name:androidx.profileinstaller.action.SKIP_FILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:43:13-45:29
+action#androidx.profileinstaller.action.SKIP_FILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:44:17-85
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:44:25-82
+intent-filter#action:name:androidx.profileinstaller.action.SAVE_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:46:13-48:29
+action#androidx.profileinstaller.action.SAVE_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:47:17-88
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:47:25-85
+intent-filter#action:name:androidx.profileinstaller.action.BENCHMARK_OPERATION
+ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:49:13-51:29
+action#androidx.profileinstaller.action.BENCHMARK_OPERATION
+ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:50:17-95
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\vogue\.gradle\caches\transforms-3\eb623036c4367dca201ba80878b82fd5\transformed\profileinstaller-1.3.0\AndroidManifest.xml:50:25-92

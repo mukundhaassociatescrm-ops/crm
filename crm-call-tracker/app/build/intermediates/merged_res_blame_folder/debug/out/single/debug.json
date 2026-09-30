@@ -1,0 +1,66 @@
+[
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-anydpi-v26\\ic_launcher_round.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-anydpi-v26\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-xxxhdpi_ic_launcher_round.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-xxxhdpi\\ic_launcher_round.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\drawable_launch_background.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\drawable\\launch_background.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-xxhdpi_ic_launcher.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-xxhdpi\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-xhdpi_ic_launcher_round.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-xhdpi\\ic_launcher_round.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-mdpi_ic_launcher.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-mdpi\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\drawable_ma_logo.png.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\drawable\\ma_logo.png"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-hdpi_ic_launcher_round.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-hdpi\\ic_launcher_round.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-xhdpi_ic_launcher.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-xhdpi\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-hdpi_ic_launcher.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-hdpi\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-xxxhdpi_ic_launcher.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-xxxhdpi\\ic_launcher.xml"
+    },
+    {
+        "merged": "com.techzeno.crmtracker.app-merged_res-4:/drawable_ma_logo.png.flat",
+        "source": "com.techzeno.crmtracker.app-main-6:/drawable/ma_logo.png"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-mdpi_ic_launcher_round.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-mdpi\\ic_launcher_round.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\mipmap-xxhdpi_ic_launcher_round.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\mipmap-xxhdpi\\ic_launcher_round.xml"
+    },
+    {
+        "merged": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-merged_res-4:\\drawable_ic_launcher_foreground.xml.flat",
+        "source": "C:\\Users\\vogue\\.gradle\\daemon\\8.0.2\\com.techzeno.crmtracker.app-main-6:\\drawable\\ic_launcher_foreground.xml"
+    }
+]
