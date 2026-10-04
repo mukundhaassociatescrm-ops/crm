@@ -121,7 +121,16 @@ exports.getEmployees = async (req, res, next) => {
 
     if (search) {
       const regex = new RegExp(search, 'i');
-      query.$or = [{ fullName: regex }, { email: regex }, { phone: regex }];
+      const searchConditions = [{ fullName: regex }, { email: regex }, { phone: regex }];
+      if (query.$or) {
+        query.$and = [
+          { $or: query.$or },
+          { $or: searchConditions },
+        ];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
+      }
     }
 
     if (status !== undefined) {

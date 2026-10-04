@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,8 +20,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,9 +37,13 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
 // note: keep only icons available in the project's icon set
 import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -70,6 +77,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.core.content.ContextCompat
@@ -80,13 +88,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.paging.LoadState
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemKey
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import com.techzeno.crmtracker.ContactMatchHelper
 import com.techzeno.crmtracker.R
 import com.techzeno.crmtracker.call.CallEvent
 import com.techzeno.crmtracker.call.CallType
+import com.techzeno.crmtracker.data.CallTrackerTask
 import com.techzeno.crmtracker.ui.theme.AccentCoral
 import com.techzeno.crmtracker.ui.theme.BackgroundSoft
 import com.techzeno.crmtracker.ui.theme.BrandBlue
@@ -99,6 +118,8 @@ import com.techzeno.crmtracker.ui.theme.TextSecondary
 import com.techzeno.crmtracker.ui.theme.WarningAmber
 import com.techzeno.crmtracker.ui.theme.WarningAmberSoft
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.OffsetDateTime
 import java.util.Date
 import java.util.Locale
 
@@ -107,16 +128,31 @@ fun MainScreen(vm: MainViewModel) {
     val serviceStatus = vm.serviceStatus.collectAsState()
     val permissionStatus = vm.permissionStatus.collectAsState()
     val lastCall = vm.lastCall.collectAsState()
-    val recentCalls = vm.recentCalls.collectAsState()
-    val isLoading = vm.isLoading.collectAsState()
+    val dashboardRecentCalls = vm.dashboardRecentCalls.collectAsState()
+    val todayActivity = vm.todayActivity.collectAsState()
+    val adminSession = vm.adminSession.collectAsState()
+    val isLoggingIn = vm.isLoggingIn.collectAsState()
+    val loginError = vm.loginError.collectAsState()
+    val employeeSearch = vm.employeeSearch.collectAsState()
+    val isCreatingTask = vm.isCreatingTask.collectAsState()
+    val taskError = vm.taskError.collectAsState()
+    val myTasksState = vm.myTasksState.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     var selectedCall by remember { mutableStateOf<CallEvent?>(null) }
     var showCreateTaskSheet by remember { mutableStateOf(false) }
     var draftTask by remember { mutableStateOf<TaskDraft?>(null) }
     var callEndedBanner by remember { mutableStateOf<CallEvent?>(null) }
-    val tasks = remember { mutableStateListOf<TaskDraft>() }
     val context = LocalContext.current
     val activity = context as? Activity
+
+    if (adminSession.value == null) {
+        AdminLoginScreen(
+            isLoading = isLoggingIn.value,
+            errorMessage = loginError.value,
+            onLogin = vm::login
+        )
+        return
+    }
 
     LaunchedEffect(lastCall.value?.id, lastCall.value?.status) {
         val endedCall = lastCall.value
@@ -142,6 +178,7 @@ fun MainScreen(vm: MainViewModel) {
             }
             selectedTab != 0 -> {
                 selectedTab = 0
+                vm.refreshCallData()
             }
             else -> {
                 (context as? ComponentActivity)?.onBackPressedDispatcher?.onBackPressed()
@@ -150,16 +187,31 @@ fun MainScreen(vm: MainViewModel) {
         }
     }
 
-    val allCalls = recentCalls.value
-    val incomingCalls = allCalls.count { it.callType == CallType.INCOMING }
-    val outgoingCalls = allCalls.count { it.callType == CallType.OUTGOING }
-    val totalCalls = allCalls.size
-    val followUpsPending = 0
     val lastSyncLabel = lastCall.value?.let {
         "Updated ${formatCallTime(it.startTime)}"
     } ?: "Waiting for first detected call"
     val selectedContactName = selectedCall?.let {
         ContactMatchHelper.lookupContactName(LocalContext.current, it.phoneNumber)
+    }
+
+    fun submitCreatedTask(created: TaskDraft) {
+        vm.submitTask(
+            title = created.title,
+            description = created.description,
+            assignedToId = created.assignedToId,
+            customerName = created.customerName,
+            customerPhone = created.customerPhone,
+            dueDateMillis = created.date
+        ) { createdTask ->
+            val successMessage = createdTask.displayId
+                .takeIf(String::isNotBlank)
+                ?.let { "Task $it created successfully." }
+                ?: "Task created successfully."
+            Toast.makeText(context, successMessage, Toast.LENGTH_SHORT).show()
+            vm.refreshMyTasks()
+            showCreateTaskSheet = false
+            draftTask = null
+        }
     }
 
     if (selectedCall != null) {
@@ -185,15 +237,15 @@ fun MainScreen(vm: MainViewModel) {
         if (showCreateTaskSheet && draftTask != null) {
             CreateTaskSheet(
                 initialValue = draftTask!!,
+                employeeSearch = employeeSearch.value,
+                isCreatingTask = isCreatingTask.value,
+                taskError = taskError.value,
+                onSearchEmployees = vm::searchEmployees,
                 onDismiss = {
                     showCreateTaskSheet = false
                     draftTask = null
                 },
-                onSave = { created ->
-                    tasks.add(created)
-                    showCreateTaskSheet = false
-                    draftTask = null
-                }
+                onSave = ::submitCreatedTask
             )
         }
         return
@@ -209,19 +261,12 @@ fun MainScreen(vm: MainViewModel) {
                         onClick = {
                             selectedTab = index
                             selectedCall = null
+                            if (label == "Dashboard") {
+                                vm.refreshCallData()
+                            }
                             if (label == "Tasks") {
                                 showCreateTaskSheet = false
-                                draftTask = TaskDraft(
-                                    customerName = "",
-                                    customerPhone = "",
-                                    date = Date().time,
-                                    title = "",
-                                    description = "",
-                                    assignTo = "",
-                                    voiceNotePath = null,
-                                    voiceNoteDurationSeconds = 0,
-                                    attachments = emptyList()
-                                )
+                                vm.refreshMyTasks()
                             }
                         },
                         icon = {
@@ -241,12 +286,12 @@ fun MainScreen(vm: MainViewModel) {
     ) { paddingValues ->
         when (selectedTab) {
             1 -> CallsScreen(
-                calls = recentCalls.value,
-                isLoading = isLoading.value,
+                vm = vm,
                 onCallClick = { selectedCall = it }
             )
             2 -> TasksScreen(
-                tasks = tasks,
+                state = myTasksState.value,
+                onRetry = vm::refreshMyTasks,
                 onCreateTask = {
                     showCreateTaskSheet = true
                     draftTask = TaskDraft(
@@ -262,20 +307,121 @@ fun MainScreen(vm: MainViewModel) {
                     )
                 }
             )
-            3 -> SettingsScreen()
+            3 -> SettingsScreen(onLogout = vm::logout)
             else -> DashboardContent(
                 serviceStatus = serviceStatus.value,
                 permissionStatus = permissionStatus.value,
                 lastSyncLabel = lastSyncLabel,
-                recentCalls = recentCalls.value,
+                recentCalls = dashboardRecentCalls.value,
                 lastCall = lastCall.value,
                 callEndedBanner = callEndedBanner,
-                incomingCalls = incomingCalls,
-                outgoingCalls = outgoingCalls,
-                totalCalls = totalCalls,
-                followUpsPending = followUpsPending,
-                onRefresh = { vm.refreshStatus() }
+                incomingCalls = todayActivity.value.incomingCalls,
+                outgoingCalls = todayActivity.value.outgoingCalls,
+                totalCalls = todayActivity.value.totalCalls,
+                missedCalls = todayActivity.value.missedCalls,
+                onViewAllCalls = { selectedTab = 1 },
+                onRefresh = {
+                    vm.refreshStatus()
+                    vm.refreshCallData()
+                }
             )
+        }
+    }
+
+    if (showCreateTaskSheet && draftTask != null) {
+        CreateTaskSheet(
+            initialValue = draftTask!!,
+            employeeSearch = employeeSearch.value,
+            isCreatingTask = isCreatingTask.value,
+            taskError = taskError.value,
+            onSearchEmployees = vm::searchEmployees,
+            onDismiss = {
+                showCreateTaskSheet = false
+                draftTask = null
+            },
+            onSave = ::submitCreatedTask
+        )
+    }
+}
+
+@Composable
+private fun AdminLoginScreen(
+    isLoading: Boolean,
+    errorMessage: String,
+    onLogin: (String, String) -> Unit
+) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundSoft)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 28.dp, vertical = 36.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ma_logo),
+            contentDescription = "Mukundha Associates logo",
+            modifier = Modifier.size(width = 132.dp, height = 112.dp)
+        )
+        Text(
+            text = "Mukundha Associates",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary
+        )
+        Text(
+            text = "CRM Call Tracker",
+            style = MaterialTheme.typography.bodyLarge,
+            color = BrandBlue,
+            modifier = Modifier.padding(bottom = 28.dp)
+        )
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Admin email") },
+            singleLine = true
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Password") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation()
+        )
+        if (errorMessage.isNotBlank()) {
+            Text(
+                text = errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp)
+            )
+        }
+        Button(
+            onClick = { onLogin(email, password) },
+            enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 20.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
+                Spacer(Modifier.width(10.dp))
+            }
+            Text(if (isLoading) "Signing in" else "Sign in")
         }
     }
 }
@@ -291,7 +437,8 @@ private fun DashboardContent(
     incomingCalls: Int,
     outgoingCalls: Int,
     totalCalls: Int,
-    followUpsPending: Int,
+    missedCalls: Int,
+    onViewAllCalls: () -> Unit,
     onRefresh: () -> Unit
 ) {
     Column(
@@ -511,8 +658,8 @@ private fun DashboardContent(
             )
             MetricCard(
                 modifier = Modifier.weight(1f),
-                title = "Follow-ups Pending",
-                value = followUpsPending.toString(),
+                title = "Missed Calls",
+                value = missedCalls.toString(),
                 tint = WarningAmber,
                 tintSoft = WarningAmberSoft,
                 icon = Icons.Outlined.CheckCircle
@@ -534,6 +681,22 @@ private fun DashboardContent(
         } else {
             val context = LocalContext.current
             var contactName by remember(lastCall.phoneNumber) { mutableStateOf<String?>(null) }
+            val lastCallLabel = when {
+                lastCall.status == com.techzeno.crmtracker.call.CallStatus.MISSED -> "Missed"
+                lastCall.callType == CallType.INCOMING -> "Inbound"
+                lastCall.callType == CallType.OUTGOING -> "Outbound"
+                else -> "Unknown"
+            }
+            val lastCallTint = when {
+                lastCall.status == com.techzeno.crmtracker.call.CallStatus.MISSED -> WarningAmber
+                lastCall.callType == CallType.INCOMING -> SuccessGreen
+                else -> BrandBlue
+            }
+            val lastCallTintSoft = when {
+                lastCall.status == com.techzeno.crmtracker.call.CallStatus.MISSED -> WarningAmberSoft
+                lastCall.callType == CallType.INCOMING -> SuccessGreenSoft
+                else -> BrandBlueSoft
+            }
 
             LaunchedEffect(lastCall.phoneNumber) {
                 contactName = ContactMatchHelper.lookupContactName(context, lastCall.phoneNumber)
@@ -564,7 +727,7 @@ private fun DashboardContent(
                                 color = TextPrimary
                             )
                             Text(
-                                text = lastCall.phoneNumber?.let { if (contactName != null) it else "Unknown number" } ?: "Unknown number",
+                                text = lastCall.phoneNumber ?: "Unknown number",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondary
                             )
@@ -577,14 +740,14 @@ private fun DashboardContent(
 
                         Surface(
                             shape = RoundedCornerShape(50.dp),
-                            color = if (lastCall.callType == CallType.INCOMING) SuccessGreenSoft else BrandBlueSoft,
+                            color = lastCallTintSoft,
                             tonalElevation = 0.dp
                         ) {
                             Text(
-                                text = if (lastCall.callType == CallType.INCOMING) "Inbound" else "Outbound",
+                                text = lastCallLabel,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                 style = MaterialTheme.typography.labelLarge,
-                                color = if (lastCall.callType == CallType.INCOMING) SuccessGreen else BrandBlue,
+                                color = lastCallTint,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -594,27 +757,43 @@ private fun DashboardContent(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
+                        DetailItem(label = "Date", value = formatCallDate(lastCall.startTime))
                         DetailItem(label = "Time", value = formatCallTime(lastCall.startTime))
-                        DetailItem(label = "Duration", value = formatDuration(lastCall.duration))
                     }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
+                        DetailItem(label = "Duration", value = formatDuration(lastCall.duration))
                         DetailItem(label = "Status", value = lastCall.status.name.lowercase().replaceFirstChar { it.uppercase() })
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         DetailItem(label = "Customer match", value = contactName ?: "Not available")
                     }
                 }
             }
         }
 
-        Text(
-            text = "Recent Calls",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = TextPrimary
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recent Calls",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            TextButton(onClick = onViewAllCalls) {
+                Text("View All", color = BrandBlue)
+            }
+        }
 
         if (recentCalls.isEmpty()) {
             EmptyStateCard(
@@ -623,7 +802,7 @@ private fun DashboardContent(
             )
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                recentCalls.take(6).forEach { call ->
+                recentCalls.forEach { call ->
                     RecentCallCard(call)
                 }
             }
@@ -633,133 +812,170 @@ private fun DashboardContent(
 
 @Composable
 fun CallsScreen(
-    calls: List<CallEvent>,
-    isLoading: Boolean,
+    vm: MainViewModel,
     onCallClick: (CallEvent) -> Unit
 ) {
-    val context = LocalContext.current
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf("All") }
+    val searchQuery = vm.callsSearchQuery.collectAsState()
+    val selectedFilter = vm.callsFilter.collectAsState()
+    val callItems = vm.callsPagingData.collectAsLazyPagingItems()
 
-    val filteredCalls = remember(calls, searchQuery, selectedFilter) {
-        calls.filter { call ->
-            val contactName = ContactMatchHelper.lookupContactName(context, call.phoneNumber)
-            val matchesText = searchQuery.isBlank() ||
-                (contactName ?: call.phoneNumber ?: "").contains(searchQuery, ignoreCase = true) ||
-                (call.phoneNumber ?: "").contains(searchQuery, ignoreCase = true)
-
-            val matchesFilter = when (selectedFilter) {
-                "Incoming" -> call.callType == CallType.INCOMING
-                "Outgoing" -> call.callType == CallType.OUTGOING
-                "Missed" -> call.status == com.techzeno.crmtracker.call.CallStatus.MISSED
-                else -> true
-            }
-
-            matchesText && matchesFilter
-        }
-    }
-
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.ma_logo),
-                contentDescription = "Mukundha Associates logo",
-                modifier = Modifier.size(width = 72.dp, height = 62.dp)
-            )
+        item(key = "calls-branding") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ma_logo),
+                    contentDescription = "Mukundha Associates logo",
+                    modifier = Modifier.size(width = 72.dp, height = 62.dp)
+                )
 
-            Column {
-                Text(
-                    text = "Mukundha Associates",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = "CRM Call Tracker",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = BrandBlue
-                )
+                Column {
+                    Text(
+                        text = "Mukundha Associates",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "CRM Call Tracker",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = BrandBlue
+                    )
+                }
             }
         }
 
-        Text(
-            text = "Calls",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
+        item(key = "calls-heading") {
+            Text(
+                text = "Calls",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+        }
 
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search by contact name or phone number") },
-            singleLine = true
-        )
+        item(key = "calls-search") {
+            OutlinedTextField(
+                value = searchQuery.value,
+                onValueChange = vm::updateCallsSearchQuery,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search by contact name or phone number") },
+                singleLine = true
+            )
+        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf("All", "Incoming", "Outgoing", "Missed").forEach { filter ->
-                val selected = selectedFilter == filter
-                val fillColor = if (selected) BrandBlue else CardSurface
-                val textColor = if (selected) Color.White else TextPrimary
+        item(key = "calls-filters") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("All", "Incoming", "Outgoing", "Missed").forEach { filter ->
+                    val selected = selectedFilter.value == filter
+                    val fillColor = if (selected) BrandBlue else CardSurface
+                    val textColor = if (selected) Color.White else TextPrimary
 
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    color = fillColor,
-                    tonalElevation = if (selected) 0.dp else 0.dp
-                ) {
-                    Button(
-                        onClick = { selectedFilter = filter },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = fillColor),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = fillColor,
+                        tonalElevation = 0.dp
                     ) {
-                        Text(
-                            text = filter,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = textColor,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
-                        )
+                        Button(
+                            onClick = { vm.updateCallsFilter(filter) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = fillColor),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = filter,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = textColor,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
         }
 
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = BrandBlue)
+        if (callItems.loadState.refresh is LoadState.Loading && callItems.itemCount == 0) {
+            item(key = "calls-initial-loading") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = BrandBlue)
+                }
             }
-        } else if (filteredCalls.isEmpty()) {
-            EmptyStateCard(
-                title = "No calls yet",
-                subtitle = "Detected calls will appear here automatically."
-            )
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                filteredCalls.forEach { call ->
-                    CallListItem(
-                        call = call,
-                        onClick = { onCallClick(call) }
-                    )
+        } else if (callItems.loadState.refresh is LoadState.Error && callItems.itemCount == 0) {
+            item(key = "calls-initial-error") {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Unable to load calls.", color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = callItems::retry) { Text("Retry") }
+                }
+            }
+        } else if (callItems.itemCount == 0) {
+            item(key = "calls-empty") {
+                EmptyStateCard(
+                    title = "No calls yet",
+                    subtitle = "Detected calls will appear here automatically."
+                )
+            }
+        }
+
+        items(
+            count = callItems.itemCount,
+            key = callItems.itemKey { it.call.id }
+        ) { index ->
+            val entry = callItems[index]
+            if (entry == null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = BrandBlue)
+                }
+            } else {
+                CallListItem(
+                    call = entry.call,
+                    contactName = entry.contactName,
+                    onClick = { onCallClick(entry.call) }
+                )
+            }
+        }
+
+        if (callItems.loadState.append is LoadState.Loading) {
+            item(key = "calls-append-loading") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = BrandBlue)
+                }
+            }
+        } else if (callItems.loadState.append is LoadState.Error) {
+            item(key = "calls-append-error") {
+                TextButton(
+                    onClick = callItems::retry,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Could not load older calls. Tap to retry.")
                 }
             }
         }
@@ -769,11 +985,10 @@ fun CallsScreen(
 @Composable
 private fun CallListItem(
     call: CallEvent,
+    contactName: String?,
     onClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val resolvedName = remember(call.phoneNumber) { ContactMatchHelper.lookupContactName(context, call.phoneNumber) }
-    val displayName = resolvedName ?: "Unknown Contact"
+    val displayName = contactName ?: "Unknown Contact"
     val phoneLabel = call.phoneNumber ?: "Unknown number"
     val dateLabel = formatCallDate(call.startTime)
     val typeLabel = when (call.callType) {
@@ -997,7 +1212,7 @@ fun CallDetailsScreen(
 }
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onLogout: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1035,6 +1250,14 @@ fun SettingsScreen() {
                     color = TextSecondary
                 )
             }
+        }
+
+        Button(
+            onClick = onLogout,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = CardSurface)
+        ) {
+            Text("Sign out", color = TextPrimary)
         }
     }
 }
@@ -1094,6 +1317,7 @@ private fun MetricCard(
                 color = TextPrimary
             )
         }
+
     }
 }
 
@@ -1176,6 +1400,11 @@ private fun RecentCallCard(call: CallEvent) {
 
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
+                    text = formatCallDate(call.startTime),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+                Text(
                     text = formatCallTime(call.startTime),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
@@ -1193,47 +1422,77 @@ private fun RecentCallCard(call: CallEvent) {
 
 @Composable
 fun TasksScreen(
-    tasks: List<TaskDraft>,
+    state: MyTasksState,
+    onRetry: () -> Unit,
     onCreateTask: () -> Unit
 ) {
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
     ) {
-        Text(
-            text = "Tasks",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
-
-        Button(
-            onClick = onCreateTask,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
-        ) {
-            Text("+ Create Task")
+        item(key = "my-tasks-heading") {
+            Text(
+                text = "My Tasks",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
         }
 
-        if (tasks.isEmpty()) {
-            EmptyStateCard(
-                title = "No tasks created yet",
-                subtitle = "Create a task from a detected customer call."
-            )
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                tasks.forEach { task ->
-                    TaskCard(task)
+        item(key = "my-tasks-create") {
+            Button(
+                onClick = onCreateTask,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
+            ) {
+                Text("+ Create Task")
+            }
+        }
+
+        if (state.isLoading) {
+            item(key = "my-tasks-loading") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = BrandBlue)
                 }
             }
+        }
+
+        if (state.error != null) {
+            item(key = "my-tasks-error") {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = state.error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    TextButton(onClick = onRetry) { Text("Retry") }
+                }
+            }
+        } else if (!state.isLoading && state.tasks.isEmpty()) {
+            item(key = "my-tasks-empty") {
+                EmptyStateCard(
+                    title = "No tasks created from Call Tracker",
+                    subtitle = "Tasks created from this app will appear here."
+                )
+            }
+        }
+
+        items(state.tasks, key = { it.id }) { task ->
+            CallTrackerTaskCard(task)
         }
     }
 }
 
 @Composable
-private fun TaskCard(task: TaskDraft) {
+private fun CallTrackerTaskCard(task: CallTrackerTask) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -1252,22 +1511,30 @@ private fun TaskCard(task: TaskDraft) {
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
             )
-            Text(
-                text = task.customerName.ifBlank { "Customer name unavailable" },
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
-            )
-            Text(
-                text = task.customerPhone.ifBlank { "Customer phone unavailable" },
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
-            )
-            Text(
-                text = "Due: ${formatFollowUpDate(task.date)} • ${formatFollowUpTime(task.date)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextPrimary
-            )
+            if (task.description.isNotBlank()) {
+                Text(task.description, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            }
+            TaskInfoLine("Customer", task.customerName.ifBlank { "Not provided" })
+            TaskInfoLine("Phone", task.customerPhone.ifBlank { "Not provided" })
+            TaskInfoLine("Assigned to", task.assignedEmployee)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                TaskInfoLine("Status", task.status, modifier = Modifier.weight(1f))
+                TaskInfoLine("Priority", task.priority, modifier = Modifier.weight(1f))
+            }
+            TaskInfoLine("Due", formatTaskTimestamp(task.dueDate))
+            TaskInfoLine("Created", formatTaskTimestamp(task.createdAt))
         }
+    }
+}
+
+@Composable
+private fun TaskInfoLine(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
     }
 }
 
@@ -1275,14 +1542,21 @@ private fun TaskCard(task: TaskDraft) {
 @Composable
 private fun CreateTaskSheet(
     initialValue: TaskDraft,
+    employeeSearch: EmployeeSearchState,
+    isCreatingTask: Boolean,
+    taskError: String,
+    onSearchEmployees: (String) -> Unit,
     onDismiss: () -> Unit,
     onSave: (TaskDraft) -> Unit
 ) {
     val context = LocalContext.current
-    var selectedDate by remember(initialValue.date) { mutableStateOf(initialValue.date) }
+    var selectedDate by remember(initialValue.date) {
+        mutableStateOf(initialValue.date.takeIf { it > 0L } ?: System.currentTimeMillis())
+    }
     var title by remember(initialValue.title) { mutableStateOf(initialValue.title) }
     var description by remember(initialValue.description) { mutableStateOf(initialValue.description) }
     var assignTo by remember(initialValue.assignTo) { mutableStateOf(initialValue.assignTo) }
+    var assignedToId by remember(initialValue.assignedToId) { mutableStateOf(initialValue.assignedToId) }
     var validationError by remember { mutableStateOf("") }
     var isRecording by remember { mutableStateOf(false) }
     var recordingSeconds by remember { mutableStateOf(0) }
@@ -1353,6 +1627,17 @@ private fun CreateTaskSheet(
     )
     var showDatePicker by remember { mutableStateOf(false) }
 
+    LaunchedEffect(showDatePicker) {
+        if (showDatePicker) {
+            val pickedDate = snapshotFlow { datePickerState.selectedDateMillis }
+                .drop(1)
+                .filterNotNull()
+                .first()
+            selectedDate = pickedDate
+            showDatePicker = false
+        }
+    }
+
     fun safeReleaseRecorder() {
         try {
             recorder.value?.apply {
@@ -1398,31 +1683,38 @@ private fun CreateTaskSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .fillMaxHeight(0.9f)
+                .imePadding()
         ) {
-            Text(
-                text = "Create Task",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
-
-            OutlinedTextField(
-                value = formatFollowUpDate(selectedDate),
-                onValueChange = {},
+            Column(
                 modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
-                    .clickable { showDatePicker = true },
-                label = { Text("Date") },
-                readOnly = true,
-                trailingIcon = {
-                    IconButton(onClick = { showDatePicker = true }) {
-                        Icon(Icons.Outlined.Info, contentDescription = "Open date picker", tint = BrandBlue)
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "Create Task",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+
+                OutlinedTextField(
+                    value = formatFollowUpDate(selectedDate),
+                    onValueChange = {},
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDatePicker = true },
+                    label = { Text("Date") },
+                    readOnly = true,
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Outlined.DateRange, contentDescription = "Open date picker", tint = BrandBlue)
+                        }
                     }
-                }
-            )
+                )
 
             if (showDatePicker) {
                 DatePickerDialog(
@@ -1468,12 +1760,12 @@ private fun CreateTaskSheet(
                 placeholder = { Text("Enter task description") }
             )
 
-            Row(
+                Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(Icons.Outlined.Phone, contentDescription = null, tint = BrandBlue)
+                Icon(Icons.Outlined.Mic, contentDescription = null, tint = BrandBlue)
                 Text(
                     text = "Voice Note",
                     style = MaterialTheme.typography.titleMedium,
@@ -1526,7 +1818,7 @@ private fun CreateTaskSheet(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFDECEC))
                 ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Phone, contentDescription = null, tint = Color.Red)
+                            Icon(Icons.Outlined.Mic, contentDescription = null, tint = Color.Red)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Record Voice Note", color = TextPrimary)
                         }
@@ -1656,7 +1948,7 @@ private fun CreateTaskSheet(
                 colors = ButtonDefaults.buttonColors(containerColor = CardSurface)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Info, contentDescription = null, tint = BrandBlue)
+                    Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = BrandBlue)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Attach Files", color = TextPrimary)
                 }
@@ -1677,7 +1969,7 @@ private fun CreateTaskSheet(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Outlined.Info, contentDescription = null, tint = BrandBlue)
+                                    Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = BrandBlue)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(file.fileName, maxLines = 1)
                                 }
@@ -1695,13 +1987,82 @@ private fun CreateTaskSheet(
 
             OutlinedTextField(
                 value = assignTo,
-                onValueChange = { assignTo = it },
+                onValueChange = { query ->
+                    assignTo = query
+                    assignedToId = ""
+                    onSearchEmployees(query)
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Assign To") },
-                placeholder = { Text("Search employee...") },
+                placeholder = { Text("Search active employees") },
                 singleLine = true,
-                trailingIcon = { Icon(Icons.Outlined.Info, contentDescription = "Show suggestions") }
+                trailingIcon = { Icon(Icons.Outlined.Search, contentDescription = "Search employees") }
             )
+            if (assignedToId.isNotBlank()) {
+                Text(
+                    text = "Selected employee",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SuccessGreen
+                )
+            } else if (assignTo.trim().length >= 2) {
+                if (employeeSearch.isLoading) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    }
+                }
+                if (employeeSearch.error.isNotBlank()) {
+                    Text(
+                        text = employeeSearch.error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                if (employeeSearch.employees.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardSurface)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            employeeSearch.employees.forEach { employee ->
+                                TextButton(
+                                    onClick = {
+                                        assignTo = employee.fullName
+                                        assignedToId = employee.id
+                                        onSearchEmployees("")
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Text(employee.fullName, color = TextPrimary)
+                                        if (employee.email.isNotBlank()) {
+                                            Text(
+                                                employee.email,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = TextSecondary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (!employeeSearch.isLoading && employeeSearch.error.isBlank()) {
+                    Text(
+                        text = "No active employees found.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+            }
 
             OutlinedTextField(
                 value = initialValue.customerName.ifBlank { "" },
@@ -1719,8 +2080,20 @@ private fun CreateTaskSheet(
                 readOnly = true
             )
 
+            if (taskError.isNotBlank()) {
+                Text(
+                    text = taskError,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            }
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(
@@ -1741,6 +2114,10 @@ private fun CreateTaskSheet(
                             validationError = "Task title is required."
                             return@Button
                         }
+                        if (assignedToId.isBlank()) {
+                            validationError = "Select an active employee from the search results."
+                            return@Button
+                        }
                         validationError = ""
                         safeReleaseRecorder()
                         onSave(
@@ -1748,6 +2125,7 @@ private fun CreateTaskSheet(
                                 title = title.trim(),
                                 description = description.trim(),
                                 assignTo = assignTo.trim(),
+                                assignedToId = assignedToId,
                                 date = selectedDate,
                                 voiceNotePath = voiceNotePath,
                                 voiceNoteDurationSeconds = voiceNoteDuration,
@@ -1755,12 +2133,21 @@ private fun CreateTaskSheet(
                             )
                         )
                     },
+                    enabled = !isCreatingTask,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
                 ) {
-                    Text("Create Task")
+                    if (isCreatingTask) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(if (isCreatingTask) "Creating" else "Create Task")
                 }
             }
         }
@@ -1816,6 +2203,17 @@ private fun formatFollowUpTime(epochMs: Long): String {
     return formatter.format(Date(epochMs))
 }
 
+private fun formatTaskTimestamp(value: String?): String {
+    if (value.isNullOrBlank()) return "Not set"
+    return try {
+        val instant = runCatching { Instant.parse(value) }
+            .getOrElse { OffsetDateTime.parse(value).toInstant() }
+        SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault()).format(Date.from(instant))
+    } catch (_: Exception) {
+        value
+    }
+}
+
 private fun formatRecording(seconds: Int): String {
     val mins = seconds / 60
     val secs = seconds % 60
@@ -1836,6 +2234,7 @@ data class TaskDraft(
     val title: String = "",
     val description: String = "",
     val assignTo: String = "",
+    val assignedToId: String = "",
     val voiceNotePath: String? = null,
     val voiceNoteDurationSeconds: Int = 0,
     val attachments: List<TaskAttachment> = emptyList()

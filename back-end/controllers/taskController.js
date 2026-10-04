@@ -8,6 +8,7 @@ const { scheduleTaskReminder, rescheduleTaskReminder, sendManualReminder } = req
 const ReminderLog = require('../models/ReminderLog');
 const { logActivity, resolveClientIdByPhone } = require('../services/activityHistoryService');
 const { allocateTaskDisplayId, ensureTaskDisplayId, ensureTasksHaveDisplayIds, stripMutableTaskIdFields } = require('../services/taskDisplayIdService');
+const { resolveTaskCreationSource, applyTaskCreationSourceFilter } = require('../utils/taskCreationSource');
 
 const isAdminUser = (user) => String(user?.role || '').toLowerCase() === 'admin';
 
@@ -214,6 +215,13 @@ const resolveAssignedIdsForUser = async (user) => {
 exports.createTask = async (req, res, next) => {
   try {
     stripMutableTaskIdFields(req.body);
+    const createdFrom = resolveTaskCreationSource(req.body.createdFrom);
+    if (!createdFrom) {
+      return res.status(400).json({
+        success: false,
+        message: 'createdFrom must be either CRM or CALL_TRACKER.',
+      });
+    }
     const {
       title,
       description,
@@ -255,6 +263,7 @@ exports.createTask = async (req, res, next) => {
     const task = await Task.create({
       displayId,
       title,
+      createdFrom,
       description,
       assignedTo,
       customerName: customerName || '',
@@ -334,8 +343,15 @@ exports.createTask = async (req, res, next) => {
 
 exports.getTasks = async (req, res, next) => {
   try {
-    const { search, status, priority, assignedTo, fromDate, toDate } = req.query;
+    const { search, status, priority, assignedTo, fromDate, toDate, createdFrom } = req.query;
     const query = { ...(await buildAdminTaskScope(req.user)) };
+
+    if (!applyTaskCreationSourceFilter(query, createdFrom)) {
+      return res.status(400).json({
+        success: false,
+        message: 'createdFrom must be either CRM or CALL_TRACKER.',
+      });
+    }
 
     if (!isAdminUser(req.user)) {
       const assignedIds = await resolveAssignedIdsForUser(req.user);

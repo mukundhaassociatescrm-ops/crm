@@ -36,6 +36,12 @@ const taskSchema = new mongoose.Schema(
       index: true,
     },
     title: { type: String, required: [true, 'Task title is required'] },
+    createdFrom: {
+      type: String,
+      enum: ['CRM', 'CALL_TRACKER'],
+      default: 'CRM',
+      index: true,
+    },
     description: { type: String, default: '' },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
     customerName: { type: String, default: '' },

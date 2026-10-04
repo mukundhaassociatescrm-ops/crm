@@ -46,6 +46,11 @@ const { authorizeRole } = require('../middleware/roleMiddleware');
  *               description:
  *                 type: string
  *                 example: Call prospect and share pricing
+ *               createdFrom:
+ *                 type: string
+ *                 enum: [CRM, CALL_TRACKER]
+ *                 default: CRM
+ *                 example: CALL_TRACKER
  *               assignedTo:
  *                 type: string
  *                 example: 64a2f1f2de0edc1234d56789
@@ -111,6 +116,11 @@ router.post('/', protect, authorizeRole('admin'), createTask);
  *         schema:
  *           type: string
  *           format: date
+ *       - in: query
+ *         name: createdFrom
+ *         schema:
+ *           type: string
+ *           enum: [CRM, CALL_TRACKER]
  *     responses:
  *       200:
  *         description: Task list
