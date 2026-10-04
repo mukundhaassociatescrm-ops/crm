@@ -24,3 +24,7 @@ Thumbs.db
 # Persistent uploads (do not commit)
 uploads/
 **/uploads/
+
+# Android-generated build output and local Gradle cache
+/crm-call-tracker/.gradle/
+/crm-call-tracker/app/build/
