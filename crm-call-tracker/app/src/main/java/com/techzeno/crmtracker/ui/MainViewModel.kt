@@ -11,6 +11,7 @@ import androidx.paging.filter
 import androidx.paging.map
 import com.techzeno.crmtracker.ContactMatchHelper
 import com.techzeno.crmtracker.BuildConfig
+import com.techzeno.crmtracker.CrmApp
 import com.techzeno.crmtracker.call.CallEvent
 import com.techzeno.crmtracker.data.AdminSession
 import com.techzeno.crmtracker.data.AdminSessionStore
@@ -21,6 +22,7 @@ import com.techzeno.crmtracker.data.CrmApiRepository
 import com.techzeno.crmtracker.data.EmployeeOption
 import com.techzeno.crmtracker.data.CallRepository
 import com.techzeno.crmtracker.data.TodayCallActivity
+import com.techzeno.crmtracker.data.UploadedTaskFile
 import com.techzeno.crmtracker.data.localDayRange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
@@ -42,9 +44,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.File
+import java.time.LocalDate
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repo: CallRepository = CallRepository.getInstance()
+    val callTaskLinks = repo.getTaskLinksFlow()
+        .map { links -> links.groupBy { it.callId } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
     private val crmApi = CrmApiRepository(BuildConfig.CRM_API_BASE_URL)
     private val sessionStore = AdminSessionStore(application)
 
@@ -72,8 +79,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var employeeSearchJob: Job? = null
     private var myTasksJob: Job? = null
 
-    private val _serviceStatus = MutableStateFlow("Running")
-    val serviceStatus: StateFlow<String> = _serviceStatus
+    private val callLogSynchronizer = (application as CrmApp).callLogSynchronizer
+    val serviceStatus: StateFlow<String> = callLogSynchronizer.status
 
     private val _permissionStatus = MutableStateFlow("Unknown")
     val permissionStatus: StateFlow<String> = _permissionStatus
@@ -141,7 +148,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .cachedIn(viewModelScope)
 
     init {
-        _serviceStatus.value = "Running"
         _permissionStatus.value = "Check in Settings"
         viewModelScope.launch {
             repo.getLatestCallFlow().collectLatest { latest ->
@@ -169,16 +175,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updatePermissionStatus(granted: Boolean) {
         _permissionStatus.value = if (granted) "Granted" else "Check in Settings"
+        callLogSynchronizer.requestSync()
         Timber.tag("CRM_CALL_TRACKER").d("MainViewModel permission status updated: %s", _permissionStatus.value)
     }
 
     fun refreshStatus() {
         Timber.tag("CRM_CALL_TRACKER").d("Refreshing status")
-        _serviceStatus.value = "Running"
+        callLogSynchronizer.requestSync()
         _permissionStatus.value = if (_permissionStatus.value == "Granted") "Granted" else "Check in Settings"
     }
 
     fun refreshCallData() {
+        callLogSynchronizer.requestSync()
         _todayRange.value = localDayRange(System.currentTimeMillis())
         viewModelScope.launch {
             _lastCall.value = repo.getLatestCall()
@@ -291,8 +299,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         assignedToId: String,
         customerName: String,
         customerPhone: String,
-        dueDateMillis: Long,
-        onCreated: (CreatedCrmTask) -> Unit
+        dueDate: LocalDate,
+        attachments: List<TaskAttachment> = emptyList(),
+        voiceNotePath: String? = null,
+        voiceNoteDurationSeconds: Int = 0,
+        sourceCallId: Long? = null,
+        onCreated: (TaskSubmissionResult<TaskAttachment>) -> Unit
     ) {
         val session = _adminSession.value ?: run {
             _taskError.value = "Please sign in as an admin to create a task."
@@ -303,16 +315,63 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _taskError.value = ""
         viewModelScope.launch {
             try {
-                val createdTask = crmApi.createTask(
-                    token = session.token,
-                    title = title,
-                    description = description,
-                    assignedToId = assignedToId,
-                    customerName = customerName,
-                    customerPhone = customerPhone,
-                    dueDateMillis = dueDateMillis
+                val result = createTaskAndAttachFiles(
+                    attachments = attachments,
+                    createTask = {
+                        crmApi.createTask(
+                            token = session.token,
+                            title = title,
+                            description = description,
+                            assignedToId = assignedToId,
+                            customerName = customerName,
+                            customerPhone = customerPhone,
+                            dueDate = dueDate
+                        )
+                    },
+                    onTaskCreated = { task ->
+                        if (sourceCallId != null) {
+                            try {
+                                repo.linkTask(sourceCallId, task)
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (error: Exception) {
+                                Timber.e(error, "Task created but call label could not be saved")
+                                android.widget.Toast.makeText(
+                                    getApplication<Application>(),
+                                    "Task ${task.displayId.ifBlank { task.id }} created, but its call label could not be saved. Do not recreate the task.",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    },
+                    uploadFile = { attachment ->
+                        crmApi.uploadTaskAttachmentFile(
+                            contentResolver = getApplication<Application>().contentResolver,
+                            token = session.token,
+                            uri = attachment.uri,
+                            fallbackFileName = attachment.fileName,
+                            fallbackMimeType = attachment.mimeType
+                        )
+                    },
+                    attachFile = { taskId, _, uploadedFile ->
+                        crmApi.attachUploadedTaskFile(session.token, taskId, uploadedFile)
+                    },
+                    voiceNote = voiceNotePath?.let { path ->
+                        VoiceNoteDraft(File(path), voiceNoteDurationSeconds.coerceAtLeast(0))
+                    },
+                    uploadVoiceNote = { voiceNote ->
+                        crmApi.uploadVoiceNoteFile(session.token, voiceNote.file)
+                    },
+                    attachVoiceNote = { taskId, voiceNote, uploadedFile ->
+                        crmApi.attachTaskVoiceNote(
+                            token = session.token,
+                            taskId = taskId,
+                            file = uploadedFile,
+                            durationSeconds = voiceNote.durationSeconds
+                        )
+                    }
                 )
-                onCreated(createdTask)
+                onCreated(result)
             } catch (error: Exception) {
                 if (error is CrmApiException && error.statusCode == 401) logout()
                 _taskError.value = error.message ?: "Unable to create task. Please try again."
@@ -321,6 +380,154 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    fun retryTaskAttachments(
+        taskId: String,
+        failures: List<AttachmentUploadFailure<TaskAttachment>>,
+        voiceNoteFailure: VoiceNoteUploadFailure? = null,
+        onComplete: (TaskUploadRetryResult) -> Unit
+    ) {
+        val session = _adminSession.value ?: run {
+            _taskError.value = "Please sign in as an admin to upload attachments."
+            return
+        }
+        if (_isCreatingTask.value) return
+        _isCreatingTask.value = true
+        _taskError.value = ""
+        viewModelScope.launch {
+            try {
+                val remainingAttachmentFailures = retryFailedTaskAttachments(
+                    taskId = taskId,
+                    failures = failures,
+                    uploadFile = { attachment ->
+                        crmApi.uploadTaskAttachmentFile(
+                            contentResolver = getApplication<Application>().contentResolver,
+                            token = session.token,
+                            uri = attachment.uri,
+                            fallbackFileName = attachment.fileName,
+                            fallbackMimeType = attachment.mimeType
+                        )
+                    },
+                    attachFile = { retryTaskId, _, uploadedFile ->
+                        crmApi.attachUploadedTaskFile(session.token, retryTaskId, uploadedFile)
+                    }
+                )
+                val remainingVoiceNoteFailure = voiceNoteFailure?.let { failure ->
+                    retryFailedVoiceNote(
+                        taskId = taskId,
+                        failure = failure,
+                        uploadVoiceNote = { voiceNote -> crmApi.uploadVoiceNoteFile(session.token, voiceNote.file) },
+                        attachVoiceNote = { retryTaskId, voiceNote, uploadedFile ->
+                            crmApi.attachTaskVoiceNote(
+                                token = session.token,
+                                taskId = retryTaskId,
+                                file = uploadedFile,
+                                durationSeconds = voiceNote.durationSeconds
+                            )
+                        }
+                    )
+                }
+                onComplete(TaskUploadRetryResult(remainingAttachmentFailures, remainingVoiceNoteFailure))
+            } catch (error: Exception) {
+                if (error is CrmApiException && error.statusCode == 401) logout()
+                _taskError.value = error.message ?: "Unable to retry attachments."
+            } finally {
+                _isCreatingTask.value = false
+            }
+        }
+    }
+}
+
+internal suspend fun <T> createTaskAndAttachFiles(
+    attachments: List<T>,
+    createTask: suspend () -> CreatedCrmTask,
+    uploadFile: suspend (T) -> UploadedTaskFile,
+    attachFile: suspend (String, T, UploadedTaskFile) -> Unit,
+    voiceNote: VoiceNoteDraft? = null,
+    uploadVoiceNote: suspend (VoiceNoteDraft) -> UploadedTaskFile = { throw IllegalStateException("Voice note uploader is not configured.") },
+    attachVoiceNote: suspend (String, VoiceNoteDraft, UploadedTaskFile) -> Unit = { _, _, _ -> },
+    onTaskCreated: suspend (CreatedCrmTask) -> Unit = {}
+): TaskSubmissionResult<T> {
+    val task = createTask()
+    onTaskCreated(task)
+    val attachmentFailures = uploadAndAttachFiles(task.id, attachments, uploadFile, attachFile)
+    val voiceNoteFailure = voiceNote?.let { note ->
+        var uploadedFile: UploadedTaskFile? = null
+        try {
+            uploadedFile = uploadVoiceNote(note)
+            attachVoiceNote(task.id, note, uploadedFile)
+            null
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            VoiceNoteUploadFailure(note, error.message ?: "Voice note upload failed.", uploadedFile)
+        }
+    }
+    return TaskSubmissionResult(
+        task = task,
+      attachmentFailures = attachmentFailures,
+      voiceNoteFailure = voiceNoteFailure
+    )
+}
+
+internal suspend fun retryFailedVoiceNote(
+    taskId: String,
+    failure: VoiceNoteUploadFailure,
+    uploadVoiceNote: suspend (VoiceNoteDraft) -> UploadedTaskFile,
+    attachVoiceNote: suspend (String, VoiceNoteDraft, UploadedTaskFile) -> Unit
+): VoiceNoteUploadFailure? {
+    var uploadedFile = failure.uploadedFile
+    return try {
+        if (uploadedFile == null) uploadedFile = uploadVoiceNote(failure.voiceNote)
+        attachVoiceNote(taskId, failure.voiceNote, uploadedFile)
+        null
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        failure.copy(
+            message = error.message ?: "Voice note upload failed.",
+            uploadedFile = uploadedFile
+        )
+    }
+}
+
+internal suspend fun <T> retryFailedTaskAttachments(
+    taskId: String,
+    failures: List<AttachmentUploadFailure<T>>,
+    uploadFile: suspend (T) -> UploadedTaskFile,
+    attachFile: suspend (String, T, UploadedTaskFile) -> Unit
+): List<AttachmentUploadFailure<T>> = uploadAndAttachFiles(
+    taskId = taskId,
+    attachments = failures.map { it.attachment },
+    uploadFile = uploadFile,
+    attachFile = attachFile,
+    previouslyUploadedFiles = failures.map { it.uploadedFile }
+)
+
+private suspend fun <T> uploadAndAttachFiles(
+    taskId: String,
+    attachments: List<T>,
+    uploadFile: suspend (T) -> UploadedTaskFile,
+    attachFile: suspend (String, T, UploadedTaskFile) -> Unit,
+    previouslyUploadedFiles: List<UploadedTaskFile?> = emptyList()
+): List<AttachmentUploadFailure<T>> {
+    val failures = mutableListOf<AttachmentUploadFailure<T>>()
+    attachments.forEachIndexed { index, attachment ->
+        var uploadedFile = previouslyUploadedFiles.getOrNull(index)
+        try {
+            if (uploadedFile == null) uploadedFile = uploadFile(attachment)
+            attachFile(taskId, attachment, uploadedFile)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            failures += AttachmentUploadFailure(
+                attachment = attachment,
+                message = error.message ?: "Attachment upload failed.",
+                uploadedFile = uploadedFile
+            )
+        }
+    }
+    return failures
 }
 
 private const val CALLS_PAGE_SIZE = 40
@@ -333,6 +540,31 @@ data class MyTasksState(
     val tasks: List<CallTrackerTask> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
+)
+
+data class AttachmentUploadFailure<T>(
+    val attachment: T,
+    val message: String,
+    val uploadedFile: UploadedTaskFile? = null
+)
+
+data class TaskSubmissionResult<T>(
+    val task: CreatedCrmTask,
+    val attachmentFailures: List<AttachmentUploadFailure<T>>,
+    val voiceNoteFailure: VoiceNoteUploadFailure? = null
+)
+
+data class VoiceNoteDraft(val file: File, val durationSeconds: Int)
+
+data class VoiceNoteUploadFailure(
+    val voiceNote: VoiceNoteDraft,
+    val message: String,
+    val uploadedFile: UploadedTaskFile? = null
+)
+
+data class TaskUploadRetryResult(
+    val attachmentFailures: List<AttachmentUploadFailure<TaskAttachment>>,
+    val voiceNoteFailure: VoiceNoteUploadFailure?
 )
 
 data class EmployeeSearchState(

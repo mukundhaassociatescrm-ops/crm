@@ -10,6 +10,7 @@ const {
   sendTaskReminder,
   getTaskReminderLogs,
   addTaskAttachment,
+  addTaskVoiceNote,
 } = require('../controllers/taskController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRole } = require('../middleware/roleMiddleware');
@@ -314,5 +315,51 @@ router.get('/:taskId/reminder-logs', protect, getTaskReminderLogs);
  *         description: Attachment added
  */
 router.post('/:id/attachments', protect, addTaskAttachment);
+
+/**
+ * @openapi
+ * /api/tasks/{id}/voice-note:
+ *   post:
+ *     tags:
+ *       - Task
+ *     summary: Add or replace a task voice note
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [url, fileName]
+ *             properties:
+ *               url:
+ *                 type: string
+ *               fileName:
+ *                 type: string
+ *               mimeType:
+ *                 type: string
+ *                 enum: [audio/mp4]
+ *                 default: audio/mp4
+ *               durationSeconds:
+ *                 type: number
+ *                 minimum: 0
+ *     responses:
+ *       200:
+ *         description: Voice note added or replaced
+ *       400:
+ *         description: Invalid voice note metadata
+ *       403:
+ *         description: Not authorized for this task
+ *       404:
+ *         description: Task not found
+ */
+router.post('/:id/voice-note', protect, addTaskVoiceNote);
 
 module.exports = router;

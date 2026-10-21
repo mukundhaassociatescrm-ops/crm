@@ -28,3 +28,8 @@ uploads/
 # Android-generated build output and local Gradle cache
 /crm-call-tracker/.gradle/
 /crm-call-tracker/app/build/
+
+# Android release signing (local only — never commit)
+/crm-call-tracker/keystore.properties
+/crm-call-tracker/crm-tracker-release.jks
+/crm-call-tracker/*.jks

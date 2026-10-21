@@ -815,3 +815,61 @@ exports.addTaskAttachment = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.addTaskVoiceNote = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { url, fileName, mimeType, durationSeconds } = req.body || {};
+    const voiceNoteUrl = String(url || '').trim();
+    const voiceNoteFileName = String(fileName || '').trim();
+    const voiceNoteMimeType = String(mimeType || 'audio/mp4').trim().toLowerCase();
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(voiceNoteUrl);
+    } catch (_) {
+      return res.status(400).json({ success: false, message: 'A valid voice note URL is required.' });
+    }
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return res.status(400).json({ success: false, message: 'A valid voice note URL is required.' });
+    }
+    if (!voiceNoteFileName) {
+      return res.status(400).json({ success: false, message: 'fileName is required.' });
+    }
+    if (voiceNoteMimeType !== 'audio/mp4') {
+      return res.status(400).json({ success: false, message: 'Voice note mimeType must be audio/mp4.' });
+    }
+    if (
+      durationSeconds !== undefined
+      && (typeof durationSeconds !== 'number' || !Number.isFinite(durationSeconds) || durationSeconds < 0)
+    ) {
+      return res.status(400).json({ success: false, message: 'durationSeconds must be a non-negative number.' });
+    }
+
+    const task = await Task.findOne({ _id: id, ...(await buildAdminTaskScope(req.user)) });
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    if (!isAdminUser(req.user)) {
+      const assignedIds = await resolveAssignedIdsForUser(req.user);
+      if (!assignedIds.includes(String(task.assignedTo || ''))) {
+        return res.status(403).json({ success: false, message: 'Forbidden: not assigned to this task' });
+      }
+    }
+
+    task.voiceNote = {
+      url: voiceNoteUrl,
+      fileName: voiceNoteFileName,
+      mimeType: voiceNoteMimeType,
+      ...(durationSeconds !== undefined ? { durationSeconds } : {}),
+    };
+    await task.save();
+
+    const updatedTask = await Task.findById(task._id).populate('assignedTo', 'fullName email phone');
+    return res.status(200).json({ success: true, data: updatedTask });
+  } catch (error) {
+    next(error);
+  }
+};

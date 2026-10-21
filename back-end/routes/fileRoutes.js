@@ -11,6 +11,7 @@ const router = express.Router();
  *     tags:
  *       - Chat
  *     summary: Upload attachment file and return public URL
+ *     description: Supports existing document, image, video, text, and audio/mp4 uploads, up to 15 MB.
  *     requestBody:
  *       required: true
  *       content:

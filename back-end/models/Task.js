@@ -26,6 +26,16 @@ const assertDisplayIdUpdateAllowed = (existingValue, incomingValue) => {
   }
 };
 
+const voiceNoteSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true, trim: true },
+    fileName: { type: String, required: true, trim: true },
+    mimeType: { type: String, enum: ['audio/mp4'], default: 'audio/mp4' },
+    durationSeconds: { type: Number, min: 0 },
+  },
+  { _id: false }
+);
+
 const taskSchema = new mongoose.Schema(
   {
     displayId: {
@@ -69,6 +79,7 @@ const taskSchema = new mongoose.Schema(
       ],
       default: [],
     },
+    voiceNote: { type: voiceNoteSchema, default: undefined },
     adminOwner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
     createdFromChat: { type: Boolean, default: false },
     conversationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation', index: true },

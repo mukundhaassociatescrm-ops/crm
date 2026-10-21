@@ -29,11 +29,9 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PHONE_STATE" />
-                <action android:name="android.intent.action.NEW_OUTGOING_CALL" />
             </intent-filter>
         </receiver>
 
-        <service android:name=".call.CallMonitorService" android:exported="false" />
     </application>
 
 </manifest>

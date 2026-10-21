@@ -2,6 +2,7 @@ package com.techzeno.crmtracker.data
 
 import android.content.Context
 import androidx.paging.PagingSource
+import androidx.room.withTransaction
 import com.techzeno.crmtracker.call.CallEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -14,9 +15,20 @@ import java.time.ZoneId
 class CallRepository private constructor(private val db: CallDatabase) {
     private val dao = db.callDao()
 
+    fun getTaskLinksFlow(): Flow<List<CallTaskLink>> = dao.getTaskLinksFlow()
+
+    suspend fun linkTask(callId: Long, task: CreatedCrmTask) = withContext(Dispatchers.IO) {
+        require(callId > 0 && task.id.isNotBlank()) { "A saved call and CRM task ID are required." }
+        dao.saveTaskLink(CallTaskLink(callId, task.id, task.displayId))
+    }
+
     suspend fun insert(call: CallEvent): Long = withContext(Dispatchers.IO) {
         Timber.d("CallRepository.insert: %s", call)
         dao.insert(call)
+    }
+
+    internal suspend fun importDeviceCalls(calls: List<CallEvent>) = db.withTransaction {
+        dao.importDeviceCalls(calls)
     }
 
     fun getAllCallsFlow(): Flow<List<CallEvent>> = dao.getAllFlow().map(::deduplicatePersistedCalls)
@@ -78,4 +90,4 @@ internal fun localDayRange(nowMillis: Long, zoneId: ZoneId = ZoneId.systemDefaul
 }
 
 internal fun deduplicatePersistedCalls(calls: List<CallEvent>): List<CallEvent> =
-    calls.distinctBy { listOf(it.phoneNumber, it.callType, it.startTime) }
+    calls.distinctBy { listOf(it.sourceCallId, it.phoneNumber, it.callType, it.startTime) }

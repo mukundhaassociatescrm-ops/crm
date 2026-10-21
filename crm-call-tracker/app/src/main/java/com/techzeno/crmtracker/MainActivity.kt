@@ -1,18 +1,13 @@
 package com.techzeno.crmtracker
 
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.telephony.TelephonyManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.core.content.ContextCompat
-import com.techzeno.crmtracker.call.CallMonitorService
-import com.techzeno.crmtracker.call.CallStateReceiver
 import com.techzeno.crmtracker.ui.MainScreen
 import com.techzeno.crmtracker.ui.MainViewModel
 import com.techzeno.crmtracker.ui.PermissionHelper
@@ -21,7 +16,6 @@ import timber.log.Timber
 
 class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
-    private val callReceiver = CallStateReceiver()
     private lateinit var permissionHelper: PermissionHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,16 +47,6 @@ class MainActivity : ComponentActivity() {
             vm.updatePermissionStatus(true)
         }
 
-        val filter = IntentFilter().apply {
-            addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED)
-            addAction(Intent.ACTION_NEW_OUTGOING_CALL)
-        }
-        registerReceiver(callReceiver, filter)
-        Timber.tag("CRM_CALL_TRACKER").d("MainActivity registered dynamic CallStateReceiver for phone-state and outgoing-call broadcasts")
-
-        startService(Intent(this, CallMonitorService::class.java))
-        Timber.tag("CRM_CALL_TRACKER").d("MainActivity started CallMonitorService")
-
         setContent {
             CrmCallTrackerTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
@@ -72,13 +56,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        try {
-            unregisterReceiver(callReceiver)
-            Timber.d("Unregistered CallStateReceiver in onDestroy")
-        } catch (ex: Exception) {
-            Timber.d("Error unregistering receiver: %s", ex.message)
-        }
+    override fun onResume() {
+        super.onResume()
+        vm.updatePermissionStatus(permissionHelper.isPermissionGranted())
+        vm.refreshCallData()
     }
 }

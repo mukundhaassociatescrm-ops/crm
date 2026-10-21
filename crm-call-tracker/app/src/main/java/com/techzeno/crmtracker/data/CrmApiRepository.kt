@@ -1,18 +1,23 @@
 package com.techzeno.crmtracker.data
 
 import android.content.Context
+import android.content.ContentResolver
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.IOException
+import java.io.InputStream
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.UUID
 import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 class CrmApiRepository(private val baseUrl: String) {
     suspend fun getCallTrackerTasks(token: String): List<CallTrackerTask> = withContext(Dispatchers.IO) {
@@ -67,7 +72,7 @@ class CrmApiRepository(private val baseUrl: String) {
         assignedToId: String,
         customerName: String,
         customerPhone: String,
-        dueDateMillis: Long
+        dueDate: LocalDate
     ): CreatedCrmTask = withContext(Dispatchers.IO) {
         val body = buildCreateTaskPayload(
             title = title,
@@ -75,11 +80,101 @@ class CrmApiRepository(private val baseUrl: String) {
             assignedToId = assignedToId,
             customerName = customerName,
             customerPhone = customerPhone,
-            dueDateMillis = dueDateMillis
+            dueDate = dueDate
         )
         val response = request("/api/tasks", "POST", token, JSONObject(body))
         val task = response.optJSONObject("data") ?: throw IOException("Invalid task response.")
         CreatedCrmTask(id = task.optString("_id"), displayId = task.optString("displayId"))
+    }
+
+    suspend fun uploadTaskAttachmentFile(
+        contentResolver: ContentResolver,
+        token: String,
+        uri: Uri,
+        fallbackFileName: String,
+        fallbackMimeType: String?
+    ): UploadedTaskFile {
+        val fileName = resolveAttachmentFileName(contentResolver, uri, fallbackFileName)
+        val mimeType = contentResolver.getType(uri)
+            ?: fallbackMimeType
+            ?: "application/octet-stream"
+        return uploadMultipartFile(token, fileName, mimeType) {
+            contentResolver.openInputStream(uri)
+        }
+    }
+
+    suspend fun uploadVoiceNoteFile(token: String, file: File): UploadedTaskFile =
+        uploadMultipartFile(token, file.name, VOICE_NOTE_MIME_TYPE) { file.inputStream() }
+
+    private suspend fun uploadMultipartFile(
+        token: String,
+        fileName: String,
+        mimeType: String,
+        openInputStream: () -> InputStream?
+    ): UploadedTaskFile = withContext(Dispatchers.IO) {
+        val boundary = "CRMCallTracker-${UUID.randomUUID()}"
+        val connection = (URL(baseUrl.trimEnd('/') + "/api/files/upload").openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 15_000
+            readTimeout = 30_000
+            doOutput = true
+            setChunkedStreamingMode(8 * 1024)
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            setRequestProperty("Authorization", "Bearer $token")
+        }
+
+        try {
+            connection.outputStream.use { output ->
+                output.write("--$boundary\r\n".toByteArray(Charsets.UTF_8))
+                output.write(
+                    "Content-Disposition: form-data; name=\"$TASK_UPLOAD_FIELD_NAME\"; filename=\"${escapeMultipartFilename(fileName)}\"\r\n"
+                        .toByteArray(Charsets.UTF_8)
+                )
+                output.write("Content-Type: $mimeType\r\n\r\n".toByteArray(Charsets.UTF_8))
+                val input = openInputStream()
+                    ?: throw IOException("Unable to open selected file: $fileName")
+                input.use { it.copyTo(output) }
+                output.write("\r\n--$boundary--\r\n".toByteArray(Charsets.UTF_8))
+            }
+
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            val response = parseApiResponse(status, body)
+            val data = response.optJSONObject("data") ?: throw IOException("Invalid file upload response.")
+            val url = data.optString("url")
+            if (url.isBlank()) throw IOException("The upload response did not include a file URL.")
+            UploadedTaskFile(
+                url = url,
+                fileName = data.optString("filename").takeIf(String::isNotBlank) ?: fileName,
+                mimeType = data.optString("mimeType").takeIf(String::isNotBlank) ?: mimeType
+            )
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    suspend fun attachUploadedTaskFile(
+        token: String,
+        taskId: String,
+        file: UploadedTaskFile
+    ) = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("url", file.url)
+            .put("fileName", file.fileName)
+            .put("mimeType", file.mimeType)
+        request("/api/tasks/${Uri.encode(taskId)}/attachments", "POST", token, body)
+    }
+
+    suspend fun attachTaskVoiceNote(
+        token: String,
+        taskId: String,
+        file: UploadedTaskFile,
+        durationSeconds: Int
+    ) = withContext(Dispatchers.IO) {
+        val body = JSONObject(buildVoiceNoteAttachmentPayload(file, durationSeconds))
+        request("/api/tasks/${Uri.encode(taskId)}/voice-note", "POST", token, body)
     }
 
     private fun request(
@@ -115,6 +210,44 @@ class CrmApiRepository(private val baseUrl: String) {
 }
 
 internal const val CALL_TRACKER_TASKS_PATH = "/api/tasks?createdFrom=CALL_TRACKER"
+internal const val TASK_UPLOAD_FIELD_NAME = "file"
+internal const val VOICE_NOTE_MIME_TYPE = "audio/mp4"
+
+internal fun buildVoiceNoteAttachmentPayload(
+    file: UploadedTaskFile,
+    durationSeconds: Int
+): Map<String, Any> = mapOf(
+    "url" to file.url,
+    "fileName" to file.fileName,
+    "mimeType" to VOICE_NOTE_MIME_TYPE,
+    "durationSeconds" to durationSeconds.coerceAtLeast(0)
+)
+
+private fun resolveAttachmentFileName(
+    contentResolver: ContentResolver,
+    uri: Uri,
+    fallbackFileName: String
+): String {
+    val displayName = contentResolver.query(
+        uri,
+        arrayOf(OpenableColumns.DISPLAY_NAME),
+        null,
+        null,
+        null
+    )?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
+        } else {
+            null
+        }
+    }
+    return displayName?.takeIf(String::isNotBlank)
+        ?: fallbackFileName.takeIf(String::isNotBlank)
+        ?: "attachment"
+}
+
+private fun escapeMultipartFilename(fileName: String): String =
+    fileName.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "").replace("\n", "")
 
 internal fun parseCallTrackerTasks(response: JSONObject): List<CallTrackerTask> {
     val tasks = response.optJSONArray("data") ?: return emptyList()
@@ -177,21 +310,29 @@ internal fun buildCreateTaskPayload(
     assignedToId: String,
     customerName: String,
     customerPhone: String,
-    dueDateMillis: Long
+    dueDate: LocalDate
 ): Map<String, Any> {
-    val dueDate = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
-        Instant.ofEpochMilli(dueDateMillis).atZone(ZoneId.systemDefault())
-    )
     val body = linkedMapOf<String, Any>(
         "title" to title,
         "createdFrom" to "CALL_TRACKER",
         "description" to description,
         "assignedTo" to assignedToId,
-        "dueDate" to dueDate
+        "dueDate" to dueDate.toString()
     )
     if (customerName.isNotBlank()) body["customerName"] = customerName
     if (customerPhone.isNotBlank()) body["customerPhone"] = customerPhone
     return body
+}
+
+internal fun datePickerMillis(date: LocalDate): Long =
+    date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+internal fun localDateFromDatePickerMillis(dateMillis: Long): LocalDate =
+    Instant.ofEpochMilli(dateMillis).atZone(ZoneOffset.UTC).toLocalDate()
+
+internal fun localDateFromTaskDueDate(value: String?): LocalDate? {
+    val datePart = value?.take(10) ?: return null
+    return runCatching { LocalDate.parse(datePart) }.getOrNull()
 }
 
 class AdminSessionStore(context: Context) {
@@ -236,5 +377,6 @@ class AdminSessionStore(context: Context) {
 data class AdminSession(val token: String, val name: String, val email: String)
 data class EmployeeOption(val id: String, val fullName: String, val email: String)
 data class CreatedCrmTask(val id: String, val displayId: String)
+data class UploadedTaskFile(val url: String, val fileName: String, val mimeType: String)
 
 class CrmApiException(val statusCode: Int, message: String) : IOException(message)

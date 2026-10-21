@@ -7,6 +7,7 @@ const uploadsDir = ensureUploadsDir(resolveUploadsDir(process.env));
 const allowedMimeTypes = new Set([
   'application/pdf',
   'application/msword',
+  'audio/mp4',
   'image/jpeg',
   'image/jpg',
   'image/png',
@@ -19,6 +20,9 @@ const allowedMimeTypes = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ]);
+
+const isAllowedUploadMimeType = (mimeType) =>
+  allowedMimeTypes.has(String(mimeType || '').toLowerCase());
 
 const safeFileName = (name) => String(name || '').replace(/[^a-zA-Z0-9._-]/g, '_');
 
@@ -39,8 +43,8 @@ const upload = multer({
     fileSize: 15 * 1024 * 1024,
   },
   fileFilter: (_req, file, cb) => {
-    if (!allowedMimeTypes.has(String(file.mimetype || '').toLowerCase())) {
-      return cb(new Error('Unsupported file type. Allowed: pdf, doc, docx, xls, xlsx, jpg, png, mp4, webm, ogg, mov, txt.'));
+    if (!isAllowedUploadMimeType(file.mimetype)) {
+      return cb(new Error('Unsupported file type. Allowed: pdf, doc, docx, xls, xlsx, jpg, png, mp4, webm, ogg, mov, m4a, txt.'));
     }
 
     return cb(null, true);
@@ -61,6 +65,7 @@ const getPublicBaseUrl = (req) => {
 };
 
 exports.uploadFileMiddleware = upload.single('file');
+exports.isAllowedUploadMimeType = isAllowedUploadMimeType;
 
 exports.uploadFile = (req, res) => {
   const file = req.file;
