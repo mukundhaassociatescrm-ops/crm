@@ -3,10 +3,10 @@
 
   <div class="page-header crm-page-header">
     <div class="page-header__text">
-      <h2>{{ isAdmin ? 'Manage Tasks' : 'My Tasks' }}</h2>
-      <p>{{ isAdmin ? 'Create, assign, and manage tasks' : 'View and update your assigned tasks' }}</p>
+      <h2>{{ isAdmin ? stageCopy.title : 'My Tasks' }}</h2>
+      <p>{{ isAdmin ? stageCopy.subtitle : 'View and update your assigned tasks' }}</p>
     </div>
-    <button *ngIf="isAdmin" type="button" class="btn-primary" (click)="openAddTask()">
+    <button *ngIf="isAdmin && isActiveStage" type="button" class="btn-primary" (click)="openAddTask()">
       + Add Task
     </button>
   </div>
@@ -17,7 +17,7 @@
   <div *ngIf="loading" class="loading-hint">Loading tasks...</div>
 
   <div class="task-toolbar">
-    <div class="kpi-strip" *ngIf="!loading && tasks.length">
+    <div class="kpi-strip" *ngIf="!loading && tasks.length && isActiveStage">
       <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'all'" (click)="applyKpiFilter('all')">
         <span class="kpi-card__label">Total Tasks</span>
         <span class="kpi-card__value">{{ taskStats.total }}</span>
@@ -30,17 +30,9 @@
         <span class="kpi-card__label">In Progress</span>
         <span class="kpi-card__value">{{ taskStats.inProgress }}</span>
       </button>
-      <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'completed'" (click)="applyKpiFilter('completed')">
-        <span class="kpi-card__label">Completed</span>
-        <span class="kpi-card__value">{{ taskStats.completed }}</span>
-      </button>
       <button type="button" class="kpi-card" [class.kpi-card--active]="activeKpi === 'overdue'" (click)="applyKpiFilter('overdue')">
         <span class="kpi-card__label">Overdue</span>
         <span class="kpi-card__value">{{ taskStats.overdue }}</span>
-      </button>
-      <button type="button" class="kpi-card kpi-card--collections" [class.kpi-card--active]="activeKpi === 'completed-unpaid'" (click)="applyKpiFilter('completed-unpaid')">
-        <span class="kpi-card__label">Completed &amp; Unpaid</span>
-        <span class="kpi-card__value">{{ taskStats.completedUnpaid }}</span>
       </button>
     </div>
 
@@ -48,16 +40,15 @@
       <div class="filter-field filter-field--search">
         <input type="text" placeholder="Search task, customer, phone..." formControlName="searchTerm" />
       </div>
-      <div class="filter-field">
+      <div class="filter-field" *ngIf="isActiveStage">
         <select formControlName="statusFilter">
           <option>All Status</option>
           <option>Pending</option>
           <option>In Progress</option>
           <option>Report Sent</option>
-          <option>Completed</option>
         </select>
       </div>
-      <div class="filter-field">
+      <div class="filter-field" *ngIf="isActiveStage">
         <select formControlName="paymentStatusFilter">
           <option>All Payment</option>
           <option>Pending Payment</option>
@@ -82,9 +73,9 @@
   <div class="task-page__body">
   <div *ngIf="!loading && filteredTasks.length === 0" class="empty-state-card">
     <div class="empty-state-card__icon"><i class="fas fa-list-check"></i></div>
-    <h3>No tasks found</h3>
-    <p>Adjust your filters or create a new task to get started.</p>
-    <button *ngIf="isAdmin" type="button" class="btn-primary" (click)="openAddTask()">+ Add Task</button>
+    <h3>{{ stageCopy.emptyTitle }}</h3>
+    <p>{{ stageCopy.emptyText }}</p>
+    <button *ngIf="isAdmin && isActiveStage" type="button" class="btn-primary" (click)="openAddTask()">+ Add Task</button>
   </div>
 
   <!-- Desktop / tablet table -->
@@ -107,7 +98,6 @@
         <tbody>
           <tr
             *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId"
-            [class.task-row--completed-unpaid]="isTaskCompletedUnpaid(task)"
           >
             <td class="col-id">
               <span class="task-id-pill">{{ getTaskDisplayId(task) }}</span>
@@ -152,6 +142,35 @@
                     <i class="fas fa-pen"></i>
                   </button>
                 </ng-template>
+                <button
+                  *ngIf="stage === 'payment'"
+                  type="button"
+                  class="stage-btn stage-btn--primary"
+                  [disabled]="isStageActionPending(task)"
+                  (click)="markAsPaid(task)"
+                  title="Mark as paid and move to Report">
+                  <i class="fas fa-indian-rupee-sign"></i> Mark as Paid
+                </button>
+                <button
+                  *ngIf="stage === 'payment'"
+                  type="button"
+                  class="icon-btn icon-btn--edit"
+                  [disabled]="isStageActionPending(task)"
+                  (click)="reopenTask(task)"
+                  title="Reopen and move back to Tasks"
+                  aria-label="Reopen task">
+                  <i class="fas fa-rotate-left"></i>
+                </button>
+                <button
+                  *ngIf="stage === 'report'"
+                  type="button"
+                  class="icon-btn icon-btn--edit"
+                  [disabled]="isStageActionPending(task)"
+                  (click)="moveBackToPayment(task)"
+                  title="Mark as unpaid and move back to Payment"
+                  aria-label="Move back to Payment">
+                  <i class="fas fa-rotate-left"></i>
+                </button>
                 <button type="button" class="icon-btn icon-btn--delete" (click)="openDeleteModal(task)" title="Delete task" aria-label="Delete task">
                   <i class="fas fa-trash-alt"></i>
                 </button>
@@ -182,7 +201,7 @@
 
   <!-- Mobile / small screen cards -->
   <div class="task-card-list" *ngIf="filteredTasks.length > 0">
-    <article class="task-card" *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId" [class.task-card--completed-unpaid]="isTaskCompletedUnpaid(task)">
+    <article class="task-card" *ngFor="let task of paginatedTasks; let i = index; trackBy: trackByTaskId">
       <header class="task-card__header">
         <span class="task-card__id">{{ getTaskDisplayId(task) }}</span>
         <span class="task-card__due">{{ formatTaskDueDate(task.dueDate) }}</span>
@@ -204,6 +223,15 @@
                 <i class="fas fa-pen"></i> Edit
               </button>
             </ng-template>
+            <button type="button" *ngIf="stage === 'payment'" [disabled]="isStageActionPending(task)" (click)="markAsPaid(task); closeActionMenu()">
+              <i class="fas fa-indian-rupee-sign"></i> Mark as Paid
+            </button>
+            <button type="button" *ngIf="stage === 'payment'" [disabled]="isStageActionPending(task)" (click)="reopenTask(task); closeActionMenu()">
+              <i class="fas fa-rotate-left"></i> Move back to Tasks
+            </button>
+            <button type="button" *ngIf="stage === 'report'" [disabled]="isStageActionPending(task)" (click)="moveBackToPayment(task); closeActionMenu()">
+              <i class="fas fa-rotate-left"></i> Move back to Payment
+            </button>
             <button type="button" class="danger" (click)="openDeleteModal(task); closeActionMenu()">
               <i class="fas fa-trash-alt"></i> Delete
             </button>

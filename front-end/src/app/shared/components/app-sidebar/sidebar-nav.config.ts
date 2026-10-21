@@ -25,6 +25,17 @@ export interface SidebarNavLink {
 
 export const SIDEBAR_SECTIONS: SidebarNavSection[] = [
   {
+    id: 'task-management',
+    label: 'Task Management',
+    icon: 'fa-clipboard-check',
+    primaryAdminOnly: true,
+    items: [
+      { label: 'Tasks', route: '/task-management/tasks', icon: 'fa-list-check', matchPrefixes: ['/task-management/tasks', '/manage-task'] },
+      { label: 'Payment', route: '/task-management/payment', icon: 'fa-indian-rupee-sign', matchPrefixes: ['/task-management/payment'] },
+      { label: 'Report', route: '/task-management/report', icon: 'fa-flag-checkered', matchPrefixes: ['/task-management/report'] },
+    ],
+  },
+  {
     id: 'communication',
     label: 'Communication',
     icon: 'fa-bullhorn',
@@ -56,9 +67,8 @@ export const SIDEBAR_SECTIONS: SidebarNavSection[] = [
 ];
 
 export const SIDEBAR_STANDALONE_LINKS: SidebarNavLink[] = [
-  { label: 'Tasks', route: '/manage-task', icon: 'fa-clipboard-check', matchPrefixes: ['/manage-task'], primaryAdminOnly: true },
   { label: 'Employees', route: '/manage-employee', icon: 'fa-user-tie', matchPrefixes: ['/manage-employee'], primaryAdminOnly: true },
-  { label: 'Reports', route: '/manage-report', icon: 'fa-file-invoice', matchPrefixes: ['/manage-report'] },
+  { label: 'Invoices', route: '/manage-report', icon: 'fa-file-invoice', matchPrefixes: ['/manage-report'] },
   { label: 'Work History', route: '/work-history', icon: 'fa-timeline', matchPrefixes: ['/work-history'] },
 ];
 

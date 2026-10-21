@@ -37,6 +37,8 @@ export interface Task {
   messageText?: string;
 }
 
+export type TaskStage = 'active' | 'payment' | 'report';
+
 export interface UploadFileResponse {
   success: boolean;
   data?: {
@@ -78,8 +80,12 @@ export interface UpcomingReminderResponse {
 export class TaskService {
   constructor(private http: HttpClient) {}
 
-  getTasks(): Observable<TaskResponse> {
-    return this.http.get<TaskResponse>('/api/tasks');
+  getTasks(stage?: TaskStage): Observable<TaskResponse> {
+    return this.http.get<TaskResponse>('/api/tasks', stage ? { params: { stage } } : {});
+  }
+
+  reopenTask(id: string): Observable<TaskResponse> {
+    return this.http.put<TaskResponse>(`/api/tasks/${id}`, { status: 'In Progress' });
   }
 
   getTaskById(id: string): Observable<TaskResponse> {

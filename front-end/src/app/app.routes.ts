@@ -53,7 +53,30 @@ export const routes: Routes = [
     children: [
       { path: 'dashboard', component: DashboardComponent, data: { breadcrumb: 'Dashboard' } },
       { path: 'manage-employee', component: ManageEmployeeComponent, data: { ...adminHub, breadcrumb: 'Employees', fullscreenPageKey: 'manage-employee' } },
-      { path: 'manage-task', component: ManageTaskComponent, canActivate: [AuthGuard], data: { breadcrumb: 'Tasks', fullscreenPageKey: 'manage-task' } },
+      {
+        path: 'task-management',
+        component: HubPassthroughComponent,
+        data: { hubId: 'task-management', breadcrumb: 'Task Management' },
+        children: [
+          { path: '', redirectTo: 'tasks', pathMatch: 'full' },
+          {
+            path: 'tasks',
+            component: ManageTaskComponent,
+            data: { stage: 'active', breadcrumb: 'Tasks', fullscreenPageKey: 'manage-task' },
+          },
+          {
+            path: 'payment',
+            component: ManageTaskComponent,
+            data: { ...adminHub, stage: 'payment', breadcrumb: 'Payment', fullscreenPageKey: 'manage-task' },
+          },
+          {
+            path: 'report',
+            component: ManageTaskComponent,
+            data: { ...adminHub, stage: 'report', breadcrumb: 'Report', fullscreenPageKey: 'manage-task' },
+          },
+        ],
+      },
+      { path: 'manage-task', redirectTo: 'task-management/tasks', pathMatch: 'full' },
       { path: 'task-reminders', component: TaskRemindersComponent, canActivate: [AuthGuard], data: { breadcrumb: 'Task Reminders', fullscreenPageKey: 'task-reminders' } },
 
       {
@@ -153,7 +176,7 @@ export const routes: Routes = [
       {
         path: 'manage-report',
         component: ManageReportComponent,
-        data: { ...adminHub, breadcrumb: 'Reports', fullscreenPageKey: 'manage-report' }
+        data: { ...adminHub, breadcrumb: 'Invoices', fullscreenPageKey: 'manage-report' }
       },
       {
         path: 'employee-dashboard',

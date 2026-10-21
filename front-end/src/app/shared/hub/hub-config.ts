@@ -59,10 +59,22 @@ export const MARKETING_HUB: HubConfig = {
   ],
 };
 
+export const TASK_MANAGEMENT_HUB: HubConfig = {
+  id: 'task-management',
+  title: 'Task Management',
+  basePath: '/task-management',
+  tabs: [
+    { label: 'Tasks', segment: 'tasks', legacySegments: ['manage-task'], icon: 'fa-list-check' },
+    { label: 'Payment', segment: 'payment', icon: 'fa-indian-rupee-sign' },
+    { label: 'Report', segment: 'report', icon: 'fa-flag-checkered' },
+  ],
+};
+
 export const HUB_CONFIGS: Record<string, HubConfig> = {
   communication: COMMUNICATION_HUB,
   'customer-management': CUSTOMER_MANAGEMENT_HUB,
   marketing: MARKETING_HUB,
+  'task-management': TASK_MANAGEMENT_HUB,
 };
 
 export function getHubConfig(hubId: string): HubConfig | undefined {

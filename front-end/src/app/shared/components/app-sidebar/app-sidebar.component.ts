@@ -59,6 +59,10 @@ export class AppSidebarComponent implements OnInit, OnDestroy {
     this.routerSub?.unsubscribe();
   }
 
+  get visibleSections(): SidebarNavSection[] {
+    return this.sections.filter((section) => !section.primaryAdminOnly || this.isPrimaryAdmin);
+  }
+
   get visibleStandaloneLinks(): SidebarNavLink[] {
     return this.standaloneLinks.filter((link) => !link.primaryAdminOnly || this.isPrimaryAdmin);
   }

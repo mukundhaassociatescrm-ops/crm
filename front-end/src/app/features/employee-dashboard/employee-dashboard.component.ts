@@ -79,7 +79,9 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
   }
 
   get reportSentCount(): number {
-    return this.allTasks.filter((task) => task.status === 'Report Sent' || !!task.reportSent).length;
+    return this.allTasks.filter(
+      (task) => task.status !== 'Completed' && (task.status === 'Report Sent' || !!task.reportSent),
+    ).length;
   }
 
   get completedCount(): number {
@@ -396,11 +398,13 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
 
   private applyFilter(): void {
     this.visibleTasks = this.allTasks.filter((task) => {
+      if (this.activeFilter === 'completed') return task.status === 'Completed';
+      // Completed tasks move to the admin Payment/Report stages, so they are only shown via the Completed card.
+      if (task.status === 'Completed') return false;
       if (this.activeFilter === 'all') return true;
       if (this.activeFilter === 'open') return task.status === 'Pending';
       if (this.activeFilter === 'in-progress') return task.status === 'In Progress';
       if (this.activeFilter === 'report-sent') return task.status === 'Report Sent' || !!task.reportSent;
-      if (this.activeFilter === 'completed') return task.status === 'Completed';
       if (this.activeFilter === 'overdue') return this.isOverdue(task);
       if (this.activeFilter === 'high-priority') return task.priority === 'High';
       return true;

@@ -2063,7 +2063,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     const customerPhone = String(conversation.phoneNumber || '').trim();
     const messageId = String(message.messageId || '').trim();
 
-    this.router.navigate(['/manage-task'], {
+    this.router.navigate(['/task-management/tasks'], {
       state: {
         taskPrefill: {
           title,
@@ -2087,7 +2087,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    this.router.navigate(['/manage-task'], {
+    this.router.navigate(['/task-management/tasks'], {
       queryParams: { taskId },
     });
   }

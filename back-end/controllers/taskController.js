@@ -9,6 +9,9 @@ const ReminderLog = require('../models/ReminderLog');
 const { logActivity, resolveClientIdByPhone } = require('../services/activityHistoryService');
 const { allocateTaskDisplayId, ensureTaskDisplayId, ensureTasksHaveDisplayIds, stripMutableTaskIdFields } = require('../services/taskDisplayIdService');
 const { resolveTaskCreationSource, applyTaskCreationSourceFilter } = require('../utils/taskCreationSource');
+const { TASK_STAGES, resolveTaskStageFilter } = require('../utils/taskStage');
+
+const TASK_STATUSES = ['Pending', 'In Progress', 'Report Sent', 'Completed'];
 
 const isAdminUser = (user) => String(user?.role || '').toLowerCase() === 'admin';
 
@@ -193,6 +196,54 @@ const logTaskPaymentFlagActivity = async (task, previousPaymentReceived, payment
   });
 };
 
+// Admin-only: move a completed, unpaid task from the Payment stage back to active Tasks.
+const reopenCompletedTask = async (req, res, task) => {
+  const { status } = req.body;
+  if (!TASK_STATUSES.includes(status)) {
+    return res.status(400).json({ success: false, message: 'Valid status is required.' });
+  }
+
+  const { status: _ignoredStatus, ...otherFields } = req.body;
+  const lockedFieldChange = getCompletedTaskLockedFieldChange(otherFields, task);
+  if (lockedFieldChange) {
+    return res.status(400).json({
+      success: false,
+      message: `Reopening a task only changes its status. Field not allowed: ${lockedFieldChange}.`,
+    });
+  }
+
+  if (task.paymentReceived || req.body.paymentReceived === true) {
+    return res.status(400).json({
+      success: false,
+      message: 'Paid tasks cannot be reopened. Move the task back to Payment first.',
+    });
+  }
+
+  const previousStatus = String(task.status || '');
+  task.status = status;
+  await task.save();
+  const updated = await Task.findById(task._id).populate('assignedTo', 'fullName email phone');
+
+  try {
+    const resolvedClientId = await resolveClientIdByPhone(task.customerPhone || '');
+    await logActivity({
+      type: 'task',
+      title: 'Task Reopened',
+      referenceId: String(task._id),
+      taskId: task._id,
+      clientId: resolvedClientId,
+      employeeId: task.assignedTo,
+      description: `Task reopened: ${task.title}`,
+      metadata: { previousStatus, nextStatus: status },
+      adminOwner: task.adminOwner,
+    });
+  } catch (_) {
+    // Keep reopen resilient if history logging fails.
+  }
+
+  return res.status(200).json({ success: true, data: updated });
+};
+
 const resolveAssignedIdsForUser = async (user) => {
   const ids = [String(user._id)];
   const role = (user.role || '').toLowerCase();
@@ -343,7 +394,15 @@ exports.createTask = async (req, res, next) => {
 
 exports.getTasks = async (req, res, next) => {
   try {
-    const { search, status, priority, assignedTo, fromDate, toDate, createdFrom } = req.query;
+    const { search, status, priority, assignedTo, fromDate, toDate, createdFrom, stage } = req.query;
+    const stageFilter = resolveTaskStageFilter(stage);
+    if (stageFilter === null) {
+      return res.status(400).json({
+        success: false,
+        message: `stage must be one of: ${TASK_STAGES.join(', ')}.`,
+      });
+    }
+
     const query = { ...(await buildAdminTaskScope(req.user)) };
 
     if (!applyTaskCreationSourceFilter(query, createdFrom)) {
@@ -351,6 +410,10 @@ exports.getTasks = async (req, res, next) => {
         success: false,
         message: 'createdFrom must be either CRM or CALL_TRACKER.',
       });
+    }
+
+    if (stageFilter) {
+      query.$and = [...(query.$and || []), stageFilter];
     }
 
     if (!isAdminUser(req.user)) {
@@ -534,7 +597,7 @@ exports.updateTask = async (req, res, next) => {
 
     // Employees can only change their own task status.
     if (!isAdmin) {
-      if (!status || !['Pending', 'In Progress', 'Report Sent', 'Completed'].includes(status)) {
+      if (!status || !TASK_STATUSES.includes(status)) {
         return res.status(400).json({ success: false, message: 'Valid status is required.' });
       }
 
@@ -595,6 +658,11 @@ exports.updateTask = async (req, res, next) => {
     }
 
     if (String(task.status || '') === 'Completed') {
+      const isReopenRequest = status !== undefined && status !== 'Completed';
+      if (isReopenRequest) {
+        return reopenCompletedTask(req, res, task);
+      }
+
       const lockedFieldChange = getCompletedTaskLockedFieldChange(req.body, task);
       if (lockedFieldChange) {
         return res.status(400).json({

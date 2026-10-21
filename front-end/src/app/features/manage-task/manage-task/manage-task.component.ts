@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { TaskService, Task } from '../task.service';
+import { TaskService, Task, TaskStage } from '../task.service';
 import { isValidMongoObjectId } from '../../manage-chat/manage-chat/chat.service';
 import { EmployeeService, Employee } from '../../manage-employee/employee.service';
 import { AuthService } from '../../auth/auth.service';
@@ -21,6 +21,35 @@ import { catchError, forkJoin, map, Observable, of, switchMap, throwError } from
 export class ManageTaskComponent {
   private static readonly PAGE_SIZE_STORAGE_KEY = 'manage-task.pageSize';
 
+  private static readonly STAGE_TAB_LABEL: Record<TaskStage, string> = {
+    active: 'Tasks',
+    payment: 'Payment',
+    report: 'Report',
+  };
+
+  private static readonly STAGE_COPY: Record<TaskStage, { title: string; subtitle: string; emptyTitle: string; emptyText: string }> = {
+    active: {
+      title: 'Manage Tasks',
+      subtitle: 'Create, assign, and manage open tasks. Completed tasks move to Payment.',
+      emptyTitle: 'No tasks found',
+      emptyText: 'Adjust your filters or create a new task to get started.',
+    },
+    payment: {
+      title: 'Payment',
+      subtitle: 'Completed tasks waiting for payment. Mark as paid to move them to Report.',
+      emptyTitle: 'No payments pending',
+      emptyText: 'Completed tasks that are not yet paid will appear here.',
+    },
+    report: {
+      title: 'Report',
+      subtitle: 'Completed and paid tasks.',
+      emptyTitle: 'No finished tasks yet',
+      emptyText: 'Tasks appear here once they are completed and paid.',
+    },
+  };
+
+  stage: TaskStage = 'active';
+  stageActionTaskId: string | null = null;
   isTaskModalOpen = false;
   isDeleteModalOpen = false;
   isEditMode = false;
@@ -38,7 +67,7 @@ export class ManageTaskComponent {
   filteredTasks: Task[] = [];
   employees: Employee[] = [];
   loading = false;
-  activeKpi: 'all' | 'pending' | 'in-progress' | 'completed' | 'overdue' | 'completed-unpaid' = 'all';
+  activeKpi: 'all' | 'pending' | 'in-progress' | 'overdue' = 'all';
   loadingSave = false;
   message = '';
   messageType: 'success' | 'error' = 'success';
@@ -128,6 +157,7 @@ export class ManageTaskComponent {
   }
 
   ngOnInit() {
+    this.stage = this.resolveStage(this.route.snapshot.data['stage']);
     this.restorePageSizePreference();
     this.currentUser = this.authService.getUser();
     this.isAdmin = this.authService.isAdmin();
@@ -265,7 +295,7 @@ export class ManageTaskComponent {
   loadTasks() {
     this.loading = true;
     this.message = '';
-    this.taskService.getTasks().subscribe({
+    this.taskService.getTasks(this.stage).subscribe({
       next: (res) => {
         this.loading = false;
         if (res.success && Array.isArray(res.data)) {
@@ -344,28 +374,20 @@ export class ManageTaskComponent {
       total: visible.length,
       pending: visible.filter((task) => task.status === 'Pending').length,
       inProgress: visible.filter((task) => task.status === 'In Progress').length,
-      completed: visible.filter((task) => task.status === 'Completed').length,
       overdue: visible.filter((task) => this.isTaskOverdue(task)).length,
-      completedUnpaid: visible.filter((task) => this.isTaskCompletedUnpaid(task)).length,
     };
   }
 
-  applyKpiFilter(kpi: 'all' | 'pending' | 'in-progress' | 'completed' | 'overdue' | 'completed-unpaid'): void {
+  applyKpiFilter(kpi: 'all' | 'pending' | 'in-progress' | 'overdue'): void {
     this.activeKpi = kpi;
     this.currentPage = 1;
 
-    if (kpi === 'all') {
-      this.filterForm.patchValue({ statusFilter: 'All Status', paymentStatusFilter: 'All Payment' }, { emitEvent: false });
-    } else if (kpi === 'pending') {
+    if (kpi === 'pending') {
       this.filterForm.patchValue({ statusFilter: 'Pending', paymentStatusFilter: 'All Payment' }, { emitEvent: false });
     } else if (kpi === 'in-progress') {
       this.filterForm.patchValue({ statusFilter: 'In Progress', paymentStatusFilter: 'All Payment' }, { emitEvent: false });
-    } else if (kpi === 'completed') {
-      this.filterForm.patchValue({ statusFilter: 'Completed', paymentStatusFilter: 'All Payment' }, { emitEvent: false });
-    } else if (kpi === 'overdue') {
+    } else {
       this.filterForm.patchValue({ statusFilter: 'All Status', paymentStatusFilter: 'All Payment' }, { emitEvent: false });
-    } else if (kpi === 'completed-unpaid') {
-      this.filterForm.patchValue({ statusFilter: 'Completed', paymentStatusFilter: 'Pending Payment' }, { emitEvent: false });
     }
 
     this.applyFilters();
@@ -379,33 +401,15 @@ export class ManageTaskComponent {
       return;
     }
 
-    if (this.activeKpi === 'completed-unpaid') {
-      const stillMatches = statusFilter === 'Completed' && paymentStatusFilter === 'Pending Payment';
-      if (!stillMatches) {
-        this.activeKpi = 'all';
-      } else {
-        return;
-      }
-    }
-
-    if (statusFilter === 'Completed' && paymentStatusFilter === 'Pending Payment') {
-      this.activeKpi = 'completed-unpaid';
-      return;
-    }
-
     if (paymentStatusFilter !== 'All Payment') {
       this.activeKpi = 'all';
       return;
     }
 
-    if (statusFilter === 'All Status') {
-      this.activeKpi = 'all';
-    } else if (statusFilter === 'Pending') {
+    if (statusFilter === 'Pending') {
       this.activeKpi = 'pending';
     } else if (statusFilter === 'In Progress') {
       this.activeKpi = 'in-progress';
-    } else if (statusFilter === 'Completed') {
-      this.activeKpi = 'completed';
     } else {
       this.activeKpi = 'all';
     }
@@ -431,23 +435,13 @@ export class ManageTaskComponent {
     if (this.activeKpi === 'overdue') {
       return this.isTaskOverdue(task);
     }
-    if (this.activeKpi === 'completed-unpaid') {
-      return this.isTaskCompletedUnpaid(task);
-    }
     if (this.activeKpi === 'pending') {
       return task.status === 'Pending';
     }
     if (this.activeKpi === 'in-progress') {
       return task.status === 'In Progress';
     }
-    if (this.activeKpi === 'completed') {
-      return task.status === 'Completed';
-    }
     return true;
-  }
-
-  isTaskCompletedUnpaid(task: Task): boolean {
-    return task.status === 'Completed' && !task.paymentReceived;
   }
 
   isTaskPaymentPending(task: Task): boolean {
@@ -796,7 +790,13 @@ export class ManageTaskComponent {
                 reportSent: nextReportSent,
               };
             });
+            const movedTo = this.removeTasksOutsideStage();
             this.applyFilters();
+            if (!attachmentError && movedTo) {
+              this.showMessage(`Task updated and moved to ${movedTo}`, 'success');
+              this.closeTaskModal();
+              return;
+            }
           } else {
             this.loadTasks();
           }
@@ -847,8 +847,9 @@ export class ManageTaskComponent {
             paymentReceived,
           };
         });
+        const movedTo = this.removeTasksOutsideStage();
         this.applyFilters();
-        this.showMessage('Payment status updated successfully', 'success');
+        this.showMessage(movedTo ? `Payment status updated. Task moved to ${movedTo}` : 'Payment status updated successfully', 'success');
         this.closeTaskModal();
       },
       error: (error) => {
@@ -862,6 +863,81 @@ export class ManageTaskComponent {
   openDeleteModal(task: Task) {
     this.selectedTaskId = task._id || null;
     this.isDeleteModalOpen = true;
+  }
+
+  get stageCopy() {
+    return ManageTaskComponent.STAGE_COPY[this.stage];
+  }
+
+  get isActiveStage(): boolean {
+    return this.stage === 'active';
+  }
+
+  isStageActionPending(task: Task): boolean {
+    return !!task._id && this.stageActionTaskId === task._id;
+  }
+
+  markAsPaid(task: Task): void {
+    this.runStageAction(task, this.taskService.updateTask(task._id!, { paymentReceived: true } as Task), 'Marked as paid. Task moved to Report');
+  }
+
+  moveBackToPayment(task: Task): void {
+    if (!window.confirm(`Mark ${this.getTaskDisplayId(task)} as unpaid and move it back to Payment?`)) {
+      return;
+    }
+    this.runStageAction(task, this.taskService.updateTask(task._id!, { paymentReceived: false } as Task), 'Task moved back to Payment');
+  }
+
+  reopenTask(task: Task): void {
+    if (!window.confirm(`Reopen ${this.getTaskDisplayId(task)} and move it back to Tasks as In Progress?`)) {
+      return;
+    }
+    this.runStageAction(task, this.taskService.reopenTask(task._id!), 'Task reopened and moved back to Tasks');
+  }
+
+  private runStageAction(task: Task, request$: Observable<{ success: boolean; message?: string }>, successMessage: string): void {
+    if (!task._id || this.stageActionTaskId) {
+      return;
+    }
+
+    this.stageActionTaskId = task._id;
+    request$.subscribe({
+      next: (response) => {
+        this.stageActionTaskId = null;
+        if (!response.success) {
+          this.showMessage(response.message || 'Failed to update task', 'error');
+          return;
+        }
+        this.tasks = this.tasks.filter((item) => item._id !== task._id);
+        this.applyFilters();
+        this.showMessage(successMessage, 'success');
+      },
+      error: (error) => {
+        this.stageActionTaskId = null;
+        this.showMessage(error?.error?.message || 'Failed to update task', 'error');
+      },
+    });
+  }
+
+  private resolveStage(value: unknown): TaskStage {
+    return value === 'payment' || value === 'report' ? value : 'active';
+  }
+
+  private getTaskStage(task: Task): TaskStage {
+    if (!this.isTaskCompleted(task)) {
+      return 'active';
+    }
+    return task.paymentReceived ? 'report' : 'payment';
+  }
+
+  /** Drops tasks that no longer belong to this tab and returns the destination tab name, if any moved. */
+  private removeTasksOutsideStage(): string | null {
+    const moved = this.tasks.find((task) => this.getTaskStage(task) !== this.stage);
+    if (!moved) {
+      return null;
+    }
+    this.tasks = this.tasks.filter((task) => this.getTaskStage(task) === this.stage);
+    return ManageTaskComponent.STAGE_TAB_LABEL[this.getTaskStage(moved)];
   }
 
   closeDeleteModal() {

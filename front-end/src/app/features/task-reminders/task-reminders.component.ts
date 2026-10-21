@@ -100,7 +100,7 @@ export class TaskRemindersComponent implements OnInit, OnDestroy {
     this.activeMenuId = null;
     const enquiryId = reminder.taskId.replace('enquiry-', '');
     // Phone is stored in assignedUser for enquiries
-    this.router.navigate(['/manage-task'], {
+    this.router.navigate(['/task-management/tasks'], {
       queryParams: {
         customerName: reminder.taskName.replace('New Enquiry: ', ''),
         customerPhone: reminder.assignedUser,

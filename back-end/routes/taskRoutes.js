@@ -122,6 +122,12 @@ router.post('/', protect, authorizeRole('admin'), createTask);
  *         schema:
  *           type: string
  *           enum: [CRM, CALL_TRACKER]
+ *       - in: query
+ *         name: stage
+ *         description: active = not completed, payment = completed and unpaid, report = completed and paid
+ *         schema:
+ *           type: string
+ *           enum: [active, payment, report]
  *     responses:
  *       200:
  *         description: Task list
