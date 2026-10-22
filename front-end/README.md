@@ -54,6 +54,25 @@ Notes:
 
 Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
 
+## Employee navigation and access
+
+Employees use the shared sidebar, with Dashboard linking to `/employee-dashboard`.
+Their menu contains the same Communication and Customer Management pages as the
+admin menu:
+
+- Communication: Chats, WhatsApp Campaigns, Campaign Tracking, Bulk SMS, Quick SMS.
+- Customer Management: Clients and Groups.
+
+Employees can perform the same actions in these pages, including managing shared
+clients/groups, sending messages, controlling campaigns, and removing chat messages.
+Client access is not limited to assigned clients. Active posters are available for
+campaign selection, but Poster Management remains admin-only.
+
+Task Management Payment/Report, employee administration, invoices, work history,
+SMS template administration, and campaign limit settings retain their existing
+admin restrictions. Deploy the backend permission changes together with the
+frontend; showing a menu alone does not grant API access.
+
 ## Running end-to-end tests
 
 Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.

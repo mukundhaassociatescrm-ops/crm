@@ -25,15 +25,20 @@ const SECTIONS_KEY = 'crm-sidebar-sections-v1';
 })
 export class AppSidebarComponent implements OnInit, OnDestroy {
   @Input() isPrimaryAdmin = true;
+  @Input() isEmployee = false;
   @Input() mobileOpen = false;
   @Output() mobileOpenChange = new EventEmitter<boolean>();
-  @Output() collapsedChange = new EventEmitter<boolean>();
+  @Output() collapsedChange = new EventEmitter<boolean>(true);
 
   collapsed = false;
   expandedSections = new Set<string>();
   currentUrl = '';
 
-  readonly dashboardLink = SIDEBAR_DASHBOARD_LINK;
+  get dashboardLink(): SidebarNavLink {
+    return this.isEmployee
+      ? { ...SIDEBAR_DASHBOARD_LINK, route: '/employee-dashboard', matchPrefixes: ['/employee-dashboard'] }
+      : SIDEBAR_DASHBOARD_LINK;
+  }
   readonly sections = SIDEBAR_SECTIONS;
   readonly standaloneLinks = SIDEBAR_STANDALONE_LINKS;
 
@@ -60,10 +65,15 @@ export class AppSidebarComponent implements OnInit, OnDestroy {
   }
 
   get visibleSections(): SidebarNavSection[] {
-    return this.sections.filter((section) => !section.primaryAdminOnly || this.isPrimaryAdmin);
+    return this.sections.filter((section) =>
+      this.isEmployee
+        ? section.employeeVisible === true
+        : !section.primaryAdminOnly || this.isPrimaryAdmin,
+    );
   }
 
   get visibleStandaloneLinks(): SidebarNavLink[] {
+    if (this.isEmployee) return [];
     return this.standaloneLinks.filter((link) => !link.primaryAdminOnly || this.isPrimaryAdmin);
   }
 

@@ -152,7 +152,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly messageMenuEstimatedHeight = 156;
   highlightedMessageId: string | null = null;
   private pendingHighlightMessageId: string | null = null;
-  readonly isChatAdmin: boolean;
+  readonly canManageChatMessages: boolean;
   socketConnected = false;
   readonly quickEmojis = ['😀', '😂', '😊', '😍', '👍', '🙏', '🔥', '🎉', '❤️', '✅', '📌', '👋'];
   private readonly draftStorageKey = 'manage-chat-drafts-v1';
@@ -345,7 +345,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
     private readonly toastr: ToastrService,
     private readonly authService: AuthService,
   ) {
-    this.isChatAdmin = String(this.authService.getUser()?.role || '').toLowerCase() === 'admin';
+    this.canManageChatMessages = ['admin', 'employee', 'user'].includes(
+      String(this.authService.getUser()?.role || '').toLowerCase(),
+    );
   }
 
   ngOnInit(): void {
@@ -2147,10 +2149,10 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewInit {
 
   canSoftDeleteMessage(message: PendingMessage): boolean {
     if (message.deleted) {
-      return this.isChatAdmin;
+      return this.canManageChatMessages;
     }
 
-    return this.isChatAdmin || message.direction === 'outgoing';
+    return this.canManageChatMessages || message.direction === 'outgoing';
   }
 
   softDeleteMessage(message: PendingMessage, event: Event): void {

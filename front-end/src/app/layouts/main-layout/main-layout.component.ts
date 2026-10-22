@@ -112,7 +112,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   }
 
   get showSidebar(): boolean {
-    return this.isAdmin && !this.fullscreenActive && !this.isEmployeeRoute;
+    return !this.fullscreenActive && (this.isEmployee || (this.isAdmin && !this.isEmployeeRoute));
   }
 
   get isEmployeeRoute(): boolean {

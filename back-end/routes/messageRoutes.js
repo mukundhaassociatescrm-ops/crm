@@ -17,7 +17,7 @@ const { authorizeRole } = require('../middleware/roleMiddleware');
  *   post:
  *     tags:
  *       - Messaging
- *     summary: Send bulk message to group contacts (Admin only)
+ *     summary: Send bulk message to group contacts (Admins and employees)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -43,8 +43,8 @@ const { authorizeRole } = require('../middleware/roleMiddleware');
  *       200:
  *         description: Bulk message summary
  */
-router.post('/bulk', protect, authorizeRole('admin'), sendBulkMessage);
-router.post('/send-bulk', protect, authorizeRole('admin'), sendBulkMessage);
+router.post('/bulk', protect, authorizeRole('admin', 'user'), sendBulkMessage);
+router.post('/send-bulk', protect, authorizeRole('admin', 'user'), sendBulkMessage);
 router.post('/send', protect, sendMessage);
 router.get('/', protect, getMessages);
 

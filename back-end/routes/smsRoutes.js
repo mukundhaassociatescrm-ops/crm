@@ -19,7 +19,7 @@ const router = express.Router();
 router.get('/wallet-balance', protect, authorizeRole('admin'), getWalletBalance);
 router.post('/send-single', protect, sendSingleSms);
 router.post('/send', protect, sendSingleSms);
-router.post('/send-bulk-dlt', protect, authorizeRole('admin'), sendBulkDltSms);
+router.post('/send-bulk-dlt', protect, authorizeRole('admin', 'user'), sendBulkDltSms);
 router.get('/debug-fast2sms-templates', protect, debugFast2smsTemplates);
 router.get('/templates/live', protect, listLiveSmsTemplates);
 router.get('/templates', protect, listSmsTemplates);

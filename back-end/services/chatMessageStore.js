@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const { normalizeRole } = require('../utils/roles');
 
 const INBOUND_DIRECTIONS = ['in', 'incoming'];
 const OUTBOUND_DIRECTIONS = ['out', 'outgoing'];
@@ -1001,8 +1002,8 @@ const softDeleteMessage = async ({ messageId, user, restore = false }) => {
     return { ok: false, status: 404, message: 'Message not found.' };
   }
 
-  const isAdmin = String(user.role || '').toLowerCase() === 'admin';
-  if (!restore && !isAdmin && !isOutgoingMessage(message)) {
+  const canManageChatMessages = ['admin', 'user'].includes(normalizeRole(user.role));
+  if (!restore && !canManageChatMessages && !isOutgoingMessage(message)) {
     return { ok: false, status: 403, message: 'You can only remove messages sent from this CRM.' };
   }
 

@@ -53,6 +53,7 @@
     <app-sidebar
       *ngIf="showSidebar"
       [isPrimaryAdmin]="isPrimaryAdmin"
+      [isEmployee]="isEmployee"
       [(mobileOpen)]="mobileSidebarOpen"
       (collapsedChange)="onSidebarCollapsedChange($event)">
     </app-sidebar>

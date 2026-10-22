@@ -27,7 +27,7 @@ const { authorizeRole } = require('../middleware/roleMiddleware');
  *   post:
  *     tags:
  *       - Group
- *     summary: Create a new group (Admin only)
+ *     summary: Create a new group (Admins and employees)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -61,7 +61,7 @@ const { authorizeRole } = require('../middleware/roleMiddleware');
  *       201:
  *         description: Group created
  */
-router.post('/', protect, authorizeRole('admin'), createGroup);
+router.post('/', protect, authorizeRole('admin', 'user'), createGroup);
 
 /**
  * @openapi
@@ -85,8 +85,8 @@ router.post('/', protect, authorizeRole('admin'), createGroup);
 router.get('/', protect, getGroups);
 
 router.get('/:id/members', protect, getGroupMembers);
-router.post('/:id/clients', protect, authorizeRole('admin'), addClientsToGroup);
-router.delete('/:id/clients/:clientId', protect, authorizeRole('admin'), removeClientFromGroup);
+router.post('/:id/clients', protect, authorizeRole('admin', 'user'), addClientsToGroup);
+router.delete('/:id/clients/:clientId', protect, authorizeRole('admin', 'user'), removeClientFromGroup);
 
 /**
  * @openapi
@@ -115,7 +115,7 @@ router.get('/:id', protect, getGroupById);
  *   put:
  *     tags:
  *       - Group
- *     summary: Update group (Admin only)
+ *     summary: Update group (Admins and employees)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -146,7 +146,7 @@ router.get('/:id', protect, getGroupById);
  *       200:
  *         description: Group updated
  */
-router.put('/:id', protect, authorizeRole('admin'), updateGroup);
+router.put('/:id', protect, authorizeRole('admin', 'user'), updateGroup);
 
 /**
  * @openapi
@@ -154,7 +154,7 @@ router.put('/:id', protect, authorizeRole('admin'), updateGroup);
  *   delete:
  *     tags:
  *       - Group
- *     summary: Delete group (Admin only)
+ *     summary: Delete group (Admins and employees)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -167,7 +167,7 @@ router.put('/:id', protect, authorizeRole('admin'), updateGroup);
  *       200:
  *         description: Group deleted
  */
-router.delete('/:id', protect, authorizeRole('admin'), deleteGroup);
+router.delete('/:id', protect, authorizeRole('admin', 'user'), deleteGroup);
 
 /**
  * @openapi
@@ -175,7 +175,7 @@ router.delete('/:id', protect, authorizeRole('admin'), deleteGroup);
  *   post:
  *     tags:
  *       - Group
- *     summary: Assign clients to a group (Admin only)
+ *     summary: Assign clients to a group (Admins and employees)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -199,6 +199,6 @@ router.delete('/:id', protect, authorizeRole('admin'), deleteGroup);
  *       200:
  *         description: Clients assigned
  */
-router.post('/:id/assign-clients', protect, authorizeRole('admin'), assignClientsToGroup);
+router.post('/:id/assign-clients', protect, authorizeRole('admin', 'user'), assignClientsToGroup);
 
 module.exports = router;

@@ -82,43 +82,43 @@ export const routes: Routes = [
       {
         path: 'communication',
         component: HubPassthroughComponent,
-        data: { ...adminHub, hubId: 'communication', breadcrumb: 'Communication' },
+        data: { hubId: 'communication', breadcrumb: 'Communication' },
         children: [
           { path: '', redirectTo: 'chats', pathMatch: 'full' },
           {
             path: 'chats',
             component: ManageChatComponent,
-            data: { ...adminHub, breadcrumb: 'Chats', fullscreenPageKey: 'manage-chat' },
+            data: { breadcrumb: 'Chats', fullscreenPageKey: 'manage-chat' },
           },
           {
             path: 'whatsapp-campaigns',
             component: ManageBulkMessageComponent,
-            data: { ...adminHub, breadcrumb: 'WhatsApp Campaigns', fullscreenPageKey: 'whatsapp-campaigns' },
+            data: { breadcrumb: 'WhatsApp Campaigns', fullscreenPageKey: 'whatsapp-campaigns' },
           },
           {
             path: 'whatsapp-campaigns/:id',
             component: CampaignDashboardComponent,
-            data: { ...adminHub, breadcrumb: 'Campaign detail', fullscreenPageKey: 'whatsapp-campaigns' },
+            data: { breadcrumb: 'Campaign detail', fullscreenPageKey: 'whatsapp-campaigns' },
           },
           {
             path: 'campaign-tracking',
             component: CampaignHistoryComponent,
-            data: { ...adminHub, breadcrumb: 'Campaign Tracking', fullscreenPageKey: 'whatsapp-campaigns' },
+            data: { breadcrumb: 'Campaign Tracking', fullscreenPageKey: 'whatsapp-campaigns' },
           },
           {
             path: 'campaign-tracking/:id',
             component: CampaignDashboardComponent,
-            data: { ...adminHub, breadcrumb: 'Campaign detail', fullscreenPageKey: 'whatsapp-campaigns' },
+            data: { breadcrumb: 'Campaign detail', fullscreenPageKey: 'whatsapp-campaigns' },
           },
           {
             path: 'bulk-sms',
             component: BulkSmsComponent,
-            data: { ...adminHub, breadcrumb: 'Bulk SMS', fullscreenPageKey: 'bulk-sms' },
+            data: { breadcrumb: 'Bulk SMS', fullscreenPageKey: 'bulk-sms' },
           },
           {
             path: 'quick-sms',
             component: SmsComponent,
-            data: { ...adminHub, breadcrumb: 'Quick SMS', fullscreenPageKey: 'sms' },
+            data: { breadcrumb: 'Quick SMS', fullscreenPageKey: 'sms' },
           },
         ],
       },
@@ -126,18 +126,18 @@ export const routes: Routes = [
       {
         path: 'customer-management',
         component: HubPassthroughComponent,
-        data: { ...adminHub, hubId: 'customer-management', breadcrumb: 'Customer Management' },
+        data: { hubId: 'customer-management', breadcrumb: 'Customer Management' },
         children: [
           { path: '', redirectTo: 'groups', pathMatch: 'full' },
           {
             path: 'groups',
             component: ManageGroupComponent,
-            data: { ...adminHub, breadcrumb: 'Groups', fullscreenPageKey: 'manage-group' },
+            data: { breadcrumb: 'Groups', fullscreenPageKey: 'manage-group' },
           },
           {
             path: 'clients',
             component: ManageClientComponent,
-            data: { ...adminHub, breadcrumb: 'Clients', fullscreenPageKey: 'manage-client' },
+            data: { breadcrumb: 'Clients', fullscreenPageKey: 'manage-client' },
           },
         ],
       },

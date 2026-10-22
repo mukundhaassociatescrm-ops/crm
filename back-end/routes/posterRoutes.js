@@ -19,7 +19,7 @@ const router = express.Router();
 router.get('/public/:slug', getPublicPosterBySlug);
 
 router.get('/categories', protect, authorizeRole('admin'), getCategories);
-router.get('/active', protect, authorizeRole('admin'), listActivePosters);
+router.get('/active', protect, authorizeRole('admin', 'user'), listActivePosters);
 router.get('/', protect, authorizeRole('admin'), listPosters);
 router.get('/:id', protect, authorizeRole('admin'), getPosterById);
 

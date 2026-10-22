@@ -13,6 +13,7 @@ export interface SidebarNavSection {
   items: SidebarNavItem[];
   /** Visible only to primary admin (not temporary admin) */
   primaryAdminOnly?: boolean;
+  employeeVisible?: boolean;
 }
 
 export interface SidebarNavLink {
@@ -39,6 +40,7 @@ export const SIDEBAR_SECTIONS: SidebarNavSection[] = [
     id: 'communication',
     label: 'Communication',
     icon: 'fa-bullhorn',
+    employeeVisible: true,
     items: [
       { label: 'Chats', route: '/communication/chats', icon: 'fa-comments', matchPrefixes: ['/communication/chats', '/manage-chat', '/chat'] },
       { label: 'WhatsApp Campaigns', route: '/communication/whatsapp-campaigns', icon: 'fa-envelopes-bulk', matchPrefixes: ['/communication/whatsapp-campaigns', '/whatsapp-campaigns', '/manage-bulk-message'] },
@@ -51,6 +53,7 @@ export const SIDEBAR_SECTIONS: SidebarNavSection[] = [
     id: 'customer-management',
     label: 'Customer Management',
     icon: 'fa-users',
+    employeeVisible: true,
     items: [
       { label: 'Clients', route: '/customer-management/clients', icon: 'fa-address-book', matchPrefixes: ['/customer-management/clients', '/clients'] },
       { label: 'Groups', route: '/customer-management/groups', icon: 'fa-user-group', matchPrefixes: ['/customer-management/groups', '/manage-group', '/groups'] },
